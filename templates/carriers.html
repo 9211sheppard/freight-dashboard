@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% set active_tab = 'carriers' %}
+
+{% block title %}Carriers — FMCSA{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+
+  <!-- ── Stats ── -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm lane-stat-card">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex align-items-center gap-2">
+            <div class="lane-stat-icon bg-primary-soft"><i class="bi bi-truck text-primary"></i></div>
+            <div>
+              <div class="lane-stat-value" id="statTotal">—</div>
+              <div class="lane-stat-label">Carriers Saved</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm lane-stat-card">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex align-items-center gap-2">
+            <div class="lane-stat-icon bg-success-soft"><i class="bi bi-patch-check text-success"></i></div>
+            <div>
+              <div class="lane-stat-value" id="statSatisfactory">—</div>
+              <div class="lane-stat-label">Satisfactory</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm lane-stat-card">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex align-items-center gap-2">
+            <div class="lane-stat-icon bg-info-soft"><i class="bi bi-geo-alt text-info"></i></div>
+            <div>
+              <div class="lane-stat-value" id="statStates">—</div>
+              <div class="lane-stat-label">States</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm lane-stat-card">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex align-items-center gap-2">
+            <div class="lane-stat-icon bg-warning-soft"><i class="bi bi-star text-warning"></i></div>
+            <div>
+              <div class="lane-stat-value" id="statAvgScore">—</div>
+              <div class="lane-stat-label">Avg Score</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Lookup + Filter ── -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body pb-2">
+      <div class="row g-2 align-items-end">
+
+        <!-- FMCSA Lookup -->
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-medium small mb-1">
+            <i class="bi bi-search me-1 text-primary"></i>Look Up Carrier (DOT # or MC #)
+          </label>
+          <div class="input-group">
+            <input type="text" id="lookupInput" class="form-control"
+                   placeholder="e.g. 1234567 or MC-987654" autocomplete="off">
+            <select id="lookupType" class="form-select" style="max-width:90px">
+              <option value="dot">DOT</option>
+              <option value="mc">MC</option>
+            </select>
+            <button class="btn btn-primary" id="lookupBtn">
+              <i class="bi bi-cloud-download me-1"></i>Fetch
+            </button>
+          </div>
+          <div class="text-muted small mt-1" id="lookupStatus"></div>
+        </div>
+
+        <!-- State filter -->
+        <div class="col-6 col-md-2">
+          <label class="form-label fw-medium small mb-1">
+            <i class="bi bi-geo-alt me-1 text-primary"></i>State
+          </label>
+          <input type="text" id="filterState" class="form-control"
+                 placeholder="e.g. CA, TX" maxlength="2" autocomplete="off">
+        </div>
+
+        <!-- Min score -->
+        <div class="col-6 col-md-2">
+          <label class="form-label fw-medium small mb-1">
+            <i class="bi bi-star me-1 text-primary"></i>Min Score
+          </label>
+          <select id="filterScore" class="form-select">
+            <option value="">Any</option>
+            <option value="70">70+</option>
+            <option value="80">80+</option>
+            <option value="90">90+</option>
+          </select>
+        </div>
+
+        <!-- Search -->
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-medium small mb-1">
+            <i class="bi bi-type me-1 text-primary"></i>Search Name / DOT / MC
+          </label>
+          <div class="input-group">
+            <span class="input-group-text bg-transparent"><i class="bi bi-search text-muted small"></i></span>
+            <input type="text" id="filterQ" class="form-control"
+                   placeholder="Company name…" autocomplete="off">
+            <button class="btn btn-outline-secondary" id="clearQ"><i class="bi bi-x"></i></button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Key not configured warning ── -->
+  <div id="noKeyWarning" class="alert alert-warning d-none mb-3">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    <strong>FMCSA API key not configured.</strong>
+    Get your free key at <a href="https://ask.fmcsa.dot.gov/app/ask" target="_blank">ask.fmcsa.dot.gov</a>,
+    then add it to <code>config.py</code> → <code>FMCSA_KEY = "your-key-here"</code>
+    and restart.
+  </div>
+
+  <!-- ── Result count ── -->
+  <div class="d-flex align-items-center justify-content-between mb-2 px-1">
+    <span id="carriersResultCount" class="text-muted small">Loading…</span>
+  </div>
+
+  <!-- ── Carriers Table ── -->
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th style="width:220px">Carrier</th>
+            <th style="width:90px">DOT #</th>
+            <th style="width:80px">MC #</th>
+            <th style="width:80px">State</th>
+            <th style="width:70px">Trucks</th>
+            <th style="width:120px">Safety Rating</th>
+            <th style="width:80px">Score</th>
+            <th style="width:120px">Lanes</th>
+            <th style="width:60px"></th>
+          </tr>
+        </thead>
+        <tbody id="carriersBody">
+          <tr><td colspan="9" class="text-center text-muted py-4">No carriers saved yet. Look one up above.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Score legend ── -->
+  <div class="text-muted small mt-2 px-1">
+    Score formula: Safety rating (40) + Fleet size 5–50 trucks (20) + Years active (20) + Insurance (10) + Active status (10)
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='carriers.js') }}?v={{ sv|default('1') }}"></script>
+{% endblock %}

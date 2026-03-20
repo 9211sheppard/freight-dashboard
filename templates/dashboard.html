@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% set active_tab = 'contacts' %}
+
+{% block title %}Dashboard — WFA Contacts{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+
+  <!-- ── Search & Filter Panel ── -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body pb-2">
+      <div class="row g-2 align-items-end">
+
+        <!-- Country search -->
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-medium small mb-1">
+            <i class="bi bi-globe2 me-1 text-primary"></i>Search by Country
+          </label>
+          <div class="input-group">
+            <span class="input-group-text bg-transparent"><i class="bi bi-search text-muted small"></i></span>
+            <input type="text" id="searchCountry" class="form-control"
+                   placeholder="e.g. Germany, France…" autocomplete="off">
+            <button class="btn btn-outline-secondary" type="button" id="clearCountry" title="Clear">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Company search -->
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-medium small mb-1">
+            <i class="bi bi-building me-1 text-primary"></i>Search by Company
+          </label>
+          <div class="input-group">
+            <span class="input-group-text bg-transparent"><i class="bi bi-search text-muted small"></i></span>
+            <input type="text" id="searchCompany" class="form-control"
+                   placeholder="e.g. Acme Corp…" autocomplete="off">
+            <button class="btn btn-outline-secondary" type="button" id="clearCompany" title="Clear">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Name search -->
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-medium small mb-1">
+            <i class="bi bi-person me-1 text-primary"></i>Search by Name
+          </label>
+          <div class="input-group">
+            <span class="input-group-text bg-transparent"><i class="bi bi-search text-muted small"></i></span>
+            <input type="text" id="searchName" class="form-control"
+                   placeholder="e.g. John Smith…" autocomplete="off">
+            <button class="btn btn-outline-secondary" type="button" id="clearName" title="Clear">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sort -->
+        <div class="col-6 col-md-1">
+          <label class="form-label fw-medium small mb-1">
+            <i class="bi bi-sort-alpha-down me-1 text-primary"></i>Sort by
+          </label>
+          <select id="sortBy" class="form-select">
+            <option value="company_name">Company Name</option>
+            <option value="country">Country</option>
+          </select>
+        </div>
+
+        <!-- Sort direction -->
+        <div class="col-6 col-md-1">
+          <label class="form-label fw-medium small mb-1">
+            <i class="bi bi-arrow-down-up me-1 text-primary"></i>Order
+          </label>
+          <select id="sortDir" class="form-select">
+            <option value="asc">A → Z</option>
+            <option value="desc">Z → A</option>
+          </select>
+        </div>
+
+      </div><!-- /row -->
+
+      <!-- Filters row -->
+      <div class="row g-2 align-items-center mt-1">
+        <div class="col-auto">
+          <!-- Network filter -->
+          <div class="btn-group btn-group-sm me-3" role="group" id="networkFilter">
+            <button type="button" class="btn btn-outline-primary active" data-network="">All Networks</button>
+            <button type="button" class="btn btn-outline-primary" data-network="WFA">WFA</button>
+            <button type="button" class="btn btn-outline-primary" data-network="WWPC">WWPC</button>
+            <button type="button" class="btn btn-outline-primary" data-network="FIATA">FIATA</button>
+            <button type="button" class="btn btn-outline-primary" data-network="Freightnet-FF">Freightnet FF</button>
+            <button type="button" class="btn btn-outline-primary" data-network="Freightnet-Air">Freightnet Air</button>
+            <button type="button" class="btn btn-outline-primary" data-network="AHK-Japan">AHK Japan</button>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="filterEmail">
+            <label class="form-check-label small" for="filterEmail">
+              <i class="bi bi-envelope-fill text-primary me-1"></i>Has Email
+            </label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="filterPhone">
+            <label class="form-check-label small" for="filterPhone">
+              <i class="bi bi-telephone-fill text-primary me-1"></i>Has Phone
+            </label>
+          </div>
+        </div>
+        <div class="col-auto ms-auto d-flex align-items-center gap-2">
+          <button id="clearAll" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-x-circle me-1"></i>Clear All
+          </button>
+          <button id="exportBtn" class="btn btn-sm btn-success">
+            <i class="bi bi-download me-1"></i>Export CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Verification filter row -->
+      <div class="row g-2 align-items-center mt-1 pt-1 border-top">
+        <div class="col-auto d-flex align-items-center gap-2 flex-wrap">
+          <span class="small text-muted fw-medium">
+            <i class="bi bi-shield-check me-1"></i>Verification:
+          </span>
+          <div class="btn-group btn-group-sm" role="group" id="verifyFilter">
+            <button type="button" class="btn btn-outline-secondary active" data-verify="">All</button>
+            <button type="button" class="btn btn-outline-success"  data-verify="verified">✅ Verified</button>
+            <button type="button" class="btn btn-outline-warning"  data-verify="review">⚠️ Review</button>
+            <button type="button" class="btn btn-outline-danger"   data-verify="flagged">❌ Flagged</button>
+            <button type="button" class="btn btn-outline-secondary" data-verify="unverified">⬜ Not checked</button>
+          </div>
+          <span id="verifyStats" class="small text-muted ms-2"></span>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /card -->
+
+  <!-- ── Results bar ── -->
+  <div class="d-flex align-items-center justify-content-between mb-2 px-1">
+    <span id="resultCount" class="text-muted small">
+      <span class="spinner-border spinner-border-sm me-1" role="status" id="spinner"></span>
+      Loading…
+    </span>
+    <span class="text-muted small" id="dbTotal"></span>
+  </div>
+
+  <!-- ── Table ── -->
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" id="resultsTable">
+        <thead>
+          <tr>
+            <th style="width:70px">Network</th>
+            <th class="sortable-col" data-col="company_name">
+              Company <i class="bi bi-chevron-expand sort-icon"></i>
+            </th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th class="sortable-col" data-col="country">
+              Country <i class="bi bi-chevron-expand sort-icon"></i>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody">
+          <tr><td colspan="5" class="text-center text-muted py-4">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div><!-- /card -->
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

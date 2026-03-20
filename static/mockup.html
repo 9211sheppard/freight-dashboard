@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Concept</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Inter:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --gold:        #c9a96e;
+  --gold-light:  #e8cfa0;
+  --gold-dim:    #8a6d42;
+  --cream:       #f5f0e6;
+  --cream-dim:   rgba(245,240,230,0.6);
+  --cream-faint: rgba(245,240,230,0.07);
+  --glass-dark:  rgba(4, 18, 12, 0.55);
+  --glass-light: rgba(255,255,255,0.06);
+  --border-gold: rgba(201,169,110,0.22);
+  --border-soft: rgba(201,169,110,0.08);
+}
+
+html, body { height: 100%; overflow-x: hidden; font-family: 'Inter', sans-serif; font-weight: 300; }
+
+/* ═══════════════════════════════════════════
+   SCENE — St. Barths golden hour from a terrace
+   Sky → horizon → sea → foreground stone
+   ═══════════════════════════════════════════ */
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Sky — deep cobalt fading into warm golden horizon */
+.sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    #0a1628 0%,       /* deep midnight blue at zenith */
+    #12284a 18%,      /* rich cobalt */
+    #1e4a6e 32%,      /* caribbean blue */
+    #2e6a8a 44%,      /* horizon blue */
+    #c4793a 56%,      /* golden horizon glow */
+    #d4874a 62%,      /* warm amber */
+    #b5612a 68%       /* base of sky */
+  );
+}
+
+/* Sun glow at horizon */
+.sun-glow {
+  position: absolute;
+  left: 58%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 200px;
+  background: radial-gradient(ellipse at center,
+    rgba(255,210,100,0.45) 0%,
+    rgba(255,165,60,0.25) 35%,
+    rgba(220,120,40,0.1) 60%,
+    transparent 80%
+  );
+  filter: blur(8px);
+}
+
+/* Sun disc */
+.sun {
+  position: absolute;
+  left: 58%;
+  top: 52.5%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    #fff8e0 0%,
+    #ffe090 40%,
+    #ffb347 75%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 40px 20px rgba(255,200,80,0.35),
+    0 0 80px 40px rgba(255,160,40,0.2),
+    0 0 140px 80px rgba(255,120,20,0.1);
+}
+
+/* Far hills / island silhouette on the horizon — right side */
+.hills-far {
+  position: absolute;
+  bottom: 37%;
+  left: 0;
+  right: 0;
+  height: 160px;
+}
+.hills-far svg { width: 100%; height: 100%; }
+
+/* Ocean — main body */
+.ocean {
+  position: absolute;
+  bottom: 18%;
+  left: 0;
+  right: 0;
+  height: 25%;
+  background: linear-gradient(
+    180deg,
+    #1a6b7a 0%,      /* distant sea — teal */
+    #0e5060 30%,     /* mid sea */
+    #0a3d4a 65%,     /* deeper teal */
+    #073038 100%     /* darkest near shore */
+  );
+  overflow: hidden;
+}
+
+/* Sun reflection on water */
+.sun-reflection {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-20%);
+  width: 300px;
+  height: 100%;
+  background: linear-gradient(
+    180deg,
+    rgba(255,210,100,0.35) 0%,
+    rgba(255,180,60,0.15) 40%,
+    transparent 80%
+  );
+  clip-path: polygon(40% 0%, 60% 0%, 100% 100%, 0% 100%);
+  filter: blur(4px);
+}
+
+/* Water shimmer lines */
+.shimmer-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.35;
+}
+.shimmer-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,220,150,0.6) 45%,
+    rgba(255,255,220,0.9) 50%,
+    rgba(255,220,150,0.6) 55%,
+    transparent 100%
+  );
+  animation: shimmer 3s ease-in-out infinite;
+}
+.shimmer-line:nth-child(1) { top: 15%; animation-delay: 0s;    animation-duration: 2.8s; width: 60%; margin-left: 25%; }
+.shimmer-line:nth-child(2) { top: 30%; animation-delay: 0.6s;  animation-duration: 3.2s; width: 50%; margin-left: 30%; }
+.shimmer-line:nth-child(3) { top: 45%; animation-delay: 1.2s;  animation-duration: 2.5s; width: 45%; margin-left: 28%; }
+.shimmer-line:nth-child(4) { top: 60%; animation-delay: 0.3s;  animation-duration: 3.5s; width: 55%; margin-left: 22%; }
+.shimmer-line:nth-child(5) { top: 75%; animation-delay: 0.9s;  animation-duration: 2.9s; width: 48%; margin-left: 26%; }
+.shimmer-line:nth-child(6) { top: 88%; animation-delay: 1.5s;  animation-duration: 3.1s; width: 42%; margin-left: 32%; }
+@keyframes shimmer {
+  0%   { opacity: 0; transform: scaleX(0.6) translateX(-5%); }
+  40%  { opacity: 1; transform: scaleX(1)   translateX(0); }
+  60%  { opacity: 1; transform: scaleX(1)   translateX(0); }
+  100% { opacity: 0; transform: scaleX(0.7) translateX(5%); }
+}
+
+/* Yachts on the horizon */
+.yacht {
+  position: absolute;
+  top: 4%;
+}
+.yacht svg { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
+
+/* Foreground — lush tropical hillside / terrace garden */
+.foreground {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 22%;
+}
+.foreground svg { width: 100%; height: 100%; }
+
+/* Shore / beach strip */
+.shore {
+  position: absolute;
+  bottom: 18%;
+  left: 0; right: 0;
+  height: 20px;
+  background: linear-gradient(180deg, #c8a96a 0%, #a07840 100%);
+  opacity: 0.55;
+  filter: blur(2px);
+}
+
+/* ── Terrace railing at the very bottom ── */
+.railing {
+  position: absolute;
+  bottom: 14%;
+  left: 0; right: 0;
+  height: 60px;
+  z-index: 2;
+}
+.railing svg { width: 100%; height: 100%; }
+
+/* Atmospheric haze near horizon */
+.haze {
+  position: absolute;
+  bottom: 37%;
+  left: 0; right: 0;
+  height: 80px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(180,140,80,0.08) 50%,
+    rgba(180,140,80,0.04) 100%
+  );
+  filter: blur(6px);
+}
+
+/* Vignette */
+.vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 100% 100% at 50% 50%,
+    transparent 40%,
+    rgba(0,0,0,0.55) 100%
+  );
+}
+
+/* ═══════════════════════════════════════════
+   UI LAYER — sits over the scene
+   ═══════════════════════════════════════════ */
+.ui {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--cream);
+}
+
+/* NAV */
+nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2.5rem;
+  height: 60px;
+  background: rgba(3, 12, 8, 0.72);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-bottom: 1px solid var(--border-gold);
+}
+
+.brand { display: flex; align-items: center; gap: 0.75rem; }
+
+.brand-mark {
+  width: 30px; height: 30px;
+  border: 1.5px solid var(--gold);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px; font-weight: 500;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 12px rgba(201,169,110,0.15);
+}
+
+.brand-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cream);
+}
+.brand-name em { color: var(--gold); font-style: normal; }
+
+.nav-actions { display: flex; gap: 0.6rem; align-items: center; }
+
+.nav-btn {
+  padding: 0.3rem 0.85rem;
+  border-radius: 100px;
+  border: 1px solid var(--border-gold);
+  background: var(--cream-faint);
+  color: var(--cream-dim);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+  transition: all 0.2s;
+  backdrop-filter: blur(8px);
+}
+.nav-btn:hover { border-color: var(--gold-dim); color: var(--gold-light); }
+.nav-btn.live {
+  border-color: rgba(80,210,130,0.4);
+  color: #50d282;
+  background: rgba(80,210,130,0.08);
+  display: flex; align-items: center; gap: 0.35rem;
+}
+
+.live-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #50d282;
+  box-shadow: 0 0 6px #50d282;
+  animation: blink 2s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* STATS STRIP */
+.stats {
+  display: flex;
+  background: rgba(2, 10, 6, 0.5);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-soft);
+}
+.stat {
+  flex: 1;
+  padding: 0.85rem 2rem;
+  border-right: 1px solid var(--border-soft);
+  display: flex; flex-direction: column; gap: 0.15rem;
+}
+.stat:last-child { border-right: none; }
+.stat-lbl {
+  font-size: 0.57rem; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--gold-dim);
+}
+.stat-val {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.65rem; font-weight: 300; color: var(--cream); line-height: 1;
+}
+.stat-val small { font-size: 0.7rem; font-family: 'Inter', sans-serif; color: var(--gold); margin-left: 0.25rem; }
+
+/* MAIN */
+main { flex: 1; padding: 1.8rem 2.5rem; display: flex; flex-direction: column; gap: 1.2rem; }
+
+/* GLASS CARD */
+.glass-card {
+  background: rgba(3, 15, 9, 0.52);
+  border: 1px solid var(--border-gold);
+  border-radius: 18px;
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  overflow: hidden;
+}
+
+/* SEARCH */
+.search-wrap { padding: 1.4rem 1.8rem; }
+
+.search-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 160px 140px;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.field label {
+  display: block;
+  font-size: 0.57rem; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--gold-dim);
+  margin-bottom: 0.4rem;
+}
+.field input, .field select {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-gold);
+  border-radius: 9px;
+  padding: 0.6rem 1rem;
+  color: var(--cream);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem; font-weight: 300;
+  outline: none;
+  -webkit-appearance: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.field input::placeholder { color: rgba(245,240,230,0.22); }
+.field input:focus, .field select:focus {
+  border-color: var(--gold-dim);
+  background: rgba(255,255,255,0.08);
+}
+.field select option { background: #071209; }
+
+.filter-bar {
+  display: flex; align-items: center;
+  justify-content: space-between; flex-wrap: wrap; gap: 0.6rem;
+}
+
+.net-group { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.net-btn {
+  padding: 0.28rem 0.8rem;
+  border-radius: 100px;
+  border: 1px solid var(--border-gold);
+  background: transparent;
+  color: var(--cream-dim);
+  font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer; font-family: 'Inter', sans-serif;
+  transition: all 0.18s;
+}
+.net-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(201,169,110,0.1); }
+.net-btn:hover:not(.active) { border-color: var(--gold-dim); color: var(--gold-light); }
+
+.chk-group { display: flex; gap: 1rem; }
+.chk {
+  display: flex; align-items: center; gap: 0.35rem;
+  font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--cream-dim); cursor: pointer;
+}
+.chk input { accent-color: var(--gold); }
+
+.btn-group { display: flex; gap: 0.5rem; }
+.btn-outline {
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--border-gold);
+  border-radius: 8px; background: transparent;
+  color: var(--cream-dim);
+  font-size: 0.63rem; letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer; font-family: 'Inter', sans-serif;
+  transition: all 0.18s;
+}
+.btn-outline:hover { border-color: var(--gold-dim); color: var(--gold-light); }
+.btn-gold {
+  padding: 0.35rem 1.1rem;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: rgba(201,169,110,0.14);
+  color: var(--gold);
+  font-size: 0.63rem; letter-spacing: 0.12em; text-transform: uppercase;
+  cursor: pointer; font-family: 'Inter', sans-serif;
+  transition: all 0.18s;
+}
+.btn-gold:hover { background: rgba(201,169,110,0.24); }
+
+/* RESULT BAR */
+.result-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 0.2rem;
+}
+.result-bar span { font-size: 0.63rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cream-dim); }
+.result-bar strong { color: var(--gold); font-weight: 400; }
+
+/* TABLE */
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: rgba(201,169,110,0.04); border-bottom: 1px solid var(--border-gold); }
+th {
+  padding: 0.85rem 1.4rem;
+  font-size: 0.57rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--gold-dim); font-weight: 400; text-align: left; white-space: nowrap;
+}
+td {
+  padding: 0.95rem 1.4rem;
+  font-size: 0.76rem; color: var(--cream-dim);
+  border-bottom: 1px solid var(--border-soft); white-space: nowrap;
+}
+tr:last-child td { border-bottom: none; }
+tbody tr { transition: background 0.15s; }
+tbody tr:hover { background: rgba(201,169,110,0.04); }
+
+.company { color: var(--cream); font-weight: 400; }
+.sub     { color: var(--cream-dim); font-size: 0.68rem; margin-top: 0.1rem; }
+
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 0.14rem 0.55rem;
+  border-radius: 100px;
+  font-size: 0.56rem; letter-spacing: 0.12em; text-transform: uppercase;
+  border: 1px solid;
+}
+.b-wca  { border-color:rgba(201,169,110,0.45); color:var(--gold);    background:rgba(201,169,110,0.08); }
+.b-wfa  { border-color:rgba(80,210,130,0.4);   color:#50d282;         background:rgba(80,210,130,0.08); }
+.b-wwpc { border-color:rgba(100,160,255,0.4);  color:#64a0ff;         background:rgba(100,160,255,0.08); }
+.b-fn   { border-color:rgba(255,160,80,0.4);   color:#ffa050;         background:rgba(255,160,80,0.08); }
+
+.email-link { color: var(--gold); text-decoration: none; transition: color 0.15s; }
+.email-link:hover { color: var(--gold-light); }
+
+/* FOOTER */
+footer {
+  padding: 0.9rem 2.5rem;
+  border-top: 1px solid var(--border-soft);
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(2,8,5,0.6);
+  backdrop-filter: blur(20px);
+}
+footer span { font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(245,240,230,0.22); }
+.gold-rule { width: 40px; height: 1px; background: linear-gradient(90deg,transparent,var(--gold),transparent); }
+</style>
+</head>
+<body>
+
+<!-- ═══ SCENE ═══ -->
+<div class="scene">
+  <div class="sky"></div>
+  <div class="sun-glow"></div>
+  <div class="sun"></div>
+
+  <!-- Far island hills silhouette -->
+  <div class="hills-far">
+    <svg viewBox="0 0 1440 160" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="hillGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0d2e18"/>
+          <stop offset="100%" stop-color="#071a0e"/>
+        </linearGradient>
+      </defs>
+      <!-- Main island mass — left side -->
+      <path d="M0,160 L0,120 Q80,60 160,55 Q240,50 300,45 Q380,38 440,50 Q500,62 540,80 Q580,95 620,110 Q660,125 700,130 L700,160 Z" fill="url(#hillGrad)" opacity="0.9"/>
+      <!-- Mid island -->
+      <path d="M580,160 L580,135 Q640,100 720,90 Q800,80 880,88 Q940,95 980,110 Q1020,125 1040,140 L1040,160 Z" fill="url(#hillGrad)" opacity="0.85"/>
+      <!-- Right coast hills -->
+      <path d="M1100,160 L1100,145 Q1160,115 1240,108 Q1320,100 1380,112 Q1420,120 1440,130 L1440,160 Z" fill="url(#hillGrad)" opacity="0.8"/>
+      <!-- Lighter secondary ridge behind -->
+      <path d="M300,160 L300,140 Q400,100 500,95 Q580,92 650,100 Q720,108 760,125 L760,160 Z" fill="#0a2214" opacity="0.5"/>
+    </svg>
+  </div>
+
+  <!-- Shore strip -->
+  <div class="shore"></div>
+
+  <!-- Ocean -->
+  <div class="ocean">
+    <div class="sun-reflection"></div>
+    <div class="shimmer-wrap">
+      <div class="shimmer-line"></div>
+      <div class="shimmer-line"></div>
+      <div class="shimmer-line"></div>
+      <div class="shimmer-line"></div>
+      <div class="shimmer-line"></div>
+      <div class="shimmer-line"></div>
+    </div>
+    <!-- Yacht 1 -->
+    <div class="yacht" style="left:42%; top:5%;">
+      <svg width="48" height="24" viewBox="0 0 48 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 18 L24 4 L24 18 Z" fill="rgba(245,240,230,0.6)"/>
+        <path d="M26 18 L38 8 L38 18 Z" fill="rgba(245,240,230,0.4)"/>
+        <path d="M2 18 Q24 16 46 18 L44 20 Q24 18 4 20 Z" fill="rgba(200,180,140,0.7)"/>
+      </svg>
+    </div>
+    <!-- Yacht 2 -->
+    <div class="yacht" style="left:70%; top:8%;">
+      <svg width="32" height="18" viewBox="0 0 32 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 14 L16 3 L16 14 Z" fill="rgba(245,240,230,0.5)"/>
+        <path d="M18 14 L26 6 L26 14 Z" fill="rgba(245,240,230,0.35)"/>
+        <path d="M1 14 Q16 12 31 14 L30 16 Q16 14 2 16 Z" fill="rgba(200,180,140,0.6)"/>
+      </svg>
+    </div>
+    <!-- Yacht 3 small far -->
+    <div class="yacht" style="left:28%; top:2%;">
+      <svg width="20" height="12" viewBox="0 0 20 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 9 L10 2 L10 9 Z" fill="rgba(245,240,230,0.35)"/>
+        <path d="M11 9 L17 4 L17 9 Z" fill="rgba(245,240,230,0.25)"/>
+        <path d="M1 9 Q10 8 19 9 L18 11 Q10 10 2 11 Z" fill="rgba(200,180,140,0.45)"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Lush tropical foreground hillside -->
+  <div class="foreground">
+    <svg viewBox="0 0 1440 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fgGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0f3020"/>
+          <stop offset="60%" stop-color="#071a0e"/>
+          <stop offset="100%" stop-color="#040e08"/>
+        </linearGradient>
+        <linearGradient id="fgGrad2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#163824"/>
+          <stop offset="100%" stop-color="#071a0e"/>
+        </linearGradient>
+      </defs>
+      <!-- Main lush hill mass -->
+      <path d="M0,180 L0,80 Q60,40 120,35 Q200,28 280,42 Q360,55 400,65 Q440,75 480,70 Q540,62 600,58 Q680,52 740,60 Q800,68 860,72 Q920,76 980,70 Q1060,62 1140,55 Q1220,48 1300,58 Q1380,68 1440,80 L1440,180 Z" fill="url(#fgGrad)"/>
+      <!-- Secondary layer for depth -->
+      <path d="M0,180 L0,110 Q100,90 200,95 Q320,100 400,105 Q500,110 560,108 Q640,105 720,112 Q800,118 880,115 Q960,112 1040,108 Q1120,104 1200,110 Q1320,118 1440,120 L1440,180 Z" fill="url(#fgGrad2)" opacity="0.7"/>
+      <!-- Palm tree silhouettes -->
+      <!-- Palm 1 -->
+      <line x1="180" y1="180" x2="175" y2="75" stroke="#071a0e" stroke-width="4"/>
+      <path d="M175,75 Q145,55 120,65 Q145,68 155,80" fill="#0a2214" opacity="0.9"/>
+      <path d="M175,75 Q200,50 220,55 Q205,65 190,78" fill="#0a2214" opacity="0.9"/>
+      <path d="M175,75 Q155,45 165,30 Q170,50 178,65" fill="#0a2214" opacity="0.85"/>
+      <path d="M175,75 Q195,42 210,38 Q202,55 185,70" fill="#0a2214" opacity="0.85"/>
+      <!-- Palm 2 -->
+      <line x1="350" y1="180" x2="348" y2="80" stroke="#071a0e" stroke-width="3.5"/>
+      <path d="M348,80 Q320,62 300,70 Q322,73 334,85" fill="#0a2214" opacity="0.85"/>
+      <path d="M348,80 Q370,58 388,62 Q372,72 356,83" fill="#0a2214" opacity="0.85"/>
+      <path d="M348,80 Q330,50 338,36 Q344,55 350,70" fill="#0a2214" opacity="0.8"/>
+      <!-- Palm 3 right side -->
+      <line x1="1180" y1="180" x2="1185" y2="72" stroke="#071a0e" stroke-width="3.5"/>
+      <path d="M1185,72 Q1155,54 1135,62 Q1158,66 1168,78" fill="#0a2214" opacity="0.85"/>
+      <path d="M1185,72 Q1210,52 1228,56 Q1210,66 1195,78" fill="#0a2214" opacity="0.85"/>
+      <path d="M1185,72 Q1168,44 1176,30 Q1182,48 1188,64" fill="#0a2214" opacity="0.8"/>
+      <!-- Palm 4 far right -->
+      <line x1="1380" y1="180" x2="1376" y2="82" stroke="#071a0e" stroke-width="3"/>
+      <path d="M1376,82 Q1350,65 1332,72 Q1352,75 1362,86" fill="#0a2214" opacity="0.8"/>
+      <path d="M1376,82 Q1398,62 1415,65 Q1400,74 1386,84" fill="#0a2214" opacity="0.8"/>
+    </svg>
+  </div>
+
+  <!-- Terrace stone railing -->
+  <div class="railing">
+    <svg viewBox="0 0 1440 60" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="railGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2a1f10"/>
+          <stop offset="100%" stop-color="#180e08"/>
+        </linearGradient>
+        <linearGradient id="railTop" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#c8a870"/>
+          <stop offset="100%" stop-color="#8a6535"/>
+        </linearGradient>
+      </defs>
+      <!-- Top rail gold edge -->
+      <rect x="0" y="10" width="1440" height="5" fill="url(#railTop)" opacity="0.6"/>
+      <!-- Main railing body -->
+      <rect x="0" y="15" width="1440" height="45" fill="url(#railGrad)" opacity="0.85"/>
+      <!-- Baluster lines -->
+      <g stroke="#4a3520" stroke-width="1.5" opacity="0.5">
+        <line x1="80"   y1="15" x2="80"   y2="60"/>
+        <line x1="160"  y1="15" x2="160"  y2="60"/>
+        <line x1="240"  y1="15" x2="240"  y2="60"/>
+        <line x1="320"  y1="15" x2="320"  y2="60"/>
+        <line x1="400"  y1="15" x2="400"  y2="60"/>
+        <line x1="480"  y1="15" x2="480"  y2="60"/>
+        <line x1="560"  y1="15" x2="560"  y2="60"/>
+        <line x1="640"  y1="15" x2="640"  y2="60"/>
+        <line x1="720"  y1="15" x2="720"  y2="60"/>
+        <line x1="800"  y1="15" x2="800"  y2="60"/>
+        <line x1="880"  y1="15" x2="880"  y2="60"/>
+        <line x1="960"  y1="15" x2="960"  y2="60"/>
+        <line x1="1040" y1="15" x2="1040" y2="60"/>
+        <line x1="1120" y1="15" x2="1120" y2="60"/>
+        <line x1="1200" y1="15" x2="1200" y2="60"/>
+        <line x1="1280" y1="15" x2="1280" y2="60"/>
+        <line x1="1360" y1="15" x2="1360" y2="60"/>
+      </g>
+      <!-- Rail sheen -->
+      <rect x="0" y="10" width="1440" height="2" fill="rgba(255,220,150,0.3)"/>
+    </svg>
+  </div>
+
+  <div class="haze"></div>
+  <div class="vignette"></div>
+</div>
+
+<!-- ═══ UI ═══ -->
+<div class="ui">
+  <nav>
+    <div class="brand">
+      <div class="brand-mark">W</div>
+      <div class="brand-name">World <em>Freight</em> Intelligence</div>
+    </div>
+    <div class="nav-actions">
+      <button class="nav-btn live"><span class="live-dot"></span> Live</button>
+      <button class="nav-btn">Import CSV</button>
+      <button class="nav-btn">Refresh</button>
+      <button class="nav-btn">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-lbl">Total Contacts</div>
+      <div class="stat-val">12,847 <small>↑ 4.2%</small></div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">With Email</div>
+      <div class="stat-val">7,391 <small>57%</small></div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Countries</div>
+      <div class="stat-val">34</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Networks</div>
+      <div class="stat-val">5</div>
+    </div>
+    <div class="stat">
+      <div class="stat-lbl">Last Sync</div>
+      <div class="stat-val" style="font-size:1rem;padding-top:.4rem">Today, 03:29</div>
+    </div>
+  </div>
+
+  <main>
+    <div class="glass-card">
+      <div class="search-wrap">
+        <div class="search-grid">
+          <div class="field"><label>Country</label><input type="text" placeholder="e.g. Italy, United Kingdom…"></div>
+          <div class="field"><label>Company</label><input type="text" placeholder="e.g. Charles Kendall Freight…"></div>
+          <div class="field"><label>Sort by</label><select><option>Company Name</option><option>Country</option></select></div>
+          <div class="field"><label>Order</label><select><option>A → Z</option><option>Z → A</option></select></div>
+        </div>
+        <div class="filter-bar">
+          <div class="net-group">
+            <button class="net-btn active">All</button>
+            <button class="net-btn">WCA</button>
+            <button class="net-btn">WFA</button>
+            <button class="net-btn">WWPC</button>
+            <button class="net-btn">FIATA</button>
+            <button class="net-btn">Freightnet</button>
+          </div>
+          <div class="chk-group">
+            <label class="chk"><input type="checkbox"> Has Email</label>
+            <label class="chk"><input type="checkbox"> Has Phone</label>
+          </div>
+          <div class="btn-group">
+            <button class="btn-outline">Clear All</button>
+            <button class="btn-gold">↓ Export CSV</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-bar">
+      <span>Showing <strong>12,847</strong> contacts</span>
+      <span>Private &amp; Confidential</span>
+    </div>
+
+    <div class="glass-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Network</th>
+            <th>Company ↕</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Country ↕</th>
+            <th>City</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge b-wca">WCA</span></td>
+            <td><div class="company">Charles Kendall Freight</div><div class="sub">Head Office</div></td>
+            <td><a class="email-link" href="#">info@charleskendall.com</a></td>
+            <td>+44 20 7712 1400</td>
+            <td>United Kingdom</td>
+            <td>London</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-wfa">WFA</span></td>
+            <td><div class="company">Mapcargo International Ltd</div><div class="sub">Head Office</div></td>
+            <td><a class="email-link" href="#">ops@mapcargo.co.uk</a></td>
+            <td>+44 20 8897 0000</td>
+            <td>United Kingdom</td>
+            <td>London Heathrow</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-wca">WCA</span></td>
+            <td><div class="company">Mercury Logistics Pakistan</div><div class="sub">Head Office</div></td>
+            <td>—</td>
+            <td>+92 21 3456 7890</td>
+            <td>Pakistan</td>
+            <td>Karachi</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-fn">Freightnet</span></td>
+            <td><div class="company">IFF Inc.</div><div class="sub">Head Office</div></td>
+            <td><a class="email-link" href="#">contact@iff-atlanta.com</a></td>
+            <td>+1 404 555 0192</td>
+            <td>United States</td>
+            <td>Atlanta, GA</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-wwpc">WWPC</span></td>
+            <td><div class="company">Dynamic Logistics International</div><div class="sub">Head Office</div></td>
+            <td><a class="email-link" href="#">info@dynamicpk.com</a></td>
+            <td>+92 21 9870 0011</td>
+            <td>Pakistan</td>
+            <td>Karachi</td>
+          </tr>
+          <tr>
+            <td><span class="badge b-wca">WCA</span></td>
+            <td><div class="company">Coppersmith Global Logistics</div><div class="sub">Head Office</div></td>
+            <td><a class="email-link" href="#">info@coppersmith.com</a></td>
+            <td>+1 310 555 0134</td>
+            <td>United States</td>
+            <td>Los Angeles</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer>
+    <span><span class="live-dot" style="display:inline-block;margin-right:6px;vertical-align:middle"></span>Scrapers Active</span>
+    <div class="gold-rule"></div>
+    <span>© 2026 World Freight Intelligence</span>
+  </footer>
+</div>
+
+</body>
+</html>

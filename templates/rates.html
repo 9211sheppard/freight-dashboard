@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+{% set active_tab = 'rates' %}
+
+{% block title %}Rates{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+
+  <!-- Email not configured warning -->
+  {% if not email_configured %}
+  <div class="alert alert-warning d-flex align-items-center gap-2 mb-3 py-2" role="alert">
+    <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+    <span>
+      Email sending is disabled — <strong>EMAIL_USER</strong> is not set in <code>config.py</code>.
+      All rate data and parsing is fully functional. Configure SMTP credentials to enable outreach.
+    </span>
+  </div>
+  {% endif %}
+
+  <!-- ── Row 1: Stat Cards ── -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm lane-stat-card">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex align-items-center gap-2">
+            <div class="lane-stat-icon bg-primary-soft">
+              <i class="bi bi-currency-dollar text-primary"></i>
+            </div>
+            <div>
+              <div class="lane-stat-value" id="statRatesCollected">—</div>
+              <div class="lane-stat-label">Rates Collected</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm lane-stat-card">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex align-items-center gap-2">
+            <div class="lane-stat-icon bg-success-soft">
+              <i class="bi bi-check2-circle text-success"></i>
+            </div>
+            <div>
+              <div class="lane-stat-value" id="statAgentsResponded">—</div>
+              <div class="lane-stat-label">Agents Responded</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm lane-stat-card">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex align-items-center gap-2">
+            <div class="lane-stat-icon bg-warning-soft">
+              <i class="bi bi-hourglass-split text-warning"></i>
+            </div>
+            <div>
+              <div class="lane-stat-value" id="statAgentsPending">—</div>
+              <div class="lane-stat-label">Agents Pending</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm lane-stat-card">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex align-items-center gap-2">
+            <div class="lane-stat-icon bg-info-soft">
+              <i class="bi bi-clock-history text-info"></i>
+            </div>
+            <div>
+              <div class="lane-stat-value" id="statAvgResponse">—</div>
+              <div class="lane-stat-label">Avg Response Rate</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Row 2: Cycle Selector + New Cycle ── -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2">
+          <label class="form-label small fw-medium mb-0 text-nowrap">Cycle:</label>
+          <select id="cycleSelect" class="form-select form-select-sm cycle-card" style="min-width:240px">
+            <option value="">— Select cycle —</option>
+          </select>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" id="newCycleBtn">
+          <i class="bi bi-plus-circle me-1"></i>New Cycle
+        </button>
+        <button class="btn btn-sm btn-outline-secondary ms-auto" id="parseEmailBtn">
+          <i class="bi bi-envelope-open me-1"></i>Parse Email Reply
+        </button>
+        <button class="btn btn-sm btn-primary" id="sendRequestsBtn"
+                {% if not email_configured %}disabled title="Configure EMAIL_USER in config.py"{% endif %}>
+          <i class="bi bi-send me-1"></i>Send Rate Requests
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Row 3: Rates Table + Outreach Status ── -->
+  <div class="row g-3 mb-3">
+
+    <!-- Left 60%: Rates Table -->
+    <div class="col-12 col-lg-7">
+      <div class="card shadow-sm h-100">
+        <div class="card-header d-flex align-items-center justify-content-between py-2">
+          <span class="fw-semibold small">
+            <i class="bi bi-table me-1 text-primary"></i>
+            Rate Records
+            <span class="text-muted fw-normal ms-1" id="ratesCountLabel"></span>
+          </span>
+          <div class="d-flex gap-2">
+            <select id="filterOrigin" class="form-select form-select-sm" style="width:auto;font-size:.78rem">
+              <option value="">All Origins</option>
+            </select>
+            <select id="filterDest" class="form-select form-select-sm" style="width:auto;font-size:.78rem">
+              <option value="">All Dests</option>
+            </select>
+            <select id="filterCarrier" class="form-select form-select-sm" style="width:auto;font-size:.78rem">
+              <option value="">All Carriers</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0" id="ratesTable">
+              <thead>
+                <tr>
+                  <th>Origin</th>
+                  <th>Destination</th>
+                  <th>Carrier</th>
+                  <th>20ft</th>
+                  <th>40ft</th>
+                  <th>Valid</th>
+                  <th>Agent</th>
+                  <th>ETD</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="ratesBody">
+                <tr>
+                  <td colspan="9" class="empty-state">
+                    <i class="bi bi-currency-dollar"></i>
+                    No rates yet — select a cycle or parse an email reply.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right 40%: Outreach Status -->
+    <div class="col-12 col-lg-5">
+      <div class="card shadow-sm h-100">
+        <div class="card-header d-flex align-items-center justify-content-between py-2">
+          <span class="fw-semibold small">
+            <i class="bi bi-people me-1 text-secondary"></i>
+            Outreach Status
+          </span>
+          <span class="text-muted" style="font-size:.72rem" id="outreachAutoRefresh"></span>
+        </div>
+        <div class="card-body p-0">
+          <div id="outreachList" style="max-height:420px;overflow-y:auto">
+            <div class="text-muted small text-center py-4">
+              Select a cycle to see outreach status.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row 3 -->
+
+  <!-- ── Row 4: Gap Report ── -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header d-flex align-items-center justify-content-between py-2">
+      <span class="fw-semibold small">
+        <i class="bi bi-exclamation-circle me-1 text-warning"></i>
+        Gap Report
+      </span>
+      <span class="text-muted small">These gaps inform the next outreach email template</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 gap-table" id="gapTable">
+          <thead>
+            <tr>
+              <th>Region</th>
+              <th>Missing Field</th>
+              <th class="text-center">Times Seen</th>
+              <th>Last Seen</th>
+            </tr>
+          </thead>
+          <tbody id="gapBody">
+            <tr>
+              <td colspan="4" class="empty-state">
+                <i class="bi bi-patch-check"></i>
+                No gaps recorded yet.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Legacy: Rate Requests Sent (shown only when no cycle data) ── -->
+  <div class="card shadow-sm mb-4" id="legacyRequestsCard">
+    <div class="card-header py-2">
+      <span class="fw-semibold small">
+        <i class="bi bi-clock-history me-1 text-secondary"></i>
+        Rate Requests (Legacy)
+      </span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0" id="requestsTable">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Country</th>
+              <th>Cycle</th>
+              <th>Sent At</th>
+              <th>Reminder</th>
+              <th>Responded</th>
+              <th>Quality</th>
+            </tr>
+          </thead>
+          <tbody id="requestsBody">
+            <tr>
+              <td colspan="7" class="empty-state">
+                <i class="bi bi-envelope"></i>No requests sent yet.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container-fluid -->
+
+
+<!-- ── New Cycle Modal ── -->
+<div class="modal fade" id="newCycleModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>New Rate Cycle</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-medium">Month</label>
+          <select id="ncMonth" class="form-select form-select-sm">
+            <option value="1">January</option>
+            <option value="2">February</option>
+            <option value="3">March</option>
+            <option value="4">April</option>
+            <option value="5">May</option>
+            <option value="6">June</option>
+            <option value="7">July</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-medium">Year</label>
+          <input type="number" id="ncYear" class="form-control form-control-sm"
+                 value="2026" min="2024" max="2030">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-medium">Cycle</label>
+          <select id="ncCycleNum" class="form-select form-select-sm">
+            <option value="1">Cycle 1 (1–15) — sent 26th prior month</option>
+            <option value="2">Cycle 2 (16–last) — sent 9th of month</option>
+          </select>
+        </div>
+        <div id="newCycleResult"></div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="newCycleSubmitBtn">
+          <i class="bi bi-plus-circle me-1"></i>Create
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Parse Email Modal ── -->
+<div class="modal fade" id="parseModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title">
+          <i class="bi bi-envelope-open me-1"></i>Parse Rate Reply Email
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-8">
+            <label class="form-label small fw-medium">Contact</label>
+            <select id="parseContact" class="form-select form-select-sm">
+              <option value="">Select contact…</option>
+            </select>
+          </div>
+          <div class="col-4">
+            <label class="form-label small fw-medium">Cycle (optional)</label>
+            <input type="text" id="parseCycle" class="form-control form-control-sm"
+                   placeholder="e.g. 2026-04-01_15">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-medium">Email Body</label>
+          <textarea id="parseEmailBody" class="form-control" rows="10"
+                    placeholder="Paste the agent's rate reply here…"></textarea>
+        </div>
+        <div id="parseResult" class="d-none">
+          <hr>
+          <h6 class="small fw-semibold mb-2">Parse Result</h6>
+          <div id="parseResultContent"></div>
+        </div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary btn-sm" id="parseSubmitBtn">
+          <i class="bi bi-lightning me-1"></i>Parse &amp; Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Send Requests Modal ── -->
+<div class="modal fade" id="sendModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="bi bi-send me-1"></i>Send Rate Requests</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-3">
+          Emails will be sent to all <strong>verified</strong> contacts with a mapped email address.
+        </p>
+        <div class="mb-3">
+          <label class="form-label small fw-medium">Cycle</label>
+          <input type="text" id="sendCycle" class="form-control form-control-sm"
+                 placeholder="e.g. 2026-04-01_15 (auto-detected if blank)">
+        </div>
+        <div id="sendResult" class="d-none"></div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="sendConfirmBtn">
+          <i class="bi bi-send me-1"></i>Send Now
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='rates.js') }}?v={{ sv|default('1') }}"></script>
+{% endblock %}

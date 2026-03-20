@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+venv/
+env/
+.env
+.venv
+
+# Database (don't commit live DB — schema only)
+data/contacts.db
+contacts.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Logs
+*.log
+flask.log
+fast_verify.log
+verify.log
+
+# PyInstaller
+*.spec
+build/
+dist/
+
+# OS
+.DS_Store
+desktop.ini
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Claude
+.claude/
+.claude.json
+.claude.json.backup
+
+# ZIP output (built on demand)
+*.zip
+
+# Secrets (never commit)
+config_local.py
+secrets.py
