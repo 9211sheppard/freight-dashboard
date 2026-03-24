@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Freight Intelligence Dashboard — $49.99/mo, Not $50,000/yr</title>
+  <link rel="stylesheet" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/bootstrap-icons.min.css">
+  <style>
+    :root { --accent: #0d6efd; --dark: #0a1628; }
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .hero { background: var(--dark); color: #fff; padding: 80px 0 60px; }
+    .hero h1 { font-size: 2.8rem; font-weight: 800; line-height: 1.15; }
+    .hero .lead { font-size: 1.25rem; opacity: 0.85; }
+    .price-tag { font-size: 3.5rem; font-weight: 800; color: var(--accent); }
+    .price-tag small { font-size: 1rem; font-weight: 400; opacity: 0.7; }
+    .strike { text-decoration: line-through; opacity: 0.5; font-size: 1.1rem; }
+    .feature-card { border: none; border-radius: 12px; transition: transform 0.2s; }
+    .feature-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+    .feature-icon { font-size: 2rem; color: var(--accent); }
+    .competitor-table th { background: var(--dark); color: #fff; }
+    .check { color: #198754; font-weight: bold; }
+    .cross { color: #dc3545; opacity: 0.5; }
+    .cta-section { background: linear-gradient(135deg, #0d6efd 0%, #0a1628 100%); color: #fff; padding: 60px 0; }
+    .navbar-landing { background: var(--dark); }
+    .navbar-landing .nav-link { color: rgba(255,255,255,0.8); }
+    .navbar-landing .nav-link:hover { color: #fff; }
+    .stat-number { font-size: 2.5rem; font-weight: 800; color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="navbar navbar-expand-lg navbar-landing sticky-top">
+  <div class="container">
+    <a class="navbar-brand text-white fw-bold" href="#">
+      <i class="bi bi-globe-americas"></i> FreightDash
+    </a>
+    <div class="d-flex gap-2">
+      <a href="/login" class="btn btn-outline-light btn-sm">Log In</a>
+      <a href="/register" class="btn btn-primary btn-sm">Start Free Trial</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-7">
+        <h1>Freight Intelligence<br>for <span style="color: var(--accent);">$49.99/mo</span></h1>
+        <p class="lead mt-3">
+          Rate benchmarking. Agent scoring. Vessel schedules. Contact intelligence.<br>
+          Everything a freight forwarder needs — in one dashboard.
+        </p>
+        <p class="strike">CargoWise: $50,000–$500,000/yr &bull; Xeneta: $25,000–$400,000/yr</p>
+        <div class="mt-4 d-flex gap-3">
+          <a href="/register" class="btn btn-primary btn-lg px-4">
+            Start 14-Day Free Trial <i class="bi bi-arrow-right"></i>
+          </a>
+          <span class="align-self-center text-white-50">No credit card required</span>
+        </div>
+      </div>
+      <div class="col-lg-5 mt-4 mt-lg-0 text-center">
+        <div class="p-4 rounded-3" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);">
+          <div class="price-tag">$49.99<small>/mo</small></div>
+          <p class="text-white-50 mb-0">One plan. All features. Unlimited contacts.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats -->
+<section class="py-5 bg-light">
+  <div class="container">
+    <div class="row text-center">
+      <div class="col-md-3 col-6 mb-3">
+        <div class="stat-number">25+</div>
+        <div class="text-muted">Freight Networks Covered</div>
+      </div>
+      <div class="col-md-3 col-6 mb-3">
+        <div class="stat-number">13</div>
+        <div class="text-muted">Origin Lanes Tracked</div>
+      </div>
+      <div class="col-md-3 col-6 mb-3">
+        <div class="stat-number">195</div>
+        <div class="text-muted">Countries</div>
+      </div>
+      <div class="col-md-3 col-6 mb-3">
+        <div class="stat-number">A+</div>
+        <div class="text-muted">Reliability Grading</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="py-5" id="features">
+  <div class="container">
+    <h2 class="text-center fw-bold mb-5">Everything You Need. One Dashboard.</h2>
+    <div class="row g-4">
+
+      <div class="col-md-4">
+        <div class="card feature-card h-100 p-4">
+          <div class="feature-icon"><i class="bi bi-people-fill"></i></div>
+          <h5 class="mt-3">Cross-Network Agent Database</h5>
+          <p class="text-muted">Search agents across WFA, WWPC, FIATA, FreightNet, and more — all in one place. Verified and scored automatically.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card feature-card h-100 p-4">
+          <div class="feature-icon"><i class="bi bi-graph-up-arrow"></i></div>
+          <h5 class="mt-3">Rate Engine V2</h5>
+          <p class="text-muted">Automated RFQ cycles, benchmark calculation from real quotes, lane-level rate tracking with trend indicators.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card feature-card h-100 p-4">
+          <div class="feature-icon"><i class="bi bi-star-fill"></i></div>
+          <h5 class="mt-3">Agent Scoring & Nudge Logic</h5>
+          <p class="text-muted">Score agents on response time, quality, consistency, and coverage. Auto-flag overpriced quotes. Track self-recovery.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card feature-card h-100 p-4">
+          <div class="feature-icon"><i class="bi bi-water"></i></div>
+          <h5 class="mt-3">Vessel Schedules & Predictive ETAs</h5>
+          <p class="text-muted">13 origin lanes, 9 destinations. AI-predicted ETAs with confidence scoring. Carrier reliability leaderboard.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card feature-card h-100 p-4">
+          <div class="feature-icon"><i class="bi bi-envelope-paper-fill"></i></div>
+          <h5 class="mt-3">Cultural Email Outreach</h5>
+          <p class="text-muted">30+ country-specific email templates. Timezone-optimized sending. Response tracking and behavioral profiling.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card feature-card h-100 p-4">
+          <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+          <h5 class="mt-3">Contact Verification</h5>
+          <p class="text-muted">Multi-signal verification: web presence, IATA checks, LinkedIn validation. Know your agents before you work with them.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Comparison -->
+<section class="py-5 bg-light" id="pricing">
+  <div class="container">
+    <h2 class="text-center fw-bold mb-5">How We Compare</h2>
+    <div class="table-responsive">
+      <table class="table table-bordered competitor-table text-center">
+        <thead>
+          <tr>
+            <th class="text-start" style="width:30%;">Feature</th>
+            <th>FreightDash<br><small>$49.99/mo</small></th>
+            <th>CargoWise<br><small>$50K–$500K/yr</small></th>
+            <th>Xeneta<br><small>$25K–$400K/yr</small></th>
+            <th>Quotiss<br><small>$1,500–$2,500/mo</small></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="text-start">Rate Benchmarking</td><td class="check">Yes</td><td class="cross">No</td><td class="check">Yes</td><td class="cross">No</td></tr>
+          <tr><td class="text-start">RFQ Email Automation</td><td class="check">Yes</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td></tr>
+          <tr><td class="text-start">Agent Scoring</td><td class="check">Yes</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td></tr>
+          <tr><td class="text-start">Nudge Logic</td><td class="check">Yes</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td></tr>
+          <tr><td class="text-start">Cross-Network Contacts</td><td class="check">Yes</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td></tr>
+          <tr><td class="text-start">Vessel Schedules</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes*</td><td class="cross">No</td></tr>
+          <tr><td class="text-start">Predictive ETAs</td><td class="check">Yes</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td></tr>
+          <tr><td class="text-start">Cultural Email Templates</td><td class="check">Yes</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td></tr>
+          <tr><td class="text-start">Self-Serve Setup</td><td class="check">&lt;5 min</td><td class="cross">6–12 months</td><td class="cross">Weeks</td><td class="check">1 hour</td></tr>
+          <tr><td class="text-start fw-bold">Starting Price</td><td class="fw-bold text-primary">$49.99/mo</td><td>$10–20/shipment</td><td>$25,000/yr</td><td>$1,500/mo</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-center text-muted mt-2"><small>*Xeneta acquired eeSea for schedule data in Aug 2025</small></p>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section text-center">
+  <div class="container">
+    <h2 class="fw-bold mb-3">Ready to stop overpaying for freight intelligence?</h2>
+    <p class="lead mb-4 opacity-75">14-day free trial. No credit card. Cancel anytime.</p>
+    <a href="/register" class="btn btn-light btn-lg px-5 fw-bold">
+      Start Free Trial <i class="bi bi-arrow-right"></i>
+    </a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="py-4" style="background: var(--dark); color: rgba(255,255,255,0.5);">
+  <div class="container text-center">
+    <p class="mb-1">&copy; 2026 FreightDash. All rights reserved.</p>
+    <p class="mb-0"><small>Built for freight forwarders, by freight forwarders.</small></p>
+  </div>
+</footer>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+</body>
+</html>

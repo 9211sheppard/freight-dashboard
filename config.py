@@ -3,30 +3,33 @@ import sys
 
 # ─────────────────────────────────────────────
 #  LOGIN PASSWORD  — change this to your own
+#  On Azure, set env var DASHBOARD_PASSWORD
 # ─────────────────────────────────────────────
-PASSWORD = "admin123"
+PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "admin123")  # MUST override via env var in production
 
 # ─────────────────────────────────────────────
-#  EMAIL / SMTP  — fill in to enable sending
-#  Leave EMAIL_USER blank to disable sending
-#  (manual parse/upload path still works)
+#  EMAIL — Microsoft Graph API (no SMTP needed)
+#  App: Freight Dashboard Mailer
+#  Permission: Mail.Send (application)
+#  On Azure, set env vars: EMAIL_FROM, GRAPH_TENANT_ID,
+#  GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET
 # ─────────────────────────────────────────────
+EMAIL_FROM          = os.environ.get("EMAIL_FROM", "")
+GRAPH_TENANT_ID     = os.environ.get("GRAPH_TENANT_ID", "")
+GRAPH_CLIENT_ID     = os.environ.get("GRAPH_CLIENT_ID", "")
+GRAPH_CLIENT_SECRET = os.environ.get("GRAPH_CLIENT_SECRET", "")
+
+# Legacy SMTP (disabled — tenant has SMTP AUTH off)
 EMAIL_HOST = ""
 EMAIL_PORT = 587
 EMAIL_USER = ""
 EMAIL_PASS = ""
-EMAIL_FROM = ""
-
-# ─────────────────────────────────────────────
-#  FMCSA SAFER API KEY  — free at:
-#  https://ask.fmcsa.dot.gov/app/ask
-# ─────────────────────────────────────────────
-FMCSA_KEY = ""   # paste your free key here
 
 # ─────────────────────────────────────────────
 #  SECRET KEY  — used to sign session cookies
+#  On Azure, set env var SECRET_KEY
 # ─────────────────────────────────────────────
-SECRET_KEY = "wfa-dashboard-secret-key-2024-change-me"
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me-in-production")
 
 # ─────────────────────────────────────────────
 #  PATHS  (work on any machine automatically)
@@ -43,26 +46,29 @@ else:
 
 DB_PATH  = os.path.join(DATA_DIR, "contacts.db")
 
-# ── Owner's source CSV paths (only used when the files actually exist) ────
-# Team members don't need these — they use the Import CSV button instead.
+# ── Database URL (PostgreSQL for production, SQLite for local dev) ──────────
+# Set DATABASE_URL env var to use PostgreSQL, e.g.:
+#   DATABASE_URL=postgresql://user:pass@host:5432/dbname
+# If not set, falls back to SQLite at DB_PATH above.
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
+# ── CSV source paths — all relative to DATA_DIR ────────────────────────────
+# Users import data via the dashboard's Import CSV button.
+# For local dev, place CSVs in the data/ folder.
 _WFA_CANDIDATES = [
-    r"C:\Users\Owner\automations\wfa_contacts.csv",
-    os.path.join(DATA_DIR, "upload_wfa.csv"),          # uploaded via dashboard
+    os.path.join(DATA_DIR, "upload_wfa.csv"),
 ]
 _WWPC_CANDIDATES = [
-    r"C:\Users\Owner\Desktop\wwpc_contacts.csv",
-    os.path.join(DATA_DIR, "upload_wwpc.csv"),         # uploaded via dashboard
+    os.path.join(DATA_DIR, "upload_wwpc.csv"),
 ]
 _FIATA_CANDIDATES = [
-    r"C:\Users\Owner\Desktop\fiata_contacts.csv",
-    os.path.join(DATA_DIR, "upload_fiata.csv"),        # uploaded via dashboard
+    os.path.join(DATA_DIR, "upload_fiata.csv"),
 ]
 _FREIGHTNET_CANDIDATES = [
-    r"C:\Users\Owner\Desktop\freightnet_global.csv",          # global scrape (primary)
-    os.path.join(DATA_DIR, "upload_freightnet.csv"),          # uploaded via dashboard
+    os.path.join(DATA_DIR, "upload_freightnet.csv"),
 ]
 _AHK_JAPAN_CANDIDATES = [
-    os.path.join(DATA_DIR, "upload_ahk-japan.csv"),           # AHK Japan member directory
+    os.path.join(DATA_DIR, "upload_ahk-japan.csv"),
 ]
 
 def _first_existing(paths):
@@ -86,3 +92,14 @@ CSV_SOURCES = [s for s in [
     {"path": FREIGHTNET_CSV_PATH,  "network": None}        if FREIGHTNET_CSV_PATH  else None,
     {"path": AHK_JAPAN_CSV_PATH,   "network": "AHK-Japan"} if AHK_JAPAN_CSV_PATH  else None,
 ] if s]
+
+# Carrier schedule APIs
+MAERSK_API_KEY = os.environ.get("MAERSK_API_KEY", "")
+MSC_API_KEY    = os.environ.get("MSC_API_KEY", "")
+CMA_API_KEY    = os.environ.get("CMA_API_KEY", "")
+HAPAG_API_KEY  = os.environ.get("HAPAG_API_KEY", "")
+DCSA_API_KEY   = os.environ.get("DCSA_API_KEY", "")
+
+# Schedule sync
+SCHEDULE_SYNC_INTERVAL_HOURS = int(os.environ.get("SCHEDULE_SYNC_INTERVAL", "6"))
+SCHEDULE_SYNC_DAYS_AHEAD     = int(os.environ.get("SCHEDULE_SYNC_DAYS", "30"))

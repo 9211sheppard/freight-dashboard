@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Billing{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <h2><i class="bi bi-credit-card"></i> Billing & Subscription</h2>
+
+  {% if request.args.get('success') %}
+  <div class="alert alert-success alert-dismissible fade show mt-3">
+    <strong>Payment successful!</strong> Your subscription is now active. Welcome aboard!
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+
+  {% if request.args.get('cancelled') %}
+  <div class="alert alert-warning alert-dismissible fade show mt-3">
+    Checkout was cancelled. You can subscribe anytime.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+
+  <div class="row mt-4">
+    <!-- Current Plan -->
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Current Plan</h5>
+          {% if subscription.reason == 'paid' %}
+            <span class="badge bg-success fs-6">Pro — Active</span>
+            <p class="mt-3">Your subscription is active. You have full access to all features.</p>
+            <p><strong>Workspace:</strong> {{ tenant.name if tenant else 'N/A' }}</p>
+            <button class="btn btn-outline-primary mt-2" onclick="openPortal()">
+              <i class="bi bi-gear"></i> Manage Subscription
+            </button>
+          {% elif subscription.reason == 'trial' %}
+            <span class="badge bg-info fs-6">Free Trial</span>
+            <p class="mt-3">
+              <strong>{{ subscription.days_left }} days left</strong> in your free trial.
+              Subscribe now to keep your data and access.
+            </p>
+            <div class="progress mt-2" style="height: 8px;">
+              <div class="progress-bar bg-info" style="width: {{ ((14 - subscription.days_left) / 14 * 100)|int }}%"></div>
+            </div>
+          {% elif subscription.reason == 'trial_expired' %}
+            <span class="badge bg-danger fs-6">Trial Expired</span>
+            <p class="mt-3">Your free trial has ended. Subscribe to regain access to your data.</p>
+          {% elif subscription.reason == 'grace_period' %}
+            <span class="badge bg-warning fs-6">Payment Issue</span>
+            <p class="mt-3">We couldn't process your last payment. Please update your payment method.</p>
+            <button class="btn btn-warning mt-2" onclick="openPortal()">
+              <i class="bi bi-credit-card"></i> Update Payment Method
+            </button>
+          {% else %}
+            <span class="badge bg-secondary fs-6">Inactive</span>
+            <p class="mt-3">No active subscription. Subscribe to access all features.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Subscribe / Pricing -->
+    <div class="col-md-6">
+      <div class="card border-primary">
+        <div class="card-body text-center">
+          <h5 class="card-title">Freight Intelligence Pro</h5>
+          <div class="display-4 fw-bold text-primary">$49.99</div>
+          <p class="text-muted">/month</p>
+          <hr>
+          <ul class="list-unstyled text-start">
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success"></i> Unlimited contacts & agent search</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success"></i> Rate Engine V2 with benchmarking</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success"></i> Agent scoring & nudge logic</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success"></i> Vessel schedules & predictive ETAs</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success"></i> Email outreach with cultural templates</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success"></i> Reliability leaderboard</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success"></i> Up to 50 users per workspace</li>
+            <li class="mb-2"><i class="bi bi-check-circle-fill text-success"></i> Priority support</li>
+          </ul>
+          {% if subscription.reason != 'paid' %}
+            {% if stripe_configured %}
+              <button class="btn btn-primary btn-lg w-100 mt-3" onclick="startCheckout()">
+                {% if subscription.reason == 'trial' %}
+                  Subscribe Now
+                {% else %}
+                  Start Subscription
+                {% endif %}
+              </button>
+            {% else %}
+              <button class="btn btn-secondary btn-lg w-100 mt-3" disabled>
+                Billing Coming Soon
+              </button>
+            {% endif %}
+          {% else %}
+            <button class="btn btn-outline-success btn-lg w-100 mt-3" disabled>
+              <i class="bi bi-check-lg"></i> Currently Subscribed
+            </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Support Tickets -->
+  <div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0"><i class="bi bi-headset"></i> Support</h5>
+      <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#ticketModal">
+        <i class="bi bi-plus"></i> New Ticket
+      </button>
+    </div>
+    <div class="card-body">
+      <div id="tickets-list"><p class="text-muted">Loading tickets...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- New Ticket Modal -->
+<div class="modal fade" id="ticketModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Submit Support Ticket</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Category</label>
+          <select id="ticket-category" class="form-select">
+            <option value="general">General Question</option>
+            <option value="password">Password & Login</option>
+            <option value="billing">Billing & Subscription</option>
+            <option value="import">Data Import</option>
+            <option value="email">Email & Outreach</option>
+            <option value="rates">Rate Engine</option>
+            <option value="schedules">Vessel Schedules</option>
+            <option value="bug">Bug Report</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Subject</label>
+          <input type="text" id="ticket-subject" class="form-control" placeholder="Brief description of your issue">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Details (optional)</label>
+          <textarea id="ticket-desc" class="form-control" rows="3" placeholder="Any additional details..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="submitTicket()">Submit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function startCheckout() {
+  fetch('/api/billing/checkout', {method:'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok && d.checkout_url) window.location.href = d.checkout_url;
+      else alert(d.error || 'Could not start checkout.');
+    });
+}
+
+function openPortal() {
+  fetch('/api/billing/portal', {method:'POST'})
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok && d.portal_url) window.location.href = d.portal_url;
+      else alert(d.error || 'Could not open billing portal.');
+    });
+}
+
+function submitTicket() {
+  const data = {
+    category: document.getElementById('ticket-category').value,
+    subject: document.getElementById('ticket-subject').value,
+    description: document.getElementById('ticket-desc').value,
+  };
+  fetch('/api/support/ticket', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  }).then(r => r.json()).then(d => {
+    if (d.auto_resolved) {
+      alert('Auto-resolved: ' + d.resolution);
+    } else if (d.ok) {
+      alert('Ticket submitted! We\'ll get back to you soon.');
+    }
+    bootstrap.Modal.getInstance(document.getElementById('ticketModal')).hide();
+    loadTickets();
+  });
+}
+
+function loadTickets() {
+  fetch('/api/support/tickets').then(r => r.json()).then(d => {
+    const el = document.getElementById('tickets-list');
+    if (!d.tickets || d.tickets.length === 0) {
+      el.innerHTML = '<p class="text-muted">No support tickets yet.</p>';
+      return;
+    }
+    let html = '<div class="list-group">';
+    d.tickets.forEach(t => {
+      const badge = t.status === 'auto_resolved' ? 'bg-info' :
+                    t.status === 'open' ? 'bg-warning' :
+                    t.status === 'resolved' ? 'bg-success' : 'bg-secondary';
+      html += `<div class="list-group-item">
+        <div class="d-flex justify-content-between">
+          <strong>${t.subject || 'No subject'}</strong>
+          <span class="badge ${badge}">${t.status}</span>
+        </div>
+        <small class="text-muted">${t.category} &middot; ${t.created_at || ''}</small>
+        ${t.resolution_note ? '<p class="mb-0 mt-1 text-success"><small>' + t.resolution_note + '</small></p>' : ''}
+      </div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  });
+}
+
+document.addEventListener('DOMContentLoaded', loadTickets);
+</script>
+{% endblock %}

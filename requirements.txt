@@ -1,2 +1,10 @@
 flask>=3.0.0
 bcrypt>=4.0.0
+dnspython>=2.4.0
+gunicorn>=21.2.0
+beautifulsoup4
+playwright
+requests>=2.31.0
+psycopg2-binary>=2.9.0
+sentry-sdk[flask]>=1.40.0
+stripe>=7.0.0

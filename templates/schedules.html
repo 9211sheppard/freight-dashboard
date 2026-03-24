@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% set active_tab = 'schedules' %}
+{% block title %}Schedules - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 pt-3">
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="text-secondary small" id="syncStatus"></div>
+    {% if session.get('user_role') == 'admin' %}
+    <button class="btn btn-sm btn-outline-primary" id="syncSchedulesBtn">
+      <i class="bi bi-arrow-repeat me-1"></i>Sync Now
+    </button>
+    {% endif %}
+  </div>
+
+  <div class="row g-2 mb-3" id="schedStats">
+    <div class="col-6 col-lg">
+      <div class="card bg-dark border-secondary text-center py-2">
+        <div class="fs-4 fw-bold text-info" id="statTotal">-</div>
+        <div class="text-secondary small">Total Sailings</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg">
+      <div class="card bg-dark border-secondary text-center py-2">
+        <div class="fs-4 fw-bold text-success" id="statCarriers">-</div>
+        <div class="text-secondary small">Active Carriers</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg">
+      <div class="card bg-dark border-secondary text-center py-2">
+        <div class="fs-4 fw-bold text-warning" id="statLanesWithData">-</div>
+        <div class="text-secondary small">Lanes with Data</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg">
+      <div class="card bg-dark border-secondary text-center py-2">
+        <div class="fs-5 fw-bold text-secondary" id="statLastUpdated">-</div>
+        <div class="text-secondary small">Last Updated</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg">
+      <div class="card bg-dark border-secondary text-center py-2">
+        <div class="fs-5 fw-bold text-info" id="statTopCarrier">-</div>
+        <div class="text-secondary small">Most Reliable</div>
+      </div>
+    </div>
+    <div class="col-12 col-lg">
+      <div class="card bg-dark border-secondary text-center py-2">
+        <div class="fs-6 fw-bold text-light" id="statSources">-</div>
+        <div class="text-secondary small">Source Mix</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-dark border-secondary mb-3">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center"
+         style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#reliabilityPanel">
+      <span class="text-secondary small fw-semibold text-uppercase" style="letter-spacing:.05em">
+        Carrier Reliability Leaderboard
+      </span>
+      <i class="bi bi-chevron-down text-secondary"></i>
+    </div>
+    <div class="collapse" id="reliabilityPanel">
+      <div class="card-body py-2">
+        <div class="row g-2 mb-2">
+          <div class="col-auto">
+            <select class="form-select form-select-sm bg-dark text-light border-secondary" id="reliabilityPeriod">
+              <option value="30d">Last 30 Days</option>
+              <option value="90d" selected>Last 90 Days</option>
+              <option value="180d">Last 180 Days</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover table-dark mb-0">
+            <thead class="text-secondary" style="font-size:0.75rem">
+              <tr>
+                <th>#</th>
+                <th>Carrier</th>
+                <th>Grade</th>
+                <th>On-Time %</th>
+                <th>Avg Delay</th>
+                <th>Consistency</th>
+                <th>Voyages</th>
+              </tr>
+            </thead>
+            <tbody id="reliabilityBody">
+              <tr><td colspan="7" class="text-center text-secondary py-3">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-dark border-secondary mb-3">
+    <div class="card-body py-3">
+      <div class="mb-1 text-secondary small fw-semibold text-uppercase" style="letter-spacing:.05em">Origin Region</div>
+      <div class="d-flex flex-wrap gap-2" id="originPills">
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="China">China</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="Vietnam">Vietnam</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="India">India</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="Middle East">Middle East</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="Europe">Europe</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="South Korea">South Korea</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="Japan">Japan</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="Bangladesh">Bangladesh</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="Indonesia">Indonesia</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="Malaysia">Malaysia</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="Thailand">Thailand</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="Brazil">Brazil</button>
+        <button class="btn btn-sm btn-outline-secondary origin-pill" data-origin="Mexico">Mexico</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-dark border-secondary mb-3" id="destSection" style="display:none!important">
+    <div class="card-body py-3">
+      <div class="mb-1 text-secondary small fw-semibold text-uppercase" style="letter-spacing:.05em">Destination Region</div>
+      <div class="d-flex flex-wrap gap-2" id="destPills"></div>
+    </div>
+  </div>
+
+  <div class="card bg-dark border-secondary mb-3" id="filterSection" style="display:none!important">
+    <div class="card-body py-2">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-3">
+          <select class="form-select form-select-sm bg-dark text-light border-secondary" id="filterCarrier">
+            <option value="">All Carriers</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary"
+                 id="filterVessel" placeholder="Search vessel name...">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-sm btn-outline-secondary w-100" id="clearFiltersBtn">Clear Filters</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="resultsSection">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span class="text-secondary small" id="resultCount"></span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover table-dark mb-0" id="schedTable">
+        <thead class="text-secondary" style="font-size:0.78rem;">
+          <tr>
+            <th>Carrier</th>
+            <th>Origin Port</th>
+            <th>Destination Port</th>
+            <th>Vessel</th>
+            <th>Service</th>
+            <th>ETD</th>
+            <th>ETA</th>
+            <th>Predicted ETA</th>
+            <th>Transit</th>
+            <th>Reliability</th>
+          </tr>
+        </thead>
+        <tbody id="schedBody">
+          <tr>
+            <td colspan="10" class="text-center text-secondary py-5">
+              <i class="bi bi-ship fs-2 d-block mb-2 opacity-25"></i>
+              Select an origin region to get started
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='schedules.js') }}?v={{ sv|default('1') }}"></script>
+{% endblock %}

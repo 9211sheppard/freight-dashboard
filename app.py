@@ -1,5 +1,5 @@
 """
-app.py  —  WFA Contacts Dashboard
+app.py  —  Freight Intelligence Dashboard
 Run with:  python app.py
 Then open: http://127.0.0.1:5000
 """
@@ -13,8 +13,20 @@ import sys
 import webbrowser
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
+
+# ── Sentry error tracking (production only) ──────────────────────────────────
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+        sentry_sdk.init(dsn=SENTRY_DSN, integrations=[FlaskIntegration()],
+                        traces_sample_rate=0.1, send_default_pii=False)
+        print("[sentry] Error tracking enabled.")
+    except ImportError:
+        print("[sentry] sentry-sdk not installed — skipping.")
 
 from flask import (
     Flask, render_template, request, redirect,
@@ -26,8 +38,15 @@ import urllib.parse
 import json as _json
 
 from config import SECRET_KEY, PASSWORD, DB_PATH, CSV_SOURCES, DATA_DIR
-from config import FMCSA_KEY, EMAIL_USER
-from database import init_db, get_db, init_lanes_db, init_carriers_db, init_rates_db, init_users_db
+from carrier_api import ORIGIN_PORTS, DEST_PORTS, has_any_api_keys_configured
+from schedule_sync_api import ensure_schedule_schema, start_background_sync
+import mailer as _mailer
+from database import init_db, get_db, init_lanes_db, init_rates_db, init_users_db, init_contact_intelligence_db, init_email_outreach_db
+from email_inspectors import init_inspection_log_db
+from predictive_eta import init_predictive_db, enrich_schedules_with_predictions
+from reliability import init_reliability_db, enrich_schedules_with_reliability, get_carrier_leaderboard, get_lane_leaderboard, compute_reliability_scores
+from record_arrivals import mark_arrived
+import contact_engine as _ce
 from import_csv import import_all_csvs, import_csv
 import rate_engine
 import rate_engine_v2
@@ -44,6 +63,7 @@ else:
     app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0   # disable static file caching
+ensure_schedule_schema()
 
 STARTUP_TIME = str(int(time.time()))          # changes on every restart → cache-busting
 
@@ -129,60 +149,225 @@ def admin_required(f):
     return decorated
 
 
+def _get_onboarding_status(user_id):
+    """Return onboarding completion state for a logged-in user."""
+    if not user_id:
+        return {"completed": True, "step": None}
+
+    conn = get_db()
+    try:
+        row = conn.execute(
+            """SELECT COALESCE(onboarding_completed, 0) AS onboarding_completed,
+                      onboarding_step
+               FROM users
+               WHERE id = ?""",
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        return {"completed": True, "step": None}
+
+    return {
+        "completed": bool(row["onboarding_completed"]),
+        "step": row["onboarding_step"],
+    }
+
+
+def _post_login_redirect(user_id):
+    """Send new users to onboarding before the dashboard."""
+    status = _get_onboarding_status(user_id)
+    if not status["completed"]:
+        return redirect(url_for("onboarding_page"))
+    return redirect(url_for("dashboard"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Health Check (Railway / load balancer)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/health")
+def health_endpoint():
+    from health import full_health_check
+    result = full_health_check()
+    code = 200 if result["status"] in ("healthy", "degraded") else 503
+    return jsonify(result), code
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Billing Routes (Stripe)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/billing")
+@login_required
+def billing_page():
+    from billing import is_configured, STRIPE_PUBLISHABLE_KEY
+    from tenant import get_tenant, check_subscription
+    tenant_id = session.get("tenant_id", 1)
+    tenant = get_tenant(tenant_id)
+    sub = check_subscription(tenant_id)
+    return render_template("billing.html",
+                           tenant=tenant, subscription=sub,
+                           stripe_configured=is_configured(),
+                           stripe_key=STRIPE_PUBLISHABLE_KEY,
+                           user=_auth.current_user(session))
+
+
+@app.route("/api/billing/checkout", methods=["POST"])
+@login_required
+def billing_checkout():
+    from billing import create_checkout_session
+    tenant_id = session.get("tenant_id", 1)
+    email = session.get("user_email", "")
+    base = request.host_url.rstrip("/")
+    result = create_checkout_session(
+        tenant_id, email,
+        success_url=f"{base}/billing?success=1",
+        cancel_url=f"{base}/billing?cancelled=1",
+    )
+    return jsonify(result)
+
+
+@app.route("/api/billing/portal", methods=["POST"])
+@login_required
+def billing_portal():
+    from billing import create_portal_session
+    tenant_id = session.get("tenant_id", 1)
+    base = request.host_url.rstrip("/")
+    result = create_portal_session(tenant_id, return_url=f"{base}/billing")
+    return jsonify(result)
+
+
+@app.route("/api/billing/webhook", methods=["POST"])
+def billing_webhook():
+    from billing import handle_webhook
+    payload = request.get_data()
+    sig = request.headers.get("Stripe-Signature", "")
+    result = handle_webhook(payload, sig)
+    return jsonify(result), 200 if result.get("ok") else 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Support Tickets
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/support/ticket", methods=["POST"])
+@login_required
+def create_support_ticket():
+    from tenant import create_ticket
+    data = request.get_json() or {}
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    result = create_ticket(
+        tenant_id, user_id,
+        category=data.get("category", "general"),
+        subject=data.get("subject", ""),
+        description=data.get("description", ""),
+    )
+    return jsonify(result)
+
+
+@app.route("/api/support/tickets")
+@login_required
+def list_support_tickets():
+    from tenant import get_tickets
+    tenant_id = session.get("tenant_id", 1)
+    status_filter = request.args.get("status")
+    tickets = get_tickets(tenant_id, status=status_filter)
+    return jsonify({"tickets": tickets})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  System Admin (super-admin only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/health")
+@admin_required
+def admin_health():
+    from health import full_health_check, get_system_stats
+    return jsonify({
+        "health": full_health_check(),
+        "stats": get_system_stats(),
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Error Handlers (user-friendly error pages)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.errorhandler(404)
+def not_found(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    return render_template("error.html", code=404, message="Page not found"), 404
+
+
+@app.errorhandler(500)
+def server_error(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Internal server error"}), 500
+    return render_template("error.html", code=500,
+                           message="Something went wrong. Our team has been notified."), 500
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Auth routes  (per-user email + password)
 # ─────────────────────────────────────────────────────────────────────────────
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/")
+def index():
+    """Landing page for visitors, dashboard redirect for logged-in users."""
+    if session.get("logged_in"):
+        return _post_login_redirect(session.get("user_id"))
+    return render_template("landing.html")
+
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("logged_in"):
-        return redirect(url_for("dashboard"))
+        return _post_login_redirect(session.get("user_id"))
 
     error = None
+    paywall = False
     if request.method == "POST":
         email    = request.form.get("email", "").strip()
         password = request.form.get("password", "")
 
-        # ── Legacy single-password fallback (for admin during migration) ──
-        if not email and password == PASSWORD:
-            session["logged_in"] = True
-            session["user_role"]  = "admin"
-            session["user_name"]  = "Admin"
-            session.permanent     = False
-            return redirect(url_for("dashboard"))
-
-        result = _auth.login_user(email, password)
+        result = _auth.login_user(email, password, ip=request.remote_addr or "")
         if result["ok"]:
             _auth.set_session(session, result["user"])
-            return redirect(url_for("dashboard"))
+            return _post_login_redirect(result["user"]["id"])
         error = result["error"]
+        paywall = result.get("paywall", False)
 
-    return render_template("login.html", error=error)
+    return render_template("login.html", error=error, paywall=paywall)
 
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if session.get("logged_in"):
-        return redirect(url_for("dashboard"))
+        return _post_login_redirect(session.get("user_id"))
 
     error   = None
     success = None
     if request.method == "POST":
-        name     = request.form.get("name", "").strip()
-        email    = request.form.get("email", "").strip()
-        password = request.form.get("password", "")
-        confirm  = request.form.get("confirm", "")
+        name         = request.form.get("name", "").strip()
+        email        = request.form.get("email", "").strip()
+        company_name = request.form.get("company_name", "").strip()
+        password     = request.form.get("password", "")
+        confirm      = request.form.get("confirm", "")
 
         if password != confirm:
             error = "Passwords do not match."
         else:
-            result = _auth.register_user(name, email, password)
+            result = _auth.register_user(name, email, password, company_name=company_name)
             if result["ok"]:
                 # Auto-login after registration
-                login_result = _auth.login_user(email, password)
+                login_result = _auth.login_user(email, password, ip=request.remote_addr or "")
                 if login_result["ok"]:
                     _auth.set_session(session, login_result["user"])
-                    return redirect(url_for("dashboard"))
+                    return _post_login_redirect(login_result["user"]["id"])
                 success = "Account created! Please log in."
             else:
                 error = result["error"]
@@ -267,9 +452,194 @@ def api_admin_set_role(user_id):
     return jsonify(result)
 
 
+@app.route("/api/admin/activity")
+@login_required
+def api_admin_activity():
+    if session.get("user_role") != "admin":
+        return jsonify({"ok": False, "error": "Admin only."}), 403
+    conn = get_db()
+    try:
+        users = conn.execute("""
+            SELECT id, name, email, role, last_login,
+                   COALESCE(login_count, 0) as login_count
+            FROM users ORDER BY last_login DESC
+        """).fetchall()
+        recent = conn.execute("""
+            SELECT ul.user_id, u.name, ul.login_at, ul.ip_address
+            FROM user_logins ul JOIN users u ON ul.user_id = u.id
+            ORDER BY ul.login_at DESC LIMIT 50
+        """).fetchall()
+        return jsonify({
+            "users": [dict(r) for r in users],
+            "recent_logins": [dict(r) for r in recent]
+        })
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  User Invite  (admin only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _graph_token():
+    """Fetch an OAuth2 client-credentials token from Microsoft Graph."""
+    from config import GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET
+    url  = f"https://login.microsoftonline.com/{GRAPH_TENANT_ID}/oauth2/v2.0/token"
+    data = urllib.parse.urlencode({
+        "grant_type":    "client_credentials",
+        "client_id":     GRAPH_CLIENT_ID,
+        "client_secret": GRAPH_CLIENT_SECRET,
+        "scope":         "https://graph.microsoft.com/.default",
+    }).encode()
+    req = urllib.request.Request(url, data=data, method="POST")
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return _json.loads(r.read())["access_token"]
+
+
+def _graph_request(method, path, body=None, token=None):
+    """Make a Microsoft Graph API call. Returns parsed JSON response."""
+    if token is None:
+        token = _graph_token()
+    url     = f"https://graph.microsoft.com/v1.0{path}"
+    payload = _json.dumps(body).encode() if body else None
+    req     = urllib.request.Request(url, data=payload, method=method)
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type",  "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            raw = r.read()
+            return _json.loads(raw) if raw.strip() else {}
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode(errors="replace")
+        raise RuntimeError(f"Graph {method} {path} → {e.code}: {err_body}")
+
+
+@app.route("/api/users/invite", methods=["POST"])
+@login_required
+def api_users_invite():
+    if session.get("user_role") != "admin":
+        return jsonify({"ok": False, "error": "Admin access required."}), 403
+
+    data  = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        return jsonify({"ok": False, "error": "Valid email address required."}), 400
+
+    import secrets as _secrets
+    import string  as _string
+    from config import GRAPH_TENANT_ID, EMAIL_FROM
+
+    dashboard_url = "https://flashcargo-dashboard-5000.use.devtunnels.ms"
+
+    # ── 1. Generate a 12-char password ────────────────────────────────────
+    alphabet = _string.ascii_letters + _string.digits + "!@#$%"
+    password = "".join(_secrets.choice(alphabet) for _ in range(12))
+
+    # ── 2. Create Flask dashboard account ─────────────────────────────────
+    name   = email.split("@")[0].replace(".", " ").replace("_", " ").title()
+    result = _auth.register_user(name, email, password, role="user")
+    if not result["ok"]:
+        # If already exists, still send the welcome email with a new password reset
+        if "already exists" not in result.get("error", ""):
+            return jsonify({"ok": False, "error": result["error"]}), 400
+
+    try:
+        token = _graph_token()
+
+        # ── 3. Send Azure B2B guest invite ─────────────────────────────────
+        try:
+            _graph_request("POST", "/invitations", body={
+                "invitedUserEmailAddress": email,
+                "inviteRedirectUrl":       dashboard_url,
+                "sendInvitationMessage":   False,   # we send our own email below
+            }, token=token)
+        except Exception as inv_err:
+            print(f"[invite] B2B invite warning (non-fatal): {inv_err}")
+            # Continue — some tenants block B2B invites; email still goes out
+
+        # ── 4. Send welcome email via Graph API ────────────────────────────
+        body_html = f"""
+<p>Hi {name},</p>
+<p>You have been invited to the <strong>Flash Cargo Freight Dashboard</strong>.</p>
+<p><strong>Login URL:</strong> <a href="{dashboard_url}">{dashboard_url}</a><br>
+<strong>Username:</strong> {email}<br>
+<strong>Password:</strong> {password}</p>
+<p>Please log in and change your password as soon as possible.</p>
+<p>— Flash Cargo Team</p>
+"""
+        _graph_request("POST", f"/users/{EMAIL_FROM}/sendMail", body={
+            "message": {
+                "subject": "Your Flash Cargo Dashboard Access",
+                "body":    {"contentType": "HTML", "content": body_html},
+                "toRecipients": [{"emailAddress": {"address": email}}],
+            },
+            "saveToSentItems": True,
+        }, token=token)
+
+    except Exception as e:
+        # Roll back the created user if Graph calls fail entirely
+        print(f"[invite] Graph error: {e}")
+        return jsonify({"ok": False, "error": f"Account created but email failed: {e}"}), 500
+
+    return jsonify({"ok": True, "message": f"Invite sent to {email}"})
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Main dashboard
 # ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/onboarding")
+@login_required
+def onboarding_page():
+    """First-run setup wizard."""
+    if not session.get("user_id"):
+        return redirect(url_for("dashboard"))
+
+    status = _get_onboarding_status(session.get("user_id"))
+    if status["completed"]:
+        return redirect(url_for("dashboard"))
+
+    return render_template(
+        "onboarding.html",
+        active_tab=None,
+        hide_tab_strip=True,
+        sv=STARTUP_TIME,
+    )
+
+
+@app.route("/api/onboarding/complete", methods=["POST"])
+@login_required
+def api_onboarding_complete():
+    """Mark onboarding as completed for the current user."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"ok": True})
+
+    data = request.get_json(silent=True) or {}
+    final_step = data.get("step") or "complete"
+
+    conn = get_db()
+    try:
+        conn.execute(
+            """UPDATE users
+               SET onboarding_completed = 1,
+                   onboarding_step = ?
+               WHERE id = ?""",
+            (final_step, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({"ok": True})
+
+
+@app.route("/help")
+@login_required
+def help_page():
+    """Render the in-app help and documentation page."""
+    return render_template("help.html", active_tab="help", sv=STARTUP_TIME)
+
 
 @app.route("/dashboard")
 @login_required
@@ -281,7 +651,7 @@ def dashboard():
 #  API — search / filter
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_query(args, select="network, company_name, contact_name, email, phone_number, country, city, verified_status, verified_score, website_url, linkedin_url"):
+def _build_query(args, select="id, network, company_name, contact_name, email, phone_number, country, city, verified_status, verified_score, website_url, linkedin_url"):
     country   = args.get("country",   "").strip()
     company   = args.get("company",   "").strip()
     name      = args.get("name",      "").strip()
@@ -347,10 +717,23 @@ def api_version():
 @app.route("/api/stats")
 @login_required
 def api_stats():
-    conn  = get_db()
-    total = conn.execute("SELECT COUNT(*) FROM contacts").fetchone()[0]
+    conn = get_db()
+    row = conn.execute(
+        """SELECT COUNT(*) AS total,
+                  COUNT(DISTINCT CASE
+                      WHEN TRIM(COALESCE(country, '')) <> '' THEN TRIM(country)
+                  END) AS countries,
+                  COUNT(DISTINCT CASE
+                      WHEN TRIM(COALESCE(network, '')) <> '' THEN TRIM(network)
+                  END) AS networks
+           FROM contacts"""
+    ).fetchone()
     conn.close()
-    return jsonify({"total": total})
+    return jsonify({
+        "total": row["total"],
+        "countries": row["countries"],
+        "networks": row["networks"],
+    })
 
 
 @app.route("/api/verify-stats")
@@ -530,7 +913,8 @@ def carrier_alliance(carrier_name):
 def _migrate_lanes_carrier():
     """Add carrier, source, service, confidence, alliance, frequency columns if missing."""
     conn = get_db()
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(lanes)").fetchall()}
+    from database import _get_existing_columns
+    cols = _get_existing_columns(conn, "lanes")
     for col, default in [
         ("carrier",    "''"),
         ("source",     "'maersk'"),
@@ -581,7 +965,7 @@ def import_lanes_csv(path):
     print(f"[lanes] Imported Maersk lanes from {path}")
 
 
-SCHEDULES_PATH = r"C:\Users\Owner\Desktop\shipping_schedules.csv"
+SCHEDULES_PATH = os.path.join(DATA_DIR, "shipping_schedules.csv")
 _schedules_mtime = 0.0
 
 
@@ -684,13 +1068,42 @@ def api_lanes_options():
 def api_lanes_search():
     origin      = request.args.get("origin",      "").strip()
     destination = request.args.get("destination", "").strip()
-    status      = request.args.get("status",      "all").strip().lower()
     vessel_q    = request.args.get("vessel",      "").strip()
     carrier_q   = request.args.get("carrier",     "").strip()
+    lane_group  = request.args.get("lane_group",  "").strip()
 
+    conn = get_db()
+
+    # If lane_group selected, query vessel_schedules (richer, Codex-sourced data)
+    if lane_group:
+        sql    = """SELECT id, origin AS origin_name, destination AS destination_name,
+                           'active' AS lane_status, NULL AS last_checked, NULL AS sailing_id,
+                           etd, eta, vessel_name AS vessel, transit_time AS transit,
+                           NULL AS route, NULL AS booking_url, carrier, 'schedules' AS source,
+                           service, NULL AS confidence, NULL AS alliance, NULL AS frequency,
+                           NULL AS locode_origin, NULL AS locode_dest
+                    FROM vessel_schedules WHERE lane = ?"""
+        params = [lane_group]
+        if carrier_q:
+            sql += " AND LOWER(carrier) LIKE LOWER(?)"
+            params.append(f"%{carrier_q}%")
+        if origin:
+            sql += " AND LOWER(origin) LIKE LOWER(?)"
+            params.append(f"%{origin}%")
+        if destination:
+            sql += " AND LOWER(destination) LIKE LOWER(?)"
+            params.append(f"%{destination}%")
+        if vessel_q:
+            sql += " AND LOWER(vessel_name) LIKE LOWER(?)"
+            params.append(f"%{vessel_q}%")
+        sql += " ORDER BY etd ASC LIMIT 500"
+        rows = conn.execute(sql, params).fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+
+    # Default: query lanes table
     sql    = "SELECT * FROM lanes WHERE 1=1"
     params = []
-
     if origin:
         sql += " AND LOWER(origin_name) = LOWER(?)"
         params.append(origin)
@@ -704,14 +1117,313 @@ def api_lanes_search():
         sql += " AND LOWER(carrier) = LOWER(?)"
         params.append(carrier_q)
 
-    # Sort: active lanes with etd first, then inactive
-    sql += " ORDER BY CASE WHEN lane_status='active' AND etd != '' THEN 0 ELSE 1 END, etd ASC"
-
-    conn  = get_db()
-    rows  = conn.execute(sql, params).fetchall()
+    sql += " ORDER BY CASE WHEN lane_status='active' AND etd != '' THEN 0 ELSE 1 END, etd ASC LIMIT 500"
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Port → Region mapping  (used by new unified schedules UI)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _build_port_like_clause(ports, column):
+    """Return (sql_fragment, params) for matching a column against a list of port names."""
+    if not ports:
+        return "1=0", []
+    clauses = " OR ".join([f"LOWER({column}) LIKE LOWER(?)" for _ in ports])
+    params  = [f"%{p}%" for p in ports]
+    return f"({clauses})", params
+
+
+@app.route("/schedules")
+@login_required
+def schedules_page():
+    return render_template("schedules.html", active_tab="schedules", sv=STARTUP_TIME)
+
+
+@app.route("/api/schedules/search")
+@login_required
+def api_schedules_search():
+    ensure_schedule_schema()
+    origin_region = request.args.get("origin_region", "").strip()
+    dest_region   = request.args.get("dest_region",   "").strip()
+    carrier_q     = request.args.get("carrier",       "").strip()
+    vessel_q      = request.args.get("vessel",        "").strip()
+
+    # Legacy params (old schedules.html still in use on /api/schedules/search)
+    lane_q   = request.args.get("lane",   "").strip()
+    origin_q = request.args.get("origin", "").strip()
+    dest_q   = request.args.get("dest",   "").strip()
+
+    sql    = "SELECT * FROM vessel_schedules WHERE 1=1"
+    params = []
+
+    if origin_region and origin_region in ORIGIN_PORTS:
+        frag, p = _build_port_like_clause(ORIGIN_PORTS[origin_region], "origin")
+        sql    += f" AND {frag}"
+        params += p
+    elif origin_q:
+        sql    += " AND LOWER(origin) LIKE LOWER(?)"
+        params.append(f"%{origin_q}%")
+
+    if dest_region and dest_region in DEST_PORTS:
+        frag, p = _build_port_like_clause(DEST_PORTS[dest_region], "destination")
+        sql    += f" AND {frag}"
+        params += p
+    elif dest_q:
+        sql    += " AND LOWER(destination) LIKE LOWER(?)"
+        params.append(f"%{dest_q}%")
+
+    if lane_q:
+        sql    += " AND lane = ?"
+        params.append(lane_q)
+    if carrier_q:
+        sql    += " AND LOWER(carrier) LIKE LOWER(?)"
+        params.append(f"%{carrier_q}%")
+    if vessel_q:
+        sql    += " AND LOWER(vessel_name) LIKE LOWER(?)"
+        params.append(f"%{vessel_q}%")
+
+    sql += " ORDER BY etd ASC LIMIT 500"
+    conn  = get_db()
+    rows  = conn.execute(sql, params).fetchall()
+    conn.close()
+    row_dicts = [dict(r) for r in rows]
+    row_dicts = enrich_schedules_with_predictions(row_dicts)
+    row_dicts = enrich_schedules_with_reliability(row_dicts)
+    return jsonify(row_dicts)
+
+
+@app.route("/api/schedules/lane-status")
+@login_required
+def api_schedules_lane_status():
+    """Return availability map: { origin_region: { dest_region: bool } }"""
+    ensure_schedule_schema()
+    conn = get_db()
+    result = {}
+    for origin_region, origin_ports in ORIGIN_PORTS.items():
+        result[origin_region] = {}
+        for dest_region, dest_ports in DEST_PORTS.items():
+            if not origin_ports or not dest_ports:
+                result[origin_region][dest_region] = False
+                continue
+            orig_frag, orig_p = _build_port_like_clause(origin_ports, "origin")
+            dest_frag, dest_p = _build_port_like_clause(dest_ports,   "destination")
+            sql = (f"SELECT COUNT(*) FROM vessel_schedules "
+                   f"WHERE {orig_frag} AND {dest_frag} LIMIT 1")
+            count = conn.execute(sql, orig_p + dest_p).fetchone()[0]
+            result[origin_region][dest_region] = count > 0
+    conn.close()
+    return jsonify(result)
+
+
+@app.route("/api/schedules/options")
+@login_required
+def api_schedules_options():
+    ensure_schedule_schema()
+    conn     = get_db()
+    lanes    = [r[0] for r in conn.execute("SELECT DISTINCT lane FROM vessel_schedules ORDER BY lane").fetchall()]
+    carriers = [r[0] for r in conn.execute("SELECT DISTINCT carrier FROM vessel_schedules ORDER BY carrier").fetchall()]
+    origins  = [r[0] for r in conn.execute("SELECT DISTINCT origin FROM vessel_schedules ORDER BY origin").fetchall()]
+    conn.close()
+    return jsonify({"lanes": lanes, "carriers": carriers, "origins": origins})
+
+
+@app.route("/api/schedules/record-arrival", methods=["POST"])
+@login_required
+def api_record_arrival():
+    """Record actual arrival for a sailing. Body: { schedule_id, actual_eta }"""
+    payload = request.get_json(silent=True) or {}
+    schedule_id = payload.get("schedule_id")
+    actual_eta = str(payload.get("actual_eta", "")).strip()
+
+    if not schedule_id or not actual_eta:
+        return jsonify({"ok": False, "error": "schedule_id and actual_eta are required"}), 400
+
+    try:
+        result = mark_arrived(int(schedule_id), actual_eta)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    return jsonify({"ok": True, "arrival": result})
+
+
+@app.route("/api/schedules/delay-stats")
+@login_required
+def api_delay_stats():
+    """Return delay stats summary. Optional filters: carrier, origin, destination."""
+    init_predictive_db()
+    carrier_q = request.args.get("carrier", "").strip()
+    origin_q = request.args.get("origin", "").strip()
+    destination_q = request.args.get("destination", "").strip()
+
+    sql = "SELECT * FROM delay_stats WHERE 1=1"
+    params = []
+
+    if carrier_q:
+        sql += " AND LOWER(carrier) LIKE LOWER(?)"
+        params.append(f"%{carrier_q}%")
+    if origin_q:
+        sql += " AND LOWER(origin) LIKE LOWER(?)"
+        params.append(f"%{origin_q}%")
+    if destination_q:
+        sql += " AND LOWER(destination) LIKE LOWER(?)"
+        params.append(f"%{destination_q}%")
+
+    sql += " ORDER BY sample_count DESC, avg_delay_hours DESC, carrier ASC, origin ASC, destination ASC LIMIT 500"
+    conn = get_db()
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/schedules/reliability/leaderboard")
+@login_required
+def api_reliability_leaderboard():
+    """Return carrier reliability leaderboard."""
+    period = request.args.get("period", "90d")
+    try:
+        limit = int(request.args.get("limit", "20"))
+    except ValueError:
+        limit = 20
+    return jsonify(get_carrier_leaderboard(period, limit))
+
+
+@app.route("/api/schedules/reliability/lane")
+@login_required
+def api_reliability_lane():
+    """Return per-port-pair reliability for a lane."""
+    origin_region = request.args.get("origin_region", "")
+    dest_region = request.args.get("dest_region", "")
+    period = request.args.get("period", "90d")
+    try:
+        limit = int(request.args.get("limit", "20"))
+    except ValueError:
+        limit = 20
+    return jsonify(get_lane_leaderboard(origin_region, dest_region, period, limit))
+
+
+@app.route("/api/schedules/reliability/recompute", methods=["POST"])
+@login_required
+def api_reliability_recompute():
+    """Trigger reliability score recomputation in a background thread."""
+    threading.Thread(target=compute_reliability_scores, daemon=True).start()
+    return jsonify({"status": "started", "message": "Recomputing reliability scores..."})
+
+
+@app.route("/api/schedules/stats")
+@login_required
+def api_schedules_stats():
+    ensure_schedule_schema()
+    init_predictive_db()
+    init_reliability_db()
+    conn = get_db()
+    total    = conn.execute("SELECT COUNT(*) FROM vessel_schedules").fetchone()[0]
+    carriers = conn.execute("SELECT COUNT(DISTINCT carrier) FROM vessel_schedules").fetchone()[0]
+
+    # Count lanes that have data (origin+destination combos matching our regions)
+    lane_count  = conn.execute("SELECT COUNT(DISTINCT lane) FROM vessel_schedules").fetchone()[0]
+
+    # Last updated timestamp
+    last_row = conn.execute(
+        "SELECT COALESCE(last_checked, imported_at) FROM vessel_schedules "
+        "WHERE COALESCE(last_checked, imported_at) IS NOT NULL "
+        "ORDER BY COALESCE(last_checked, imported_at) DESC LIMIT 1"
+    ).fetchone()
+    last_updated = "—"
+    if last_row and last_row[0]:
+        try:
+            dt = datetime.fromisoformat(str(last_row[0]).replace("T", " "))
+            last_updated = f"{dt.strftime('%b')} {dt.day}"
+        except Exception:
+            last_updated = str(last_row[0])[:10]
+
+    source_counts = {"csv": 0, "api": 0}
+    for source_name, count in conn.execute(
+        """
+        SELECT COALESCE(NULLIF(data_source, ''), 'csv') AS source_name, COUNT(*)
+        FROM vessel_schedules
+        GROUP BY source_name
+        """
+    ).fetchall():
+        source_counts[str(source_name)] = count
+
+    source_lane_counts = {"csv": 0, "api": 0}
+    for source_name, count in conn.execute(
+        """
+        SELECT COALESCE(NULLIF(data_source, ''), 'csv') AS source_name, COUNT(DISTINCT lane)
+        FROM vessel_schedules
+        GROUP BY source_name
+        """
+    ).fetchall():
+        source_lane_counts[str(source_name)] = count
+
+    try:
+        gaps = conn.execute("SELECT COUNT(*) FROM schedule_gaps").fetchone()[0]
+    except Exception:
+        gaps = 0
+
+    try:
+        predictions_available = conn.execute("SELECT COUNT(*) FROM delay_stats").fetchone()[0] > 0
+        avg_delay_hours = conn.execute(
+            """
+            SELECT ROUND(AVG(delay_hours), 2)
+            FROM voyage_actuals
+            WHERE delay_hours IS NOT NULL
+              AND actual_eta IS NOT NULL
+              AND substr(COALESCE(actual_eta, scheduled_eta), 1, 10) >= ?
+            """,
+            ((datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d"),),
+        ).fetchone()[0]
+    except Exception:
+        predictions_available = False
+        avg_delay_hours = None
+
+    try:
+        reliability_available = conn.execute("SELECT COUNT(*) FROM reliability_scores").fetchone()[0] > 0
+    except Exception:
+        reliability_available = False
+
+    top_carrier = None
+    top_carrier_pct = None
+    leaderboard = get_carrier_leaderboard("90d", 1) if reliability_available else []
+    if leaderboard:
+        top_carrier = leaderboard[0]["carrier"]
+        top_carrier_pct = float(leaderboard[0]["on_time_pct"] or 0)
+
+    by_lane = conn.execute(
+        "SELECT lane, COUNT(*), COUNT(DISTINCT carrier) FROM vessel_schedules GROUP BY lane ORDER BY lane"
+    ).fetchall()
+    conn.close()
+    return jsonify({
+        "total":          total,
+        "carriers":       carriers,
+        "lanes":          lane_count,
+        "lanes_with_data": lane_count,
+        "gaps":           gaps,
+        "last_updated":   last_updated,
+        "data_sources":   source_counts,
+        "source_lanes":   source_lane_counts,
+        "predictions_available": predictions_available,
+        "avg_delay_hours": avg_delay_hours,
+        "reliability_available": reliability_available,
+        "top_carrier": top_carrier,
+        "top_carrier_pct": top_carrier_pct,
+        "by_lane": [{"lane": r[0], "sailings": r[1], "carriers": r[2]} for r in by_lane],
+    })
+
+
+@app.route("/api/schedules/sync", methods=["POST"])
+@login_required
+def api_schedules_sync():
+    """Trigger manual schedule sync from carrier APIs."""
+    if session.get("user_role") != "admin":
+        return jsonify({"ok": False, "error": "Admin access required."}), 403
+    start_background_sync()
+    return jsonify({"status": "started", "message": "Syncing schedules from carrier APIs..."})
 
 @app.route("/api/lanes/stats")
 @login_required
@@ -734,215 +1446,6 @@ def api_lanes_stats():
     })
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Carriers — FMCSA SAFER API + local DB
-# ─────────────────────────────────────────────────────────────────────────────
-
-FMCSA_BASE = "https://mobile.fmcsa.dot.gov/qc/services"
-
-def _fmcsa_get(path):
-    """Hit FMCSA SAFER REST API. Returns parsed JSON or None on failure."""
-    if not FMCSA_KEY:
-        return None
-    sep = "&" if "?" in path else "?"
-    url = f"{FMCSA_BASE}{path}{sep}webKey={FMCSA_KEY}"
-    try:
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return _json.loads(r.read().decode())
-    except Exception as e:
-        print(f"[fmcsa] Error: {e}")
-        return None
-
-
-def _score_carrier(c):
-    """Score 0–100 based on safety, fleet size, years, insurance."""
-    score = 0
-    # Safety rating (40 pts)
-    rating = (c.get("safety_rating") or "").lower()
-    if rating == "satisfactory":   score += 40
-    elif rating == "":             score += 25   # not rated ≠ bad
-    elif rating == "conditional":  score += 10
-    # Fleet size sweet spot 5–50 (20 pts)
-    trucks = c.get("fleet_trucks", 0) or 0
-    if 5 <= trucks <= 50:          score += 20
-    elif 51 <= trucks <= 150:      score += 10
-    elif trucks > 0:               score += 5
-    # Years active (20 pts)
-    years = c.get("years_active", 0) or 0
-    score += min(years * 2, 20)
-    # Insurance on file (10 pts)
-    if c.get("insured"):           score += 10
-    # Active status (10 pts)
-    if (c.get("status") or "").upper() == "A": score += 10
-    return round(score, 1)
-
-
-def _fmcsa_to_row(carrier_data):
-    """Normalize FMCSA API carrier object into our DB columns."""
-    c = carrier_data.get("carrier", carrier_data)
-    # Derive years active from mileageYear or operatingStatus
-    from datetime import datetime as _dt
-    entity_type = c.get("carrierOperation", {})
-    # Try to get founding year from census data
-    years = 0
-    try:
-        out_of_service = c.get("oosDate", "")
-        # Not reliable — leave as 0 if not present
-    except Exception:
-        pass
-
-    row = {
-        "dot_number":    str(c.get("dotNumber", "") or ""),
-        "mc_number":     str(c.get("mcNumber",  "") or ""),
-        "legal_name":    c.get("legalName",  "") or "",
-        "dba_name":      c.get("dbaName",    "") or "",
-        "city":          c.get("phyCity",    "") or "",
-        "state":         c.get("phyState",   "") or "",
-        "phone":         c.get("telephone",  "") or "",
-        "fleet_trucks":  int(c.get("totalPowerUnits", 0) or 0),
-        "fleet_drivers": int(c.get("totalDrivers",    0) or 0),
-        "safety_rating": c.get("safetyRating", "") or "",
-        "status":        c.get("statusCode",   "") or "",
-        "years_active":  years,
-        "insured":       1 if c.get("bipdInsuranceOnFile") == "Y" else 0,
-        "fetched_at":    datetime.now().strftime("%Y-%m-%d"),
-    }
-    row["score"] = _score_carrier(row)
-    return row
-
-
-@app.route("/carriers")
-@login_required
-def carriers():
-    return render_template("carriers.html", sv=STARTUP_TIME)
-
-
-@app.route("/api/carriers")
-@login_required
-def api_carriers():
-    """List all saved carriers with optional filters."""
-    state  = request.args.get("state",  "").strip().upper()
-    min_sc = request.args.get("min_score", "").strip()
-    q      = request.args.get("q", "").strip()
-
-    sql    = "SELECT * FROM carriers WHERE 1=1"
-    params = []
-    if state:
-        sql += " AND UPPER(state) = ?"
-        params.append(state)
-    if min_sc:
-        sql += " AND score >= ?"
-        params.append(float(min_sc))
-    if q:
-        sql += " AND (LOWER(legal_name) LIKE LOWER(?) OR LOWER(dba_name) LIKE LOWER(?) OR dot_number LIKE ? OR mc_number LIKE ?)"
-        params += [f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"]
-
-    sql += " ORDER BY score DESC"
-    conn = get_db()
-    rows = conn.execute(sql, params).fetchall()
-    conn.close()
-    return jsonify([dict(r) for r in rows])
-
-
-@app.route("/api/carriers/lookup", methods=["POST"])
-@login_required
-def api_carriers_lookup():
-    """Look up a carrier by DOT or MC number via FMCSA and save to DB."""
-    data    = request.get_json() or {}
-    dot     = str(data.get("dot", "")).strip()
-    mc      = str(data.get("mc",  "")).strip()
-
-    if not FMCSA_KEY:
-        return jsonify({"ok": False, "error": "No FMCSA API key configured. Add it to config.py."})
-    if not dot and not mc:
-        return jsonify({"ok": False, "error": "Provide a DOT or MC number."})
-
-    result = None
-    if dot:
-        result = _fmcsa_get(f"/carriers/{dot}")
-    elif mc:
-        result = _fmcsa_get(f"/carriers/docket-number/{mc}")
-
-    if not result:
-        return jsonify({"ok": False, "error": "Carrier not found or FMCSA unreachable."})
-
-    row = _fmcsa_to_row(result)
-
-    conn = get_db()
-    # Upsert by dot_number
-    existing = conn.execute(
-        "SELECT id FROM carriers WHERE dot_number = ?", (row["dot_number"],)
-    ).fetchone()
-
-    if existing:
-        conn.execute("""
-            UPDATE carriers SET legal_name=?, dba_name=?, city=?, state=?, phone=?,
-              fleet_trucks=?, fleet_drivers=?, safety_rating=?, status=?,
-              insured=?, score=?, fetched_at=?
-            WHERE dot_number=?""",
-            (row["legal_name"], row["dba_name"], row["city"], row["state"],
-             row["phone"], row["fleet_trucks"], row["fleet_drivers"],
-             row["safety_rating"], row["status"], row["insured"],
-             row["score"], row["fetched_at"], row["dot_number"])
-        )
-    else:
-        conn.execute("""
-            INSERT INTO carriers
-              (dot_number, mc_number, legal_name, dba_name, city, state, phone,
-               fleet_trucks, fleet_drivers, safety_rating, status,
-               insured, score, fetched_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (row["dot_number"], row["mc_number"], row["legal_name"], row["dba_name"],
-             row["city"], row["state"], row["phone"], row["fleet_trucks"],
-             row["fleet_drivers"], row["safety_rating"], row["status"],
-             row["insured"], row["score"], row["fetched_at"])
-        )
-    conn.commit()
-    conn.close()
-    return jsonify({"ok": True, "carrier": row})
-
-
-@app.route("/api/carriers/<int:carrier_id>", methods=["DELETE"])
-@login_required
-def api_carrier_delete(carrier_id):
-    conn = get_db()
-    conn.execute("DELETE FROM carriers WHERE id = ?", (carrier_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({"ok": True})
-
-
-@app.route("/api/carriers/<int:carrier_id>", methods=["PATCH"])
-@login_required
-def api_carrier_patch(carrier_id):
-    """Update lanes or notes for a saved carrier."""
-    data = request.get_json() or {}
-    fields, params = [], []
-    for col in ("lanes", "notes"):
-        if col in data:
-            fields.append(f"{col} = ?")
-            params.append(data[col])
-    if not fields:
-        return jsonify({"ok": False, "error": "Nothing to update."})
-    params.append(carrier_id)
-    conn = get_db()
-    conn.execute(f"UPDATE carriers SET {', '.join(fields)} WHERE id = ?", params)
-    conn.commit()
-    conn.close()
-    return jsonify({"ok": True})
-
-
-@app.route("/api/carriers/stats")
-@login_required
-def api_carriers_stats():
-    conn = get_db()
-    total  = conn.execute("SELECT COUNT(*) FROM carriers").fetchone()[0]
-    rated  = conn.execute("SELECT COUNT(*) FROM carriers WHERE safety_rating = 'Satisfactory'").fetchone()[0]
-    states = conn.execute("SELECT COUNT(DISTINCT state) FROM carriers WHERE state != ''").fetchone()[0]
-    avg_sc = conn.execute("SELECT AVG(score) FROM carriers").fetchone()[0] or 0
-    conn.close()
-    return jsonify({"total": total, "satisfactory": rated, "states": states, "avg_score": round(avg_sc, 1)})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1124,7 +1627,8 @@ def api_compose_email():
 @app.route("/rates")
 @login_required
 def rates():
-    return render_template("rates.html", sv=STARTUP_TIME, email_configured=bool(EMAIL_USER))
+    from config import GRAPH_CLIENT_SECRET
+    return render_template("rates.html", sv=STARTUP_TIME, email_configured=bool(GRAPH_CLIENT_SECRET))
 
 
 @app.route("/api/rates")
@@ -1259,6 +1763,67 @@ def api_rate_verify(rate_id):
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "verified": verified})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Contact Intelligence API
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/contacts/<int:contact_id>/intelligence")
+@login_required
+def api_contact_intelligence(contact_id):
+    """Full intelligence card for a contact — behavioral profile, interests, call prep."""
+    card = _ce.get_intelligence_card(contact_id)
+    if not card:
+        return jsonify({"ok": False, "error": "Contact not found"}), 404
+    return jsonify({"ok": True, **card})
+
+
+@app.route("/api/contacts/<int:contact_id>/interests", methods=["POST"])
+@login_required
+def api_contact_interests(contact_id):
+    """Store confirmed interests for a contact.
+    Body JSON: {interests: ["football", "cooking", ...]}
+    Or: {reply_text: "raw reply text to parse"}
+    """
+    data = request.get_json() or {}
+    if "reply_text" in data:
+        interests = _ce.parse_interests_from_reply(data["reply_text"])
+    else:
+        interests = data.get("interests", [])
+    _ce.store_interests(contact_id, interests)
+    return jsonify({"ok": True, "interests": interests})
+
+
+@app.route("/api/contacts/<int:contact_id>/responded", methods=["POST"])
+@login_required
+def api_contact_responded(contact_id):
+    """Record that a contact responded. Updates behavioral scoring.
+    Body JSON: {sent_at: "2026-03-21T10:00:00"}
+    """
+    data    = request.get_json() or {}
+    sent_at = data.get("sent_at", "")
+    result  = _ce.record_response(contact_id, sent_at)
+    return jsonify({"ok": True, **result})
+
+
+@app.route("/api/contacts/<int:contact_id>/profile")
+@login_required
+def api_contact_profile(contact_id):
+    """Return the raw contact profile (behavioral + interests)."""
+    profile = _ce.get_or_create_profile(contact_id)
+    return jsonify({"ok": True, "profile": profile})
+
+
+@app.route("/api/test-email", methods=["POST"])
+@login_required
+def api_test_email():
+    """Send a test email to pricing@flashcargoglobal.com to verify Graph API works."""
+    try:
+        _mailer.test_connection()
+        return jsonify({"ok": True, "message": "Test email sent to pricing@flashcargoglobal.com"})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)})
 
 
 @app.route("/api/rates/gaps")
@@ -1712,36 +2277,334 @@ def api_v2_best_match():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  Intro outreach routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/r/<token>/<selection>")
+def intro_click_track(token, selection):
+    """One-click lane/carrier tracking from intro email buttons. No login required."""
+    import intro_mailer as _im
+    result = _im.record_click(token, selection)
+
+    is_carrier = selection.startswith("carrier-")
+    label = selection.replace("carrier-", "").replace("-", " ").title()
+    if selection == "all":
+        label = "All Destinations"
+
+    category = "Shipping Line" if is_carrier else "Lane"
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Flash Cargo Global — Confirmed</title>
+  <style>
+    body {{font-family:Arial,sans-serif;background:#f4f4f4;display:flex;align-items:center;
+           justify-content:center;min-height:100vh;margin:0;}}
+    .card {{background:#fff;border-radius:10px;padding:40px 48px;max-width:480px;
+            text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.08);}}
+    .check {{font-size:56px;margin-bottom:16px;}}
+    h2 {{color:#1a73e8;margin:0 0 12px;}}
+    p {{color:#555;font-size:15px;line-height:1.6;}}
+    .tag {{display:inline-block;background:#e8f0fe;color:#1a73e8;
+           border-radius:20px;padding:4px 14px;font-size:13px;font-weight:600;margin-top:8px;}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="check">&#10003;</div>
+    <h2>Got it — thank you!</h2>
+    <p>We've recorded your {category.lower()} preference:</p>
+    <div class="tag">{label}</div>
+    <p style="margin-top:20px;">
+      You can close this tab. We'll only send you rate requests
+      for the lanes and carriers you've selected.
+    </p>
+    <p style="font-size:13px;color:#888;margin-top:24px;">
+      Flash Cargo Global &mdash; Delivering confidence worldwide
+    </p>
+  </div>
+</body>
+</html>""", 200
+
+
+@app.route("/api/inbox/poll", methods=["POST"])
+@login_required
+def api_inbox_poll():
+    """Manually trigger reply inbox poll."""
+    import reply_parser as _rp
+    stats = _rp.poll_inbox(lookback_hours=72)
+    return jsonify(stats)
+
+
+@app.route("/api/intro/stats")
+@login_required
+def api_intro_stats():
+    """Return aggregate stats for intro outreach emails."""
+    import intro_mailer as _im
+    return jsonify(_im.get_intro_stats())
+
+
+@app.route("/api/intro/send/<int:contact_id>", methods=["POST"])
+@login_required
+def api_intro_send(contact_id):
+    """Send the intro email to a single contact by id."""
+    import intro_mailer as _im
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id, email, contact_name, company_name, country, city FROM contacts WHERE id = ?",
+        (contact_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"ok": False, "error": f"Contact {contact_id} not found."})
+    contact = dict(row)
+    try:
+        ok = _im.send_intro(contact)
+        return jsonify({"ok": ok, "contact_id": contact_id, "email": contact["email"]})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)})
+
+
+@app.route("/api/contacts/<int:contact_id>/lane-confirmed", methods=["POST"])
+@login_required
+def api_lane_confirmed(contact_id):
+    """Store confirmed lanes and carriers from an agent's reply."""
+    data = request.get_json(silent=True) or {}
+    lanes     = data.get("lanes", [])
+    carriers  = data.get("carriers", [])
+    notes     = data.get("notes", "")
+
+    lanes_json    = _json.dumps(lanes)
+    carriers_json = _json.dumps(carriers)
+    now           = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = get_db()
+    # Update the most recent intro_outreach row for this contact
+    row = conn.execute(
+        "SELECT id FROM intro_outreach WHERE contact_id = ? ORDER BY id DESC LIMIT 1",
+        (contact_id,),
+    ).fetchone()
+    if row:
+        conn.execute(
+            """
+            UPDATE intro_outreach
+            SET lanes_confirmed=?, carriers_confirmed=?,
+                reply_received=1, status='replied', notes=?
+            WHERE id=?
+            """,
+            (lanes_json, carriers_json, notes, row["id"]),
+        )
+    else:
+        # No prior intro row — create a stub record
+        conn.execute(
+            """
+            INSERT INTO intro_outreach
+                (contact_id, email, lanes_confirmed, carriers_confirmed,
+                 reply_received, status, sent_at, notes)
+            SELECT ?, email, ?, ?, 1, 'replied', ?, ?
+            FROM contacts WHERE id=?
+            """,
+            (contact_id, lanes_json, carriers_json, now, notes, contact_id),
+        )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "contact_id": contact_id,
+                    "lanes": lanes, "carriers": carriers})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  Startup
 # ─────────────────────────────────────────────────────────────────────────────
 
+@app.route("/outreach")
+@login_required
+def outreach_page():
+    return render_template("outreach.html", active_tab="outreach")
+
+
+@app.route("/api/outreach/replies")
+@login_required
+def api_outreach_replies():
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT
+            io.id, io.email, io.country, io.sent_at, io.status,
+            io.reply_received, io.lanes_confirmed, io.carriers_confirmed,
+            io.lane_clicks, io.carrier_clicks,
+            c.company_name, c.contact_name, c.city
+        FROM intro_outreach io
+        LEFT JOIN contacts c ON io.contact_id = c.id
+        ORDER BY io.sent_at DESC
+        LIMIT 500
+    """).fetchall()
+    conn.close()
+    keys = ["id","email","country","sent_at","status","reply_received",
+            "lanes_confirmed","carriers_confirmed","lane_clicks","carrier_clicks",
+            "company_name","contact_name","city"]
+    return jsonify([dict(zip(keys, r)) for r in rows])
+
+
+# ── Agents Office ────────────────────────────────────────────────────────────
+
+_COUNTRY_FLAGS = {
+    "italy": "IT", "germany": "DE", "france": "FR", "spain": "ES",
+    "netherlands": "NL", "belgium": "BE", "switzerland": "CH", "austria": "AT",
+    "poland": "PL", "greece": "GR", "turkey": "TR", "portugal": "PT",
+    "sweden": "SE", "denmark": "DK", "norway": "NO", "finland": "FI",
+    "russia": "RU", "ukraine": "UA", "czech republic": "CZ", "romania": "RO",
+    "hungary": "HU", "croatia": "HR", "ireland": "IE",
+    "united kingdom": "GB", "uk": "GB",
+    "china": "CN", "hong kong": "HK", "taiwan": "TW", "japan": "JP",
+    "south korea": "KR", "korea": "KR", "india": "IN", "singapore": "SG",
+    "malaysia": "MY", "indonesia": "ID", "thailand": "TH", "vietnam": "VN",
+    "philippines": "PH", "australia": "AU", "new zealand": "NZ",
+    "bangladesh": "BD", "pakistan": "PK", "sri lanka": "LK",
+    "usa": "US", "united states": "US", "brazil": "BR", "mexico": "MX",
+    "colombia": "CO", "argentina": "AR", "chile": "CL", "peru": "PE",
+    "canada": "CA", "ecuador": "EC", "venezuela": "VE",
+    "costa rica": "CR", "panama": "PA",
+    "uae": "AE", "united arab emirates": "AE", "saudi arabia": "SA",
+    "qatar": "QA", "kuwait": "KW", "bahrain": "BH", "oman": "OM",
+    "egypt": "EG", "jordan": "JO", "lebanon": "LB", "israel": "IL",
+    "south africa": "ZA", "nigeria": "NG", "kenya": "KE", "ghana": "GH",
+    "tanzania": "TZ", "morocco": "MA",
+}
+
+
+def _flag_emoji(iso2):
+    """Convert 2-letter ISO code to flag emoji."""
+    return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in iso2.upper())
+
+
+@app.route("/agents")
+@login_required
+@admin_required
+def agents_page():
+    return render_template("agents.html", active_tab="agents")
+
+
+@app.route("/api/agents/stats")
+@login_required
+@admin_required
+def api_agents_stats():
+    conn = get_db()
+
+    # Contact counts per country
+    contact_rows = conn.execute(
+        "SELECT LOWER(TRIM(country)), COUNT(*) FROM contacts WHERE country IS NOT NULL AND country != '' GROUP BY LOWER(TRIM(country))"
+    ).fetchall()
+    contact_counts = {r[0]: r[1] for r in contact_rows}
+
+    # Intro outreach stats per country
+    outreach_rows = conn.execute(
+        "SELECT LOWER(TRIM(country)), COUNT(*), SUM(CASE WHEN reply_received IS NOT NULL AND reply_received != '' THEN 1 ELSE 0 END) FROM intro_outreach WHERE country IS NOT NULL AND country != '' GROUP BY LOWER(TRIM(country))"
+    ).fetchall()
+    outreach_stats = {r[0]: {"sent": r[1], "replies": r[2]} for r in outreach_rows}
+
+    # Rate outreach stats per country
+    rate_rows = conn.execute(
+        "SELECT LOWER(TRIM(contact_country)), COUNT(*), SUM(CASE WHEN responded_at IS NOT NULL THEN 1 ELSE 0 END) FROM rate_outreach WHERE contact_country IS NOT NULL AND contact_country != '' GROUP BY LOWER(TRIM(contact_country))"
+    ).fetchall()
+    rate_stats = {r[0]: {"sent": r[1], "replies": r[2]} for r in rate_rows}
+
+    conn.close()
+
+    # Build per-country agent data from mailer's _COUNTRY_NAMES
+    seen_iso = set()
+    countries = []
+    for country_key, names in _mailer._COUNTRY_NAMES.items():
+        iso2 = _COUNTRY_FLAGS.get(country_key, "")
+        if not iso2 or iso2 in seen_iso:
+            continue
+        seen_iso.add(iso2)
+
+        agents = []
+        for name in names:
+            alias = _mailer._strip_accents(name).lower()
+            email = f"{alias}@flashcargoglobal.com" if alias in _mailer._ACTIVE_ALIASES else "pricing@flashcargoglobal.com"
+            agents.append({"name": name, "email": email, "has_alias": alias in _mailer._ACTIVE_ALIASES})
+
+        c_contacts = contact_counts.get(country_key, 0)
+        o = outreach_stats.get(country_key, {"sent": 0, "replies": 0})
+        r = rate_stats.get(country_key, {"sent": 0, "replies": 0})
+        total_sent = o["sent"] + r["sent"]
+        total_replies = o["replies"] + r["replies"]
+
+        display_name = country_key.title()
+        if country_key in ("uae",):
+            display_name = "UAE"
+        elif country_key in ("usa",):
+            display_name = "USA"
+        elif country_key in ("uk",):
+            display_name = "UK"
+
+        countries.append({
+            "country": display_name,
+            "country_key": country_key,
+            "iso2": iso2,
+            "flag": _flag_emoji(iso2),
+            "agents": agents,
+            "agent_count": len(agents),
+            "contacts": c_contacts,
+            "emails_sent": total_sent,
+            "replies": total_replies,
+            "response_rate": round(total_replies / total_sent * 100, 1) if total_sent > 0 else 0,
+        })
+
+    countries.sort(key=lambda x: x["contacts"], reverse=True)
+
+    totals = {
+        "total_agents": sum(c["agent_count"] for c in countries),
+        "total_countries": len(countries),
+        "total_contacts": sum(c["contacts"] for c in countries),
+        "total_sent": sum(c["emails_sent"] for c in countries),
+        "total_replies": sum(c["replies"] for c in countries),
+    }
+    totals["overall_response_rate"] = round(totals["total_replies"] / totals["total_sent"] * 100, 1) if totals["total_sent"] > 0 else 0
+
+    return jsonify({"countries": countries, "totals": totals})
+
+
 def open_browser():
+    """Auto-open browser in local dev mode only."""
+    if os.environ.get("PRODUCTION"):
+        return
     time.sleep(1.2)
     webbrowser.open("http://127.0.0.1:5000")
 
 
-if __name__ == "__main__":
+def init_all_dbs():
+    """Initialize all database tables — called on startup."""
+    from database import init_tenants_db
+    init_tenants_db()
     init_db()
     init_lanes_db()
-    init_carriers_db()
     init_rates_db()
     init_users_db()
+    init_contact_intelligence_db()
+    init_email_outreach_db()
+    init_inspection_log_db()
+    init_predictive_db()
+    init_reliability_db()
+    ensure_schedule_schema()
     _migrate_lanes_carrier()
 
+
+def start_background_workers():
+    """Start all background threads — called once on startup."""
+    if not has_any_api_keys_configured():
+        print("[schedules] No carrier API keys configured — running in CSV-only mode")
+
     # ── Maersk lanes import ───────────────────────────────────────────────────
-    _lanes_csv = r"C:\Users\Owner\Desktop\maersk_lanes.csv"
-    if not os.path.exists(_lanes_csv):
-        _lanes_csv = os.path.join(DATA_DIR, "maersk_lanes.csv")
+    _lanes_csv = os.path.join(DATA_DIR, "maersk_lanes.csv")
     if os.path.exists(_lanes_csv):
         import_lanes_csv(_lanes_csv)
-        import shutil
-        _lanes_dest = os.path.join(DATA_DIR, "maersk_lanes.csv")
-        if os.path.abspath(_lanes_csv) != os.path.abspath(_lanes_dest):
-            shutil.copy2(_lanes_csv, _lanes_dest)
     else:
         print("[lanes] No maersk_lanes.csv found.")
 
-    # ── Shipping schedules import (India→North America, multi-carrier) ────────
+    # ── Shipping schedules import ─────────────────────────────────────────────
     if os.path.exists(SCHEDULES_PATH):
         import_schedules_csv(SCHEDULES_PATH)
         threading.Thread(target=_schedules_watcher, daemon=True).start()
@@ -1750,12 +2613,10 @@ if __name__ == "__main__":
         print(f"[schedules] {SCHEDULES_PATH} not found — skipping.")
 
     if CSV_SOURCES:
-        # Source machine — import CSVs as usual
         print("[startup] Importing all CSVs…")
         _run_import()
         print(f"[startup] {_sync_state['row_count']} total contacts loaded.")
     else:
-        # Team member machine (no CSV files) — use existing database as-is
         conn = get_db()
         count = conn.execute("SELECT COUNT(*) FROM contacts").fetchone()[0]
         conn.close()
@@ -1764,21 +2625,41 @@ if __name__ == "__main__":
             _sync_state["last_sync"] = datetime.now()
         print(f"[startup] {count} contacts loaded from database.")
 
-    # Start background watcher thread
+    # Background watcher
     threading.Thread(target=_csv_watcher, daemon=True).start()
     print(f"[startup] Auto-sync active — checking every {CHECK_INTERVAL}s for CSV changes.")
 
-    # Start rate engine scheduler (reminders + monthly sends)
+    # Rate engine scheduler
     def _run_in_app_context(fn):
         with app.app_context():
             fn()
     rate_engine.start_scheduler(_run_in_app_context)
 
+    # Reply inbox poller
+    def _poll_replies():
+        while True:
+            time.sleep(1800)
+            try:
+                import reply_parser as _rp
+                stats = _rp.poll_inbox(lookback_hours=48)
+                print(f"[reply_parser] poll complete: {stats}")
+            except Exception as _e:
+                print(f"[reply_parser] poll error: {_e}")
+
+    threading.Thread(target=_poll_replies, daemon=True).start()
+    print("[reply_parser] Inbox poller started — runs every 30 min.")
+
+
+if __name__ == "__main__":
+    init_all_dbs()
+    start_background_workers()
+
+    PORT = int(os.environ.get("PORT", 5000))
     print("\n" + "=" * 55)
-    print("  WFA Contacts Dashboard")
-    print("  Local:    http://127.0.0.1:5000")
-    print("  Network:  http://0.0.0.0:5000")
+    print("  Freight Intelligence Dashboard")
+    print(f"  Local:    http://127.0.0.1:{PORT}")
+    print(f"  Network:  http://0.0.0.0:{PORT}")
     print("  Press Ctrl+C to stop")
     print("=" * 55 + "\n")
     threading.Thread(target=open_browser, daemon=True).start()
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=PORT, debug=False)

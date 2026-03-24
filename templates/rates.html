@@ -87,7 +87,7 @@
       <div class="d-flex flex-wrap align-items-center gap-3">
         <div class="d-flex align-items-center gap-2">
           <label class="form-label small fw-medium mb-0 text-nowrap">Cycle:</label>
-          <select id="cycleSelect" class="form-select form-select-sm cycle-card" style="min-width:240px">
+          <select id="cycleSelect" class="form-select form-select-sm cycle-card" style="min-width:160px;max-width:260px">
             <option value="">— Select cycle —</option>
           </select>
         </div>
@@ -111,20 +111,20 @@
     <!-- Left 60%: Rates Table -->
     <div class="col-12 col-lg-7">
       <div class="card shadow-sm h-100">
-        <div class="card-header d-flex align-items-center justify-content-between py-2">
+        <div class="card-header d-flex align-items-center justify-content-between py-2 flex-wrap gap-2">
           <span class="fw-semibold small">
             <i class="bi bi-table me-1 text-primary"></i>
             Rate Records
             <span class="text-muted fw-normal ms-1" id="ratesCountLabel"></span>
           </span>
-          <div class="d-flex gap-2">
-            <select id="filterOrigin" class="form-select form-select-sm" style="width:auto;font-size:.78rem">
+          <div class="d-flex gap-2 flex-wrap">
+            <select id="filterOrigin" class="form-select form-select-sm" style="width:auto;min-width:80px;font-size:.78rem">
               <option value="">All Origins</option>
             </select>
-            <select id="filterDest" class="form-select form-select-sm" style="width:auto;font-size:.78rem">
+            <select id="filterDest" class="form-select form-select-sm" style="width:auto;min-width:80px;font-size:.78rem">
               <option value="">All Dests</option>
             </select>
-            <select id="filterCarrier" class="form-select form-select-sm" style="width:auto;font-size:.78rem">
+            <select id="filterCarrier" class="form-select form-select-sm" style="width:auto;min-width:80px;font-size:.78rem">
               <option value="">All Carriers</option>
             </select>
           </div>
@@ -314,13 +314,13 @@
       </div>
       <div class="modal-body">
         <div class="row g-2 mb-3">
-          <div class="col-8">
+          <div class="col-12 col-sm-8">
             <label class="form-label small fw-medium">Contact</label>
             <select id="parseContact" class="form-select form-select-sm">
               <option value="">Select contact…</option>
             </select>
           </div>
-          <div class="col-4">
+          <div class="col-12 col-sm-4">
             <label class="form-label small fw-medium">Cycle (optional)</label>
             <input type="text" id="parseCycle" class="form-control form-control-sm"
                    placeholder="e.g. 2026-04-01_15">

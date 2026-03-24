@@ -54,3 +54,11 @@ Thumbs.db
 # Secrets (never commit)
 config_local.py
 secrets.py
+proxies.txt
+cookies.txt
+
+# Data directory (user uploads, CSVs)
+data/
+
+# Docker volumes
+pgdata/

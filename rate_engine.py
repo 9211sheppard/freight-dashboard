@@ -689,19 +689,20 @@ def build_request_email(contact):
 
 
 def send_rate_requests(cycle):
-    """Legacy: Send rate request emails to all verified contacts for the given cycle.
+    """Send rate request emails to all verified contacts for the given cycle.
+    Uses Microsoft Graph API (no SMTP required).
 
     Returns {"sent": int, "skipped": int, "errors": list, "warning": str|None}
     """
-    from config import EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM
+    import mailer as _mailer
+    from config import GRAPH_CLIENT_SECRET
 
-    if not EMAIL_USER:
+    if not GRAPH_CLIENT_SECRET:
         return {
             "sent":    0,
             "skipped": 0,
             "errors":  [],
-            "warning": "EMAIL_USER is not configured in config.py. "
-                       "Set SMTP credentials to enable sending.",
+            "warning": "GRAPH_CLIENT_SECRET is not configured in config.py.",
         }
 
     conn     = get_db()
@@ -715,21 +716,6 @@ def send_rate_requests(cycle):
     sent    = 0
     skipped = 0
     errors  = []
-
-    try:
-        # TODO: SMTP — connect when credentials are configured
-        server = smtplib.SMTP(EMAIL_HOST, int(EMAIL_PORT), timeout=15)
-        server.ehlo()
-        server.starttls()
-        server.login(EMAIL_USER, EMAIL_PASS)
-    except Exception as exc:
-        return {
-            "sent":    0,
-            "skipped": len(contacts),
-            "errors":  [f"SMTP connection failed: {exc}"],
-            "warning": None,
-        }
-
     now_iso = datetime.now().isoformat(timespec="seconds")
 
     for contact in contacts:
@@ -744,14 +730,13 @@ def send_rate_requests(cycle):
             skipped += 1
             continue
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = email_data["subject"]
-        msg["From"]    = EMAIL_FROM or EMAIL_USER
-        msg["To"]      = contact["email"]
-        msg.attach(MIMEText(email_data["body"], "plain"))
+        lane_strings = [
+            f"{l['carrier']} | {l['origin_name']} → {l['destination_name']}"
+            for l in email_data["lanes"]
+        ]
 
         try:
-            server.sendmail(EMAIL_FROM or EMAIL_USER, contact["email"], msg.as_string())
+            _mailer.send_rate_request(contact, cycle, lanes=lane_strings)
         except Exception as exc:
             errors.append(f"{contact['email']}: send failed — {exc}")
             skipped += 1
@@ -777,27 +762,24 @@ def send_rate_requests(cycle):
         conn.close()
         sent += 1
 
-    try:
-        server.quit()
-    except Exception:
-        pass
-
     return {"sent": sent, "skipped": skipped, "errors": errors, "warning": None}
 
 
 def check_reminders():
-    """Legacy: find contacts who received a request >24h ago and send reminders.
+    """Find contacts who received a request >24h ago and send reminders.
+    Uses Microsoft Graph API (no SMTP required).
 
     Returns {"reminded": int, "skipped": int, "errors": list, "warning": str|None}
     """
-    from config import EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM
+    import mailer as _mailer
+    from config import GRAPH_CLIENT_SECRET, EMAIL_FROM
 
-    if not EMAIL_USER:
+    if not GRAPH_CLIENT_SECRET:
         return {
             "reminded": 0,
             "skipped":  0,
             "errors":   [],
-            "warning":  "EMAIL_USER is not configured. Reminders require SMTP credentials.",
+            "warning":  "GRAPH_CLIENT_SECRET is not configured. Reminders require Graph API credentials.",
         }
 
     cutoff = (datetime.now() - timedelta(hours=24)).isoformat(timespec="seconds")
@@ -824,20 +806,6 @@ def check_reminders():
     if not pending:
         return {"reminded": 0, "skipped": 0, "errors": [], "warning": None}
 
-    try:
-        # TODO: SMTP — connect when credentials are configured
-        server = smtplib.SMTP(EMAIL_HOST, int(EMAIL_PORT), timeout=15)
-        server.ehlo()
-        server.starttls()
-        server.login(EMAIL_USER, EMAIL_PASS)
-    except Exception as exc:
-        return {
-            "reminded": 0,
-            "skipped":  len(pending),
-            "errors":   [f"SMTP connection failed: {exc}"],
-            "warning":  None,
-        }
-
     now_iso = datetime.now().isoformat(timespec="seconds")
 
     for req in pending:
@@ -851,30 +819,32 @@ def check_reminders():
         valid_from, valid_to = _cycle_date_range(req["cycle"])
         lanes_requested = json.loads(req["lanes_requested"] or "[]")
 
-        lane_lines = []
-        for l in lanes_requested:
-            lane_lines.append(f"  - {l.get('carrier','')} — {l.get('origin','')} → {l.get('destination','')}")
+        lane_items = "".join(
+            f"<li>{l.get('carrier','')} — {l.get('origin','')} &rarr; {l.get('destination','')}</li>"
+            for l in lanes_requested
+        ) or "<li>(all available lanes)</li>"
 
-        lane_block = "\n".join(lane_lines) if lane_lines else "  (all available lanes)"
-
-        subject = f"Reminder: Rate Request — {valid_from} to {valid_to}"
-        body    = (
-            f"Dear {first_name},\n\n"
-            f"This is a friendly reminder regarding our rate request sent on "
-            f"{req['sent_at'][:10]}.\n\n"
-            f"We are still awaiting rates for the period {valid_from} to {valid_to} "
-            f"for the following:\n{lane_block}\n\n"
-            f"Please reply at your earliest convenience.\n\nBest regards"
-        )
-
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = EMAIL_FROM or EMAIL_USER
-        msg["To"]      = req["email"]
-        msg.attach(MIMEText(body, "plain"))
+        subject   = f"Reminder: Rate Request — {valid_from} to {valid_to}"
+        from mailer import SIGNATURE as _SIG, _display_name_for_country as _dn
+        sender_name = _dn(req.get("country", ""))
+        body_html = f"""
+<p>Dear {first_name},</p>
+<p>This is a friendly reminder regarding our rate request sent on {req['sent_at'][:10]}.</p>
+<p>We are still awaiting rates for the period <strong>{valid_from} to {valid_to}</strong>
+for the following lanes:</p>
+<ul>{lane_items}</ul>
+<p>Please reply at your earliest convenience (business hours 8 AM–8 PM your local time).</p>
+{_SIG}
+"""
 
         try:
-            server.sendmail(EMAIL_FROM or EMAIL_USER, req["email"], msg.as_string())
+            _mailer.send_email(
+                to_address=req["email"],
+                subject=subject,
+                body_html=body_html,
+                display_name=sender_name,
+                reply_to=EMAIL_FROM,
+            )
         except Exception as exc:
             errors.append(f"{req['email']}: reminder failed — {exc}")
             skipped += 1
@@ -888,11 +858,6 @@ def check_reminders():
         conn.commit()
         conn.close()
         reminded += 1
-
-    try:
-        server.quit()
-    except Exception:
-        pass
 
     return {"reminded": reminded, "skipped": skipped, "errors": errors, "warning": None}
 
@@ -992,7 +957,8 @@ def gap_report():
     """
     conn = get_db()
     # Use new schema if gap_field column exists
-    gap_cols = {r[1] for r in conn.execute("PRAGMA table_info(rate_gaps)").fetchall()}
+    from database import _get_existing_columns
+    gap_cols = _get_existing_columns(conn, "rate_gaps")
 
     if "gap_field" in gap_cols:
         gaps = conn.execute(

@@ -461,6 +461,234 @@ const BOOKS = {
     ]
   },
 
+  influence: {
+    id: 'influence',
+    title: 'Influence',
+    author: 'Robert Cialdini',
+    color: '#e74c3c',
+    icon: '🧠',
+    quotes: [
+      "The most powerful word in the English language may be the one spoken before any request: 'because.'",
+      "Give first. The obligation to give back is one of the most deeply embedded instincts in human nature.",
+      "People follow the lead of similar others. Show them that people like them are already saying yes.",
+      "We trust people we like. Likeability is not a personality trait — it is a skill.",
+      "Commitment, once made publicly, creates its own momentum. Get the first yes and the rest follow.",
+      "Scarcity makes ordinary things precious. What is rare is valuable — even if it wasn't yesterday.",
+    ],
+    lessons: [
+      {
+        title: "Reciprocity",
+        body: "Give first, receive later. People feel deeply obligated to return favors — it is one of the most universal rules of human culture. In outreach, offering genuine value before asking creates a psychological debt that makes people want to respond. A useful market insight, a free introduction, or a simple act of generosity primes the relationship.",
+        keyPoint: "Those who give first receive more. Reciprocity is not manipulation — it is the foundation of trust.",
+        quiz: {
+          q: "According to Cialdini, why does giving something of value before making a request increase compliance?",
+          options: [
+            "It distracts the other person from saying no",
+            "It triggers the deeply embedded human drive to reciprocate — people feel obligated to return favors",
+            "It makes you appear wealthier and more established",
+            "It delays the conversation long enough to build familiarity"
+          ],
+          answer: 1,
+          explanation: "Reciprocity is one of Cialdini's six principles — humans are hardwired to return favors. Giving first creates a sense of obligation that significantly increases the likelihood of a yes."
+        }
+      },
+      {
+        title: "Social Proof",
+        body: "People follow what others do — especially others who are similar to them. When uncertain, humans look to the crowd for signals of the correct action. Mentioning that other freight agents in the same region already work with Flash Cargo Global creates comfort and reduces resistance. A simple 'We currently work with partners in Brazil, Colombia, and Peru' carries enormous weight.",
+        keyPoint: "Show that similar people are already saying yes. Social proof removes uncertainty and reduces the fear of being first.",
+        quiz: {
+          q: "Which of the following best uses the principle of Social Proof in an outreach email?",
+          options: [
+            "We are the best freight company in the market",
+            "Our rates are lower than any competitor",
+            "We currently partner with agents across Southeast Asia who handle similar lanes to yours",
+            "Please respond within 48 hours as we have limited availability"
+          ],
+          answer: 2,
+          explanation: "Mentioning similar partners already working with you applies social proof — it shows the prospect that people like them have already made this decision, reducing perceived risk."
+        }
+      },
+      {
+        title: "Liking",
+        body: "People say yes to people they like. Research shows that likeability is influenced by similarity, compliments, and familiarity — all of which can be engineered in writing. Using the agent's name, referencing their city or country, acknowledging their specific market, and showing genuine curiosity about their business makes you likeable before you ever ask for anything.",
+        keyPoint: "Build genuine rapport before making any ask. People do business with people they like, not just companies they need.",
+        quiz: {
+          q: "Which action best applies the Liking principle in a cold outreach email?",
+          options: [
+            "Sending the same template to every contact without personalisation",
+            "Mentioning your company's revenue and history upfront",
+            "Using the agent's name, referencing their city, and expressing genuine interest in their market",
+            "Offering a discount in the first email"
+          ],
+          answer: 2,
+          explanation: "Personalisation — using someone's name, referencing their location, and showing interest in their specific situation — triggers the Liking principle and dramatically increases response rates."
+        }
+      },
+      {
+        title: "Commitment & Consistency",
+        body: "Once someone takes a small action, they are far more likely to keep engaging — because people want to be consistent with their prior choices. Getting a single reply to an intro email is the most important first step. Even a small commitment ('Yes, send me more info') psychologically aligns the agent toward continued engagement. Get the first reply and the rest follows.",
+        keyPoint: "Small commitments lead to larger ones. The goal of the first email is not a deal — it is a reply.",
+        quiz: {
+          q: "Why does Cialdini say getting a small 'yes' early in a conversation matters so much?",
+          options: [
+            "It locks the other person into a legal agreement",
+            "It generates revenue immediately",
+            "People feel compelled to remain consistent with their earlier commitments, making larger yeses more likely",
+            "It signals that the other person has budget to spend"
+          ],
+          answer: 2,
+          explanation: "Commitment & Consistency: once someone takes a small action, they experience psychological pressure to stay consistent with that choice — making future engagement significantly more likely."
+        }
+      },
+      {
+        title: "Authority",
+        body: "People trust experts and defer to those who demonstrate credibility and command of their domain. You do not need to boast — you need to signal authority through specifics. Positioning Flash Cargo Global as a global operator with active customers on named lanes, referencing real transit times and port pairs, and speaking with precision all signal expertise without bragging.",
+        keyPoint: "Authority is demonstrated through specifics, not claims. Say what you know, not just who you are.",
+        quiz: {
+          q: "Which statement best demonstrates Authority in a freight outreach context?",
+          options: [
+            "We are a world-class logistics company with excellent service",
+            "We are the best in the industry — you should trust us",
+            "We currently move cargo on the China–West Coast US lane with 14-day transit times via Maersk and Hapag-Lloyd",
+            "We have many satisfied clients around the world"
+          ],
+          answer: 2,
+          explanation: "Specificity signals expertise. Naming real lanes, carriers, and transit times demonstrates operational authority — something vague claims of 'excellence' never achieve."
+        }
+      },
+      {
+        title: "Scarcity",
+        body: "People want more of what they can have less of. Scarcity increases perceived value and triggers fear of missing out. In agent partnerships, you can apply this by communicating that you select only a few trusted partners per region — rather than working with everyone. This shifts the dynamic: instead of you asking them for help, they become interested in qualifying for a limited opportunity.",
+        keyPoint: "Scarcity creates desire. Positioning your partnership as selective makes agents want to earn it.",
+        quiz: {
+          q: "How does Cialdini's Scarcity principle apply to building an agent network?",
+          options: [
+            "Offer discounts that expire in 24 hours to create urgency",
+            "Tell agents you only select a limited number of partners per region, making the opportunity feel exclusive",
+            "Limit the number of shipments you handle per month",
+            "Avoid replying quickly so agents think you are busy"
+          ],
+          answer: 1,
+          explanation: "Communicating that you selectively choose partners per region applies Scarcity — it transforms the dynamic from you seeking agents to agents wanting to qualify for a limited opportunity."
+        }
+      },
+    ]
+  },
+
+  neversplit: {
+    id: 'neversplit',
+    title: 'Never Split the Difference',
+    author: 'Chris Voss',
+    color: '#8e44ad',
+    icon: '🎯',
+    quotes: [
+      "The most dangerous negotiation is the one you don't know you're in.",
+      "No deal is better than a bad deal. Walking away is a power move, not a failure.",
+      "Empathy is not about being nice. It's about understanding the other side well enough to influence them.",
+      "'No' is not rejection — it is the start of the real conversation.",
+      "Bend their reality, don't meet in the middle. Compromise is often just two people being equally unhappy.",
+      "The word 'fair' is the most powerful and dangerous word in any negotiation.",
+    ],
+    lessons: [
+      {
+        title: "Tactical Empathy",
+        body: "Tactical Empathy means understanding the other side's perspective deeply — not to agree with it, but to navigate it. Before making any ask, acknowledge the other person's reality. In email outreach, this means recognising that your contact is busy, receives dozens of emails, and is selective about partners — and saying so. This disarms defensiveness before it forms.",
+        keyPoint: "Acknowledge their world before making your ask. Feeling understood makes people open to listening.",
+        quiz: {
+          q: "What is the goal of Tactical Empathy in a negotiation or outreach context?",
+          options: [
+            "To agree with everything the other person says",
+            "To understand and acknowledge the other side's perspective deeply enough to reduce resistance",
+            "To make the other person feel sorry for you",
+            "To delay the conversation until the other person lowers their guard"
+          ],
+          answer: 1,
+          explanation: "Tactical Empathy is not about sympathy — it is about deeply understanding the other side's emotional state and perspective, then demonstrating that understanding to build trust and reduce resistance."
+        }
+      },
+      {
+        title: "Mirroring",
+        body: "Mirroring is repeating the last 2–3 words someone said, in a slightly questioning tone, to encourage them to keep talking. It is the simplest negotiation tool and one of the most effective. In email follow-ups, reference exactly what the other person said in their last reply — it signals that you listened and creates a natural conversational flow that feels effortless to continue.",
+        keyPoint: "Repeat the last few words. It costs nothing and signals deep attention — which makes people open up.",
+        quiz: {
+          q: "In email follow-ups, how does Mirroring apply?",
+          options: [
+            "Copy the structure of the other person's email template",
+            "Reference exactly what the other person said in their previous reply to show you listened",
+            "Use the same greeting they used in every email",
+            "Send your email at the same time of day they sent theirs"
+          ],
+          answer: 1,
+          explanation: "Mirroring in email means referencing the other person's exact words from their last message — it creates continuity, shows you paid attention, and makes the conversation feel natural rather than transactional."
+        }
+      },
+      {
+        title: "Labeling",
+        body: "Labeling means naming the emotion you sense the other person is feeling. It validates their position without requiring you to agree with it. In outreach, a label like 'It sounds like you're selective about which partners you work with' does three things: it shows empathy, it flatters their discernment, and it opens dialogue. Labels start with 'It sounds like…' or 'It seems like…' — never 'I think you feel…'",
+        keyPoint: "Name the emotion. Feeling understood is the fastest path to opening a dialogue.",
+        quiz: {
+          q: "Which of the following is a correctly structured Label according to Chris Voss?",
+          options: [
+            "I think you feel overwhelmed by too many partner requests.",
+            "It sounds like you're selective about which networks you join.",
+            "You seem like someone who doesn't need new partners right now.",
+            "I understand you are busy and probably not interested."
+          ],
+          answer: 1,
+          explanation: "Labels start with 'It sounds like…' or 'It seems like…' — not 'I think you feel.' They name the perceived emotion without projecting or accusing, which validates rather than challenges."
+        }
+      },
+      {
+        title: "The No-Oriented Question",
+        body: "Voss found that 'no' makes people feel safe — they feel in control and protected. Asking questions that invite a 'no' response dramatically increases reply rates. 'Is now a bad time?' gets far more responses than 'Can we connect?' because the person answering 'no' feels they are correcting you — which is a comfortable, low-risk action. The no opens the door.",
+        keyPoint: "Ask for 'no' to get a reply. Safety produces engagement; pressure produces silence.",
+        quiz: {
+          q: "Why does 'Is now a bad time?' outperform 'Can we connect?' in cold outreach?",
+          options: [
+            "It is shorter and easier to read",
+            "It invites a 'no' response, which makes the recipient feel safe and in control — triggering a reply",
+            "It implies urgency, which creates pressure to respond",
+            "It suggests you already have an appointment planned"
+          ],
+          answer: 1,
+          explanation: "No-oriented questions give the other person a sense of control — answering 'no' (it's not a bad time) feels safe and protective, dramatically increasing reply rates compared to 'yes' questions that create pressure."
+        }
+      },
+      {
+        title: "Calibrated Questions",
+        body: "Calibrated Questions use 'how' and 'what' to gather information and invite collaboration without triggering defensiveness. They give the other person the illusion of control while steering the conversation. In freight prospecting: 'What lanes are most important to your business right now?' or 'How do you currently handle your US imports?' are far more powerful than yes/no questions that close down dialogue.",
+        keyPoint: "How and what questions invite collaboration. They gather intelligence while making the other person feel heard.",
+        quiz: {
+          q: "Which of the following is a well-formed Calibrated Question?",
+          options: [
+            "Do you ship to the US?",
+            "Can you handle our cargo?",
+            "What lanes are most critical to your business right now?",
+            "Are you interested in working with us?"
+          ],
+          answer: 2,
+          explanation: "'What lanes are most critical to your business?' is a calibrated question — it uses 'what', invites a detailed answer, gives the other person control, and gathers exactly the intelligence you need."
+        }
+      },
+      {
+        title: "The Late-Night FM DJ Voice",
+        body: "Voss identifies three voice types: assertive, playful/accommodating, and the late-night FM DJ voice — slow, calm, deliberate, and warm. The DJ voice signals confidence, trustworthiness, and patience. In written communication, this translates to short sentences, no exclamation marks, no desperation, and a tone that says 'I have time for you.' Calm writing is powerful writing.",
+        keyPoint: "Slow, warm, deliberate tone signals confidence. Urgency and excitement in writing signal desperation.",
+        quiz: {
+          q: "How does the 'Late-Night FM DJ Voice' translate into professional email writing?",
+          options: [
+            "Use enthusiastic language and exclamation marks to show energy",
+            "Write long, detailed emails to demonstrate thoroughness",
+            "Use short sentences, a warm tone, no exclamation marks — calm and deliberate like someone who doesn't need to impress",
+            "Write in all lowercase to seem casual and approachable"
+          ],
+          answer: 2,
+          explanation: "The DJ Voice in email means calm, unhurried, warm prose — short sentences, no desperation, no exclamation marks. It signals confidence and trustworthiness, not eagerness or pressure."
+        }
+      },
+    ]
+  },
+
 };
 
 // Flat list of all quotes for the ticker

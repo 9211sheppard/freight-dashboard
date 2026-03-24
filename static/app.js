@@ -27,6 +27,9 @@ const clearName     = document.getElementById('clearName');
 const clearAll      = document.getElementById('clearAll');
 const navDbCount    = document.getElementById('nav-db-count');
 const spinner       = document.getElementById('spinner');
+const statTotalContacts = document.getElementById('statTotalContacts');
+const statCountries     = document.getElementById('statCountries');
+const statNetworks      = document.getElementById('statNetworks');
 
 // ── Debounce ──────────────────────────────────────────────────────────────
 let debounceTimer = null;
@@ -109,11 +112,14 @@ function renderTable(data) {
         ? `<span class="badge-network badge-network-${(r.network||'').toLowerCase()}">${esc(r.network)}</span>`
         : ''}</td>
       <td>
-        <div class="fw-medium">
-          ${r.website_url
-            ? `<a href="${esc(r.website_url)}" target="_blank" rel="noopener" class="company-link" title="Open website">${esc(r.company_name)}<i class="bi bi-box-arrow-up-right ms-1 small"></i></a>`
-            : (esc(r.company_name) || '<span class="text-muted">—</span>')}
-          ${verifyBadge(r)}
+        <div class="fw-medium d-flex align-items-center gap-2">
+          <span>
+            ${r.website_url
+              ? `<a href="${esc(r.website_url)}" target="_blank" rel="noopener" class="company-link" title="Open website">${esc(r.company_name)}<i class="bi bi-box-arrow-up-right ms-1 small"></i></a>`
+              : (esc(r.company_name) || '<span class="text-muted">—</span>')}
+            ${verifyBadge(r)}
+          </span>
+          ${r.id ? `<button class="btn btn-sm btn-outline-info intel-btn py-0 px-1" data-id="${r.id}" title="Intelligence Card"><i class="bi bi-person-badge"></i></button>` : ''}
         </div>
         ${r.contact_name ? `<div class="text-muted small mt-1"><i class="bi bi-person me-1"></i>${esc(r.contact_name)}</div>` : ''}
       </td>
@@ -139,6 +145,14 @@ function renderTable(data) {
     el.addEventListener('click', e => {
       e.stopPropagation();
       showEmailPicker(el.dataset.email, el);
+    });
+  });
+
+  // Intelligence card buttons
+  resultsBody.querySelectorAll('.intel-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      showIntelCard(btn.dataset.id);
     });
   });
 
@@ -171,6 +185,9 @@ async function fetchStats() {
     const t = data.total.toLocaleString();
     dbTotal.textContent    = `${t} total contacts in database`;
     navDbCount.textContent = `${t} contacts`;
+    if (statTotalContacts) statTotalContacts.textContent = t;
+    if (statCountries) statCountries.textContent = (data.countries || 0).toLocaleString();
+    if (statNetworks) statNetworks.textContent = (data.networks || 0).toLocaleString();
   } catch (_) { /* silently ignore */ }
 }
 
@@ -597,3 +614,332 @@ fetchResults();
 fetchSyncStatus();
 fetchVerifyStats();
 setInterval(fetchVerifyStats, 60_000);  // refresh verify stats every minute
+
+// ── Trust Scorecard Builder ───────────────────────────────────────────────
+function buildScorecard(c) {
+  const score = c.score || 0;
+
+  // Score components — max 85 from data, 100 only from email reply
+  const components = [
+    {
+      key: 'email',
+      label: 'Email Address',
+      pts: 35,
+      earned: c.email ? 35 : 0,
+      earned_label: c.email ? `+35 — ${esc(c.email)}` : '+0 — not found yet',
+      icon: 'bi-envelope-fill',
+      how: 'Scraped from company website or member directory',
+      unlock: 'Email must be found and validated',
+      done: !!c.email
+    },
+    {
+      key: 'phone',
+      label: 'Phone Number',
+      pts: 25,
+      earned: c.phone ? 25 : 0,
+      earned_label: c.phone ? `+25 — ${esc(c.phone)}` : '+0 — not found yet',
+      icon: 'bi-telephone-fill',
+      how: 'Pulled from directory listing',
+      unlock: 'Phone number must be present in source data',
+      done: !!c.phone
+    },
+    {
+      key: 'website',
+      label: 'Company Website',
+      pts: 15,
+      earned: c.website ? 15 : 0,
+      earned_label: c.website ? `+15 — verified` : '+0 — no website on record',
+      icon: 'bi-globe',
+      how: 'Website URL confirmed in source directory',
+      unlock: 'Website URL must be present',
+      done: !!c.website
+    },
+    {
+      key: 'linkedin',
+      label: 'LinkedIn Profile',
+      pts: 10,
+      earned: c.linkedin ? 10 : 0,
+      earned_label: c.linkedin ? `+10 — found` : '+0 — not found',
+      icon: 'bi-linkedin',
+      how: 'LinkedIn company page linked in directory',
+      unlock: 'LinkedIn URL must be present',
+      done: !!c.linkedin
+    },
+    {
+      key: 'replied',
+      label: 'Email Response Confirmed',
+      pts: 15,
+      earned: score >= 100 ? 15 : 0,
+      earned_label: score >= 100 ? '+15 — agent replied to outreach' : '+0 — no reply yet',
+      icon: 'bi-chat-dots-fill',
+      how: 'Agent replied to a Flash Cargo outreach email',
+      unlock: 'Only awarded when agent replies to your outreach — this is the only path to 100',
+      done: score >= 100
+    },
+  ];
+
+  const totalPts = components.reduce((s, c) => s + c.earned, 0);
+  const pct = Math.round((totalPts / 100) * 100);
+  const barColor = totalPts >= 85 ? 'success' : totalPts >= 60 ? 'info' : totalPts >= 35 ? 'warning' : 'danger';
+
+  const rows = components.map(item => `
+    <div class="d-flex align-items-center gap-2 py-1 border-bottom border-secondary" style="border-bottom:1px solid #2a2a2a!important;">
+      <i class="bi ${item.icon} ${item.done ? 'text-success' : 'text-secondary'}" style="width:18px;"></i>
+      <div class="flex-grow-1">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="small fw-medium ${item.done ? 'text-light' : 'text-muted'}">${item.label}</span>
+          <span class="small fw-bold ${item.done ? 'text-success' : 'text-secondary'}">${item.earned_label}</span>
+        </div>
+        <div class="small text-muted" style="font-size:0.72rem;">
+          ${item.done ? `<i class="bi bi-check-circle-fill text-success me-1"></i>${item.how}` : `<i class="bi bi-lock-fill me-1"></i>${item.unlock}`}
+        </div>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="d-flex align-items-center gap-3 mb-3">
+      <div class="text-center" style="min-width:64px;">
+        <div class="fw-bold text-${barColor}" style="font-size:2rem;line-height:1;">${totalPts}</div>
+        <div class="text-muted" style="font-size:0.7rem;">OUT OF 100</div>
+      </div>
+      <div class="flex-grow-1">
+        <div class="progress" style="height:10px;border-radius:6px;">
+          <div class="progress-bar bg-${barColor}" style="width:${pct}%;border-radius:6px;"></div>
+        </div>
+        <div class="d-flex justify-content-between mt-1" style="font-size:0.68rem;color:#666;">
+          <span>0 — No data</span>
+          <span>50 — Verified</span>
+          <span>85 — Full data</span>
+          <span>100 — Replied ✉️</span>
+        </div>
+      </div>
+    </div>
+    <div>${rows}</div>
+    ${totalPts < 100 ? `
+    <div class="mt-2 p-2 rounded small" style="background:#1a2a1a;border:1px solid #2a4a2a;">
+      <i class="bi bi-info-circle me-1 text-success"></i>
+      <strong class="text-success">How to reach 100:</strong>
+      <span class="text-muted"> Send an outreach email and get a reply. A confirmed response is the only way to reach a perfect score.</span>
+    </div>` : `
+    <div class="mt-2 p-2 rounded small" style="background:#1a2a1a;border:1px solid #2a4a2a;">
+      <i class="bi bi-trophy-fill me-1 text-warning"></i>
+      <strong class="text-warning">Perfect score — this agent has replied to your outreach.</strong>
+    </div>`}`;
+}
+
+// ── Intelligence Card ─────────────────────────────────────────────────────
+async function showIntelCard(contactId) {
+  const modal = document.getElementById('intelModal');
+  const body  = document.getElementById('intelModalBody');
+  if (!modal || !body) return;
+
+  body.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-info"></div></div>';
+  new bootstrap.Modal(modal).show();
+
+  try {
+    const res  = await fetch(`/api/contacts/${contactId}/intelligence`);
+    const data = await res.json();
+    if (!data.ok) { body.innerHTML = `<p class="text-danger">${data.error}</p>`; return; }
+
+    const c = data.contact;
+    const b = data.behavior;
+    const r = data.rates;
+    const i = data.interests;
+    const prep = data.call_prep || [];
+
+    const behaviorColor = { fast: 'success', balanced: 'info', relaxed: 'warning', slow: 'secondary', unknown: 'secondary' };
+    const bColor = behaviorColor[b.type] || 'secondary';
+
+    const interestHtml = i.confirmed.length
+      ? i.confirmed.map(int => `<span class="badge bg-primary me-1">${esc(int)}</span>`).join('')
+      : '<span class="text-muted small">Not yet captured</span>';
+
+    const newsHtml = i.news_bullets.length
+      ? `<ul class="small text-muted mt-2">${i.news_bullets.map(n => `<li>${esc(n)}</li>`).join('')}</ul>`
+      : '';
+
+    const prepHtml = prep.map(line => `<li class="small">${esc(line)}</li>`).join('');
+
+    body.innerHTML = `
+      <div class="row g-3">
+
+        <!-- Contact header -->
+        <div class="col-12">
+          <div class="d-flex align-items-start gap-3">
+            <div class="rounded-circle bg-info text-white d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:48px;height:48px;font-size:1.4rem;">
+              <i class="bi bi-person-fill"></i>
+            </div>
+            <div>
+              <h5 class="mb-0">${esc(c.name || c.company)}</h5>
+              <div class="text-muted small">${esc(c.company)} &bull; ${esc(c.country)}${c.city ? ', ' + esc(c.city) : ''}</div>
+              <div class="small mt-1">
+                ${c.email ? `<i class="bi bi-envelope me-1"></i>${esc(c.email)}` : ''}
+                ${c.phone ? `&nbsp;&bull;&nbsp;<i class="bi bi-telephone me-1"></i>${esc(c.phone)}` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scorecard -->
+        <div class="col-12">
+          <div class="card border-0" style="background:#111;">
+            <div class="card-body">
+              <h6 class="card-title text-uppercase text-muted small mb-3"><i class="bi bi-award-fill me-1 text-warning"></i>Trust Scorecard</h6>
+              ${buildScorecard(c)}
+            </div>
+          </div>
+        </div>
+
+        <!-- Behavior -->
+        <div class="col-md-6">
+          <div class="card h-100 border-0 bg-dark">
+            <div class="card-body">
+              <h6 class="card-title text-uppercase text-muted small mb-3"><i class="bi bi-activity me-1"></i>Behavior Profile</h6>
+              <span class="badge bg-${bColor} mb-2">${b.type.toUpperCase()}</span>
+              <p class="small mb-2">${esc(b.label)}</p>
+              <div class="small text-muted">
+                ${b.avg_hours ? `Avg response: <strong>${b.avg_hours}h</strong><br>` : ''}
+                Emails sent: <strong>${b.email_count}</strong> &bull;
+                Responses: <strong>${b.response_count}</strong>
+                ${b.last_responded ? `<br>Last replied: <strong>${b.last_responded.slice(0,10)}</strong>` : ''}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rates -->
+        <div class="col-md-6">
+          <div class="card h-100 border-0 bg-dark">
+            <div class="card-body">
+              <h6 class="card-title text-uppercase text-muted small mb-3"><i class="bi bi-currency-dollar me-1"></i>Rate History</h6>
+              <div class="small">
+                Rates received: <strong>${r.total_received}</strong><br>
+                Complete submissions: <strong>${r.complete}</strong><br>
+                Reliability: <strong>${r.reliability_pct}%</strong>
+              </div>
+              ${r.recent.length ? `
+              <div class="mt-2">
+                ${r.recent.map(rt => `
+                  <div class="small text-muted border-start border-info ps-2 mb-1">
+                    ${esc(rt.origin||'')} → ${esc(rt.destination||'')}
+                    &nbsp;|&nbsp; 20ft: $${rt.rate_20ft||'?'} &nbsp;|&nbsp; 40ft: $${rt.rate_40ft||'?'}
+                    &nbsp;|&nbsp; ${esc(rt.carrier||'')}
+                  </div>`).join('')}
+              </div>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Interests -->
+        <div class="col-12">
+          <div class="card border-0 bg-dark">
+            <div class="card-body">
+              <h6 class="card-title text-uppercase text-muted small mb-3"><i class="bi bi-stars me-1"></i>Interests</h6>
+              <div class="mb-2">${interestHtml}</div>
+              ${newsHtml}
+              ${!i.confirmed.length ? `
+              <form class="mt-2 d-flex gap-2" onsubmit="saveInterests(event, ${contactId})">
+                <input type="text" class="form-control form-control-sm" id="interestInput_${contactId}"
+                       placeholder="e.g. football, cooking, F1..." style="max-width:300px;">
+                <button class="btn btn-sm btn-outline-info" type="submit">Save</button>
+              </form>` : `
+              <button class="btn btn-sm btn-outline-secondary mt-1"
+                      onclick="document.getElementById('interestEditWrap_${contactId}').classList.toggle('d-none')">
+                Edit interests
+              </button>
+              <div id="interestEditWrap_${contactId}" class="d-none mt-2">
+                <form class="d-flex gap-2" onsubmit="saveInterests(event, ${contactId})">
+                  <input type="text" class="form-control form-control-sm" id="interestInput_${contactId}"
+                         value="${esc(i.confirmed.join(', '))}" style="max-width:300px;">
+                  <button class="btn btn-sm btn-outline-info" type="submit">Update</button>
+                </form>
+              </div>`}
+            </div>
+          </div>
+        </div>
+
+        <!-- Call Prep -->
+        <div class="col-12">
+          <div class="card border-0 bg-dark">
+            <div class="card-body">
+              <h6 class="card-title text-uppercase text-muted small mb-3"><i class="bi bi-telephone-fill me-1"></i>Call Prep</h6>
+              <ul class="list-unstyled mb-0">${prepHtml}</ul>
+            </div>
+          </div>
+        </div>
+
+      </div>`;
+  } catch(e) {
+    body.innerHTML = `<p class="text-danger">Failed to load intelligence card.</p>`;
+  }
+}
+
+async function saveInterests(e, contactId) {
+  e.preventDefault();
+  const input = document.getElementById(`interestInput_${contactId}`);
+  if (!input) return;
+  const interests = input.value.split(',').map(s => s.trim()).filter(Boolean);
+  await fetch(`/api/contacts/${contactId}/interests`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ interests }),
+  });
+  showIntelCard(contactId); // refresh
+}
+
+// ── Add User / Invite Modal ────────────────────────────────────────────────
+(function () {
+  const addBtn = document.getElementById('addUserBtn');
+  if (!addBtn) return;  // not admin — element not rendered
+
+  const modal       = new bootstrap.Modal(document.getElementById('addUserModal'));
+  const emailInput  = document.getElementById('inviteEmailInput');
+  const sendBtn     = document.getElementById('sendInviteBtn');
+  const spinner     = document.getElementById('sendInviteSpinner');
+  const msgEl       = document.getElementById('inviteMsg');
+
+  addBtn.addEventListener('click', function () {
+    emailInput.value = '';
+    msgEl.textContent = '';
+    msgEl.className = 'mt-2 small';
+    modal.show();
+    setTimeout(function () { emailInput.focus(); }, 300);
+  });
+
+  sendBtn.addEventListener('click', async function () {
+    const email = emailInput.value.trim();
+    if (!email) { msgEl.textContent = 'Please enter an email address.'; msgEl.className = 'mt-2 small text-warning'; return; }
+
+    sendBtn.disabled = true;
+    spinner.classList.remove('d-none');
+    msgEl.textContent = '';
+
+    try {
+      const res  = await fetch('/api/users/invite', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        msgEl.textContent = data.message || 'Invite sent successfully.';
+        msgEl.className   = 'mt-2 small text-success';
+        setTimeout(function () { modal.hide(); }, 2000);
+      } else {
+        msgEl.textContent = data.error || 'Invite failed.';
+        msgEl.className   = 'mt-2 small text-danger';
+      }
+    } catch (e) {
+      msgEl.textContent = 'Network error — please try again.';
+      msgEl.className   = 'mt-2 small text-danger';
+    } finally {
+      sendBtn.disabled = false;
+      spinner.classList.add('d-none');
+    }
+  });
+
+  emailInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') sendBtn.click();
+  });
+})();

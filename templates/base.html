@@ -4,16 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Dashboard{% endblock %}</title>
-  <!-- Bootstrap 5 -->
-  <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-        crossorigin="anonymous">
-  <!-- Bootstrap Icons -->
-  <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <!-- Bootstrap 5 (local) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <!-- Bootstrap Icons (local) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-icons.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ sv|default('1') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='learn.css') }}?v={{ sv|default('1') }}">
+  {% if session.get('logged_in') %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='tour.css') }}?v={{ sv|default('1') }}">
+  {% endif %}
 </head>
 <body>
 
@@ -25,7 +24,7 @@
   <div class="quote-ticker-wrap d-none d-lg-flex">
     <div id="quoteTicker"></div>
   </div>
-  <div class="ms-auto d-flex align-items-center gap-2 flex-shrink-0">
+  <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
     <span class="text-secondary small" id="nav-db-count"></span>
     <span class="text-secondary small d-none d-md-inline" id="nav-last-sync" title="Last time CSV was synced"></span>
     <!-- Hidden file input -->
@@ -33,15 +32,50 @@
     <button class="btn btn-sm btn-outline-info" id="learnBtn" title="Start a learning session">
       <i class="bi bi-book me-1"></i><span class="d-none d-md-inline">Learn</span>
     </button>
+    <a href="/help" class="btn btn-sm btn-outline-secondary" title="Help & Documentation">
+      <i class="bi bi-question-circle me-1"></i><span class="d-none d-md-inline">Help</span>
+    </a>
+    <button class="btn btn-sm btn-outline-info" id="startTourBtn" title="Take a guided tour of this page">
+      <i class="bi bi-signpost-2"></i>
+    </button>
     <button class="btn btn-sm btn-outline-warning" id="importCsvBtn" title="Import a CSV file you received by email">
       <i class="bi bi-upload" id="importIcon"></i> Import CSV
     </button>
     <button class="btn btn-sm btn-outline-light" id="refreshBtn" title="Re-import CSV now">
       <i class="bi bi-arrow-clockwise" id="refreshIcon"></i> Refresh Data
     </button>
+    {% if session.get('user_role') == 'admin' %}
+    <button class="btn btn-sm btn-outline-success" id="addUserBtn" title="Invite a new user">
+      <i class="bi bi-person-plus-fill me-1"></i><span class="d-none d-md-inline">Add User</span>
+    </button>
+    {% endif %}
     <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-box-arrow-right"></i> Logout
     </a>
+  </div>
+
+  <!-- Add User Modal -->
+  <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content bg-dark text-white border-secondary">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title" id="addUserModalLabel"><i class="bi bi-person-plus-fill me-2"></i>Invite New User</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-secondary small mb-3">Sends a Microsoft B2B invite and emails the user their dashboard credentials.</p>
+          <input type="email" class="form-control bg-dark text-white border-secondary" id="inviteEmailInput" placeholder="user@example.com" autocomplete="off">
+          <div id="inviteMsg" class="mt-2 small"></div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success btn-sm" id="sendInviteBtn">
+            <span id="sendInviteSpinner" class="spinner-border spinner-border-sm d-none me-1"></span>
+            Send Invite
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Toast notification -->
@@ -56,43 +90,40 @@
 </nav>
 {% endblock %}
 
-{% if session.get('logged_in') %}
-<div class="tab-nav-strip">
+{% if session.get('logged_in') and not hide_tab_strip %}
+<div class="tab-nav-strip" id="tabNavStrip">
   <a href="/dashboard" class="tab-link {% if active_tab == 'contacts' %}active{% endif %}">
     <i class="bi bi-people-fill"></i> Contacts
   </a>
-  <a href="/lanes" class="tab-link {% if active_tab == 'lanes' %}active{% endif %}">
-    <i class="bi bi-ship"></i> Lanes
-  </a>
-  <a href="/carriers" class="tab-link {% if active_tab == 'carriers' %}active{% endif %}">
-    <i class="bi bi-truck"></i> Carriers
+  <a href="/schedules" class="tab-link {% if active_tab == 'schedules' %}active{% endif %}">
+    <i class="bi bi-ship"></i> Schedules
   </a>
   <a href="/rates" class="tab-link {% if active_tab == 'rates' %}active{% endif %}">
     <i class="bi bi-currency-dollar"></i> Rates
+  </a>
+  <a href="/outreach" class="tab-link {% if active_tab == 'outreach' %}active{% endif %}">
+    <i class="bi bi-send"></i> Outreach
+  </a>
+  {% if session.get('user_role') == 'admin' %}
+  <a href="/agents" class="tab-link {% if active_tab == 'agents' %}active{% endif %}">
+    <i class="bi bi-globe2"></i> Agents
+  </a>
+  {% endif %}
+  <a href="/billing" class="tab-link {% if active_tab == 'billing' %}active{% endif %}">
+    <i class="bi bi-credit-card"></i> Billing
   </a>
 </div>
 {% endif %}
 
 {% block content %}{% endblock %}
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmYvBaVlnLM4GzaFEQRNKb4inCF7"
-        crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
 {% block scripts %}{% endblock %}
 {% if session.get('logged_in') %}
 <script src="{{ url_for('static', filename='quotes.js') }}?v={{ sv|default('1') }}"></script>
 <script src="{{ url_for('static', filename='learn.js') }}?v={{ sv|default('1') }}"></script>
-<!-- Auto-reload: detects server restart and refreshes page automatically -->
-<script>
-(function(){
-  const V = '{{ sv|default("1") }}';
-  setInterval(function(){
-    fetch('/api/version').then(r=>r.json()).then(d=>{
-      if(d.v && d.v !== V) window.location.reload();
-    }).catch(function(){});
-  }, 3000);
-})();
-</script>
+<script src="{{ url_for('static', filename='tour.js') }}?v={{ sv|default('1') }}"></script>
+<!-- No auto-reload: page only refreshes when user presses browser refresh -->
 {% endif %}
 </body>
 </html>

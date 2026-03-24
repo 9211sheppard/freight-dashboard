@@ -11,8 +11,8 @@
       <div class="login-icon mb-3">
         <i class="bi bi-person-plus-fill"></i>
       </div>
-      <h4 class="fw-bold mb-0">Create Account</h4>
-      <p class="text-muted small mt-1">Join the Freight Intelligence Dashboard</p>
+      <h4 class="fw-bold mb-0">Start Your Free Trial</h4>
+      <p class="text-muted small mt-1">14 days free. No credit card required.</p>
     </div>
 
     {% if error %}
@@ -38,6 +38,16 @@
           </span>
           <input type="text" class="form-control" id="name" name="name"
                  placeholder="Your full name" autofocus required>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label for="company_name" class="form-label fw-medium">Company Name</label>
+        <div class="input-group">
+          <span class="input-group-text bg-transparent">
+            <i class="bi bi-building text-muted"></i>
+          </span>
+          <input type="text" class="form-control" id="company_name" name="company_name"
+                 placeholder="Your freight forwarding company" required>
         </div>
       </div>
       <div class="mb-3">
@@ -70,8 +80,8 @@
                  placeholder="Repeat password" required autocomplete="new-password">
         </div>
       </div>
-      <button type="submit" class="btn btn-success w-100 fw-semibold">
-        <i class="bi bi-person-check-fill me-1"></i> Create Account
+      <button type="submit" class="btn btn-primary w-100 fw-semibold">
+        <i class="bi bi-rocket-takeoff me-1"></i> Start Free Trial
       </button>
     </form>
 

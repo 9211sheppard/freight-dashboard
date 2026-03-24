@@ -15,6 +15,10 @@ body {
   color: var(--text-main);
   font-family: "Segoe UI", system-ui, sans-serif;
   font-size: 0.92rem;
+  overflow-x: hidden;
+}
+html {
+  overflow-x: hidden;
 }
 
 /* ── Navbar ───────────────────────────────────────── */
@@ -30,10 +34,11 @@ body {
 /* ── Login ────────────────────────────────────────── */
 .login-wrapper {
   background: linear-gradient(135deg, #0f1923 0%, #1a2e45 100%);
+  padding: 1rem;
 }
 .login-card {
   width: 100%;
-  max-width: 380px;
+  max-width: min(380px, 100%);
   border-radius: 12px;
   border: 1px solid #dee2e6;
 }
@@ -331,11 +336,213 @@ a.company-link .bi-box-arrow-up-right {
 }
 .spin { display: inline-block; animation: spin .7s linear infinite; }
 
-/* ── Responsive tweaks ────────────────────────────── */
-@media (max-width: 576px) {
-  .container-fluid { padding-left: .75rem; padding-right: .75rem; }
+/* ── Touch targets (global) ───────────────────────── */
+.btn, .form-control, .form-select, .tab-link,
+.email-client-btn, .email-picker-close,
+.form-check-input { min-height: 44px; }
+.form-check-input { width: 22px; height: 22px; }
+.email-client-btn { padding: 10px 12px; }
+
+/* ── Global: prevent any table from breaking layout ── */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Tab nav: horizontal scroll on small screens ──── */
+.tab-nav-strip {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tab-nav-strip::-webkit-scrollbar { display: none; }
+
+/* ── Global: scrollable button groups ─────────────── */
+.btn-group {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+}
+.btn-group::-webkit-scrollbar { display: none; }
+.btn-group .btn { white-space: nowrap; flex-shrink: 0; }
+
+/* ── Responsive: Tablets (≤1024px) ───────────────── */
+@media (max-width: 1024px) {
+  .lane-route-cell,
+  .lane-route-text { max-width: 180px; }
   #resultsTable thead th,
-  #resultsTable tbody td { padding: 8px 10px; }
+  #resultsTable tbody td,
+  #lanesTable thead th,
+  #lanesTable tbody td { padding: 8px 10px; }
+
+  /* Rates page: stack filter selects on tablet */
+  .card-header .d-flex.gap-2 { flex-wrap: wrap; }
+  .card-header .form-select { min-width: 100px; }
+}
+
+/* ── Responsive: Phones (≤767px) ─────────────────── */
+@media (max-width: 767px) {
+  .container-fluid { padding-left: .5rem; padding-right: .5rem; }
+
+  /* All tables: shrink cells and allow auto widths */
+  #resultsTable thead th,
+  #resultsTable tbody td,
+  #lanesTable thead th,
+  #lanesTable tbody td,
+  #ratesTable thead th,
+  #ratesTable tbody td,
+  .gap-table thead th,
+  .gap-table tbody td,
+  #requestsTable thead th,
+  #requestsTable tbody td,
+  #activityTable thead th,
+  #activityTable tbody td,
+  .table thead th,
+  .table tbody td { padding: 6px 8px; font-size: .78rem; }
+
+  /* Force auto column widths on mobile */
+  #resultsTable th[style],
+  #lanesTable th[style],
+  #ratesTable th[style],
+  #requestsTable th[style] { width: auto !important; }
+
+  /* Tables: set minimum width to allow horizontal scroll */
+  #lanesTable { min-width: 640px; }
+  #ratesTable { min-width: 600px; }
+  #requestsTable { min-width: 560px; }
+
+  /* Stat cards */
+  .lane-stat-value { font-size: 1.15rem; }
+  .lane-stat-icon { width: 32px; height: 32px; font-size: .9rem; }
+  .lane-stat-label { font-size: .68rem; }
+
+  /* Route cells */
+  .lane-route-cell,
+  .lane-route-text { max-width: 140px; }
+
+  /* Cards: tighten padding */
+  .card-body { padding: .5rem !important; }
+
+  /* Search inputs full width */
+  #searchBox { max-width: 100% !important; flex: 1 1 100% !important; }
+
+  /* Email picker: fit mobile screen */
+  #emailPicker { width: calc(100vw - 2rem); max-width: 320px; left: 1rem !important; }
+
+  /* Outreach stat cards: smaller font on mobile */
+  #statsRow .fs-4, #statsRow .fs-2 { font-size: 1.25rem !important; }
+  #statsRow .card { padding: .5rem 0 !important; }
+
+  /* Navbar buttons: hide less critical ones */
+  #importCsvBtn, #refreshBtn { display: none !important; }
+
+  /* Navbar: prevent wrapping overflow */
+  #main-nav .ms-auto {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: .35rem !important;
+  }
+  #main-nav .ms-auto::-webkit-scrollbar { display: none; }
+  #main-nav .btn { font-size: .75rem; padding: .25rem .5rem; }
+
+  /* Modal dialog: nearly full-width on mobile */
+  .modal-dialog {
+    margin: .5rem;
+    max-width: calc(100vw - 1rem);
+  }
+  .modal-content { border-radius: 10px; }
+  .modal-dialog.modal-lg,
+  .modal-dialog.modal-xl {
+    max-width: calc(100vw - 1rem);
+  }
+
+  /* Rates page: stack cycle selector buttons */
+  .card-body .d-flex.flex-wrap { gap: .5rem !important; }
+
+  /* Rates page: card header filter selects stack */
+  .card-header .d-flex.gap-2 {
+    flex-wrap: wrap;
+    gap: .35rem !important;
+  }
+  .card-header .form-select {
+    font-size: .72rem !important;
+    min-width: 0;
+    flex: 1 1 calc(50% - .35rem);
+  }
+
+  /* Outreach page: filter row stacks properly */
+  .d-flex.flex-wrap { gap: .5rem !important; }
+
+  /* Login / auth pages: ensure card fits */
+  .login-wrapper { padding: .75rem; }
+  .login-card { max-width: 100%; }
+  .login-card.p-4 { padding: 1.25rem !important; }
+  .login-icon { width: 48px; height: 48px; font-size: 1.3rem; }
+  .login-card h4 { font-size: 1.15rem; }
+
+  /* Outreach table: enable horizontal scroll */
+  #outreachTable { min-width: 640px; }
+
+  /* Force form-check-inline to wrap on mobile */
+  .form-check-inline { margin-right: .5rem; }
+}
+
+/* ── Responsive: Small phones (≤414px) ───────────── */
+@media (max-width: 414px) {
+  .container-fluid { padding-left: .35rem; padding-right: .35rem; }
+  .tab-link { padding: 8px 10px; font-size: .78rem; gap: 4px; }
+  .navbar-brand { font-size: .82rem; }
+
+  /* Stack filters vertically */
+  .form-check-inline { display: block; margin-left: 0; margin-top: .25rem; }
+
+  /* Even smaller login card padding */
+  .login-card.p-4 { padding: 1rem !important; }
+  .login-icon { width: 44px; height: 44px; font-size: 1.2rem; }
+
+  /* Stat cards: even tighter */
+  .lane-stat-value { font-size: 1rem; }
+  .lane-stat-icon { width: 28px; height: 28px; font-size: .8rem; }
+  .lane-stat-label { font-size: .62rem; }
+  .lane-stat-card .card-body { padding: .35rem !important; }
+
+  /* Navbar: collapse to icons only */
+  #main-nav .btn .d-none { display: none !important; }
+  #main-nav .btn span:not(.bi) { display: none; }
+  #learnBtn span, #addUserBtn span { display: none !important; }
+
+  /* Rates: cycle selector input smaller */
+  #cycleSelect { min-width: 160px !important; font-size: .78rem; }
+
+  /* Outreach search box */
+  #searchBox { font-size: .78rem; }
+}
+
+/* ── Responsive: Very small phones (≤320px, iPhone SE) ─ */
+@media (max-width: 320px) {
+  .login-card.p-4 { padding: .75rem !important; }
+  .login-card h4 { font-size: 1rem; }
+  body { font-size: .85rem; }
+  .btn { font-size: .75rem; padding: .2rem .4rem; }
+  .tab-link { padding: 6px 8px; font-size: .72rem; }
+}
+
+/* ── Admin activity panel ────────────────────────── */
+#activityTable thead th {
+  background: var(--th-bg);
+  font-weight: 600;
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+  padding: 8px 12px;
+}
+#activityTable tbody td {
+  padding: 8px 12px;
+  vertical-align: middle;
 }
 
 /* ── Tab navigation strip ─────────────────────────── */

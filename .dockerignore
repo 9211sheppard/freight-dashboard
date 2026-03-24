@@ -1,0 +1,15 @@
+dist/
+build/
+venv/
+__pycache__/
+*.pyc
+*.db
+data/
+.git
+.gitignore
+*.log
+*.zip
+*.exe
+proxies.txt
+cookies.txt
+node_modules/
