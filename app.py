@@ -51,6 +51,8 @@ from import_csv import import_all_csvs, import_csv
 import rate_engine
 import rate_engine_v2
 import auth as _auth
+import quotes as _quotes
+import helpbot as _helpbot
 
 if getattr(sys, 'frozen', False):
     # When running as a PyInstaller .exe, templates and static files
@@ -196,6 +198,86 @@ def health_endpoint():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  Admin Panel (admin only — internal team and customers never see this)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/admin")
+@admin_required
+def admin_panel_page():
+    import admin_panel as _ap
+    metrics = _ap.get_saas_metrics()
+    tenants = _ap.list_tenants()
+    users = _ap.get_all_users()
+    spin_stats = _ap.get_spin_stats()
+    referral_stats = _ap.get_referral_stats()
+    ticket_stats = _ap.get_ticket_overview()
+    health = _ap.run_health_check()
+    # Pitch scores
+    conn = get_db()
+    try:
+        pitch_scores = [dict(r) for r in conn.execute(
+            "SELECT * FROM pitch_scores ORDER BY created_at DESC"
+        ).fetchall()]
+    except Exception:
+        pitch_scores = []
+    finally:
+        conn.close()
+    return render_template("admin.html",
+                           metrics=metrics, tenants=tenants, users=users,
+                           spin_stats=spin_stats, referral_stats=referral_stats,
+                           ticket_stats=ticket_stats, health=health,
+                           pitch_scores=pitch_scores,
+                           sv=STARTUP_TIME)
+
+
+@app.route("/api/admin/spin-stats")
+@admin_required
+def api_spin_stats():
+    import admin_panel as _ap
+    return jsonify(_ap.get_spin_stats())
+
+
+@app.route("/api/admin/referral-stats")
+@admin_required
+def api_referral_stats():
+    import admin_panel as _ap
+    return jsonify(_ap.get_referral_stats())
+
+
+# ── Spin-to-Win API (used during registration) ───────────────────────────────
+
+@app.route("/api/spin", methods=["POST"])
+@login_required
+def api_spin_wheel():
+    import admin_panel as _ap
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    prize = _ap.spin_the_wheel()
+    _ap.record_spin(tenant_id, user_id, prize)
+    return jsonify({"ok": True, "prize": prize})
+
+
+# ── Referral API ──────────────────────────────────────────────────────────────
+
+@app.route("/api/referral/code", methods=["POST"])
+@login_required
+def api_get_referral_code():
+    import admin_panel as _ap
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    result = _ap.create_referral_code(tenant_id, user_id)
+    return jsonify(result)
+
+
+@app.route("/api/referral/validate")
+def api_validate_referral():
+    import admin_panel as _ap
+    code = request.args.get("code", "")
+    result = _ap.validate_referral_code(code)
+    return jsonify(result)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  Billing Routes (Stripe)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -246,6 +328,264 @@ def billing_webhook():
     sig = request.headers.get("Stripe-Signature", "")
     result = handle_webhook(payload, sig)
     return jsonify(result), 200 if result.get("ok") else 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Quotes & Invoices
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/quotes", methods=["POST"])
+@login_required
+def api_create_quote():
+    data = request.get_json() or {}
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    result = _quotes.create_quote(tenant_id, user_id, data)
+    return jsonify(result), 201 if result.get("ok") else 400
+
+@app.route("/api/quotes")
+@login_required
+def api_list_quotes():
+    tenant_id = session.get("tenant_id", 1)
+    doc_type = request.args.get("type")
+    status = request.args.get("status")
+    rows = _quotes.list_quotes(tenant_id, doc_type=doc_type, status=status)
+    return jsonify(rows)
+
+@app.route("/api/quotes/<int:qid>")
+@login_required
+def api_get_quote(qid):
+    tenant_id = session.get("tenant_id", 1)
+    q = _quotes.get_quote(qid, tenant_id)
+    if not q:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify(q)
+
+@app.route("/api/quotes/<int:qid>", methods=["PATCH"])
+@login_required
+def api_update_quote(qid):
+    data = request.get_json() or {}
+    tenant_id = session.get("tenant_id", 1)
+    result = _quotes.update_quote(qid, tenant_id, data)
+    return jsonify(result)
+
+@app.route("/api/quotes/<int:qid>", methods=["DELETE"])
+@login_required
+def api_delete_quote(qid):
+    tenant_id = session.get("tenant_id", 1)
+    result = _quotes.delete_quote(qid, tenant_id)
+    return jsonify(result)
+
+@app.route("/api/quotes/<int:qid>/pdf")
+@login_required
+def api_quote_pdf(qid):
+    tenant_id = session.get("tenant_id", 1)
+    q = _quotes.get_quote(qid, tenant_id)
+    if not q:
+        return jsonify({"error": "Not found"}), 404
+    pdf_bytes = _quotes.generate_pdf(q)
+    content_type = "application/pdf"
+    if pdf_bytes[:5] == b"<!DOC":
+        content_type = "text/html"
+    return Response(pdf_bytes, mimetype=content_type,
+                    headers={"Content-Disposition": f"inline; filename={q['doc_number']}.pdf"})
+
+@app.route("/api/quotes/<int:qid>/html")
+@login_required
+def api_quote_html(qid):
+    tenant_id = session.get("tenant_id", 1)
+    q = _quotes.get_quote(qid, tenant_id)
+    if not q:
+        return jsonify({"error": "Not found"}), 404
+    html = _quotes.render_quote_html(q)
+    return Response(html, mimetype="text/html")
+
+@app.route("/api/quotes/from-rate", methods=["POST"])
+@login_required
+def api_quote_from_rate():
+    data = request.get_json() or {}
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    result = _quotes.quote_from_rate(
+        tenant_id, user_id,
+        rate_id=int(data.get("rate_id", 0)),
+        client_name=data.get("client_name", ""),
+        client_email=data.get("client_email", ""),
+        client_company=data.get("client_company", ""),
+        margin_pct=float(data.get("margin_pct", 15)),
+    )
+    return jsonify(result), 201 if result.get("ok") else 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Admin Dashboard (system-wide view)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/dashboard")
+@login_required
+def api_admin_dashboard():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Admin only"}), 403
+    from health import full_health_check, get_system_stats
+    health = full_health_check()
+    stats = get_system_stats()
+    conn = get_db()
+    try:
+        # Revenue metrics
+        tenants = conn.execute("""
+            SELECT plan, subscription_status, COUNT(*) as cnt
+            FROM tenants GROUP BY plan, subscription_status
+        """).fetchall()
+        # Recent signups
+        recent = conn.execute("""
+            SELECT t.name, t.slug, t.plan, t.subscription_status, t.created_at,
+                   COUNT(u.id) as user_count
+            FROM tenants t LEFT JOIN users u ON u.tenant_id = t.id
+            GROUP BY t.id ORDER BY t.created_at DESC LIMIT 20
+        """).fetchall()
+        # Quote stats
+        quote_stats = conn.execute("""
+            SELECT doc_type, status, COUNT(*) as cnt, COALESCE(SUM(total),0) as total_value
+            FROM quotes GROUP BY doc_type, status
+        """).fetchall()
+    finally:
+        conn.close()
+
+    active_paid = sum(r["cnt"] for r in tenants if r["subscription_status"] == "active" and r["plan"] == "pro")
+    trial = sum(r["cnt"] for r in tenants if r["plan"] == "trial")
+    mrr = active_paid * 49.99
+
+    return jsonify({
+        "health": health,
+        "stats": stats,
+        "revenue": {
+            "active_paid": active_paid,
+            "trial": trial,
+            "mrr": round(mrr, 2),
+            "arr": round(mrr * 12, 2),
+        },
+        "tenants_by_plan": [dict(r) for r in tenants],
+        "recent_tenants": [dict(r) for r in recent],
+        "quote_stats": [dict(r) for r in quote_stats],
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Rate Limiting
+# ─────────────────────────────────────────────────────────────────────────────
+
+_rate_limit_store = {}  # {ip: [timestamps]}
+
+def _check_rate_limit(ip: str, max_requests: int = 60, window: int = 60) -> bool:
+    """Simple in-memory rate limiter. Returns True if allowed."""
+    now = time.time()
+    if ip not in _rate_limit_store:
+        _rate_limit_store[ip] = []
+    _rate_limit_store[ip] = [t for t in _rate_limit_store[ip] if now - t < window]
+    if len(_rate_limit_store[ip]) >= max_requests:
+        return False
+    _rate_limit_store[ip].append(now)
+    return True
+
+@app.before_request
+def _apply_rate_limit():
+    """Apply rate limiting to API endpoints."""
+    if request.path.startswith("/api/"):
+        ip = request.remote_addr or "unknown"
+        if not _check_rate_limit(ip, max_requests=120, window=60):
+            return jsonify({"error": "Rate limit exceeded. Try again shortly."}), 429
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  AI Help Bot
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/helpbot/ask", methods=["POST"])
+@login_required
+def api_helpbot_ask():
+    data = request.get_json() or {}
+    question = data.get("question", "").strip()
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    result = _helpbot.ask(question, tenant_id=tenant_id, user_id=user_id)
+    return jsonify(result)
+
+@app.route("/api/helpbot/stats")
+@login_required
+def api_helpbot_stats():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Admin only"}), 403
+    return jsonify(_helpbot.get_helpbot_stats())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Transactional Emails (welcome, trial ending, payment failed)
+# ─────────────────────────────────────────────────────────────────────────────
+
+TRANSACTIONAL_TEMPLATES = {
+    "welcome": {
+        "subject": "Welcome to Freight Intelligence — Your 14-Day Trial Starts Now",
+        "body": """<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;">
+<h2 style="color:#0047AB;">Welcome aboard!</h2>
+<p>Your 14-day free trial is active. Here's what you can do right now:</p>
+<ul>
+<li><strong>Import contacts</strong> — Upload your CSV or browse our network database</li>
+<li><strong>Run rate cycles</strong> — Collect and benchmark quotes from agents</li>
+<li><strong>Track vessels</strong> — Predictive ETAs and carrier reliability scoring</li>
+<li><strong>Score agents</strong> — See who responds fastest with the best rates</li>
+</ul>
+<p><a href="{base_url}/dashboard" style="background:#0047AB;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Open Dashboard</a></p>
+<p style="color:#666;font-size:13px;">No credit card required. Full access for 14 days.</p>
+</div>""",
+    },
+    "trial_ending": {
+        "subject": "Your Trial Ends in 3 Days — Keep Your Data",
+        "body": """<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;">
+<h2 style="color:#0047AB;">Your trial ends in 3 days</h2>
+<p>Your contacts, rates, and agent scores are safe — but you'll lose access when the trial ends.</p>
+<p>Upgrade to Pro ($49.99/mo) to keep everything:</p>
+<ul>
+<li>Up to 50,000 contacts</li>
+<li>Up to 50 team members</li>
+<li>Unlimited rate cycles</li>
+<li>All features forever</li>
+</ul>
+<p><a href="{base_url}/billing" style="background:#0047AB;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Upgrade Now</a></p>
+</div>""",
+    },
+    "payment_failed": {
+        "subject": "Action Required — Payment Failed",
+        "body": """<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;">
+<h2 style="color:#dc3545;">Payment failed</h2>
+<p>We couldn't process your payment for Freight Intelligence ($49.99/mo).</p>
+<p>Please update your payment method to keep your account active. Your data is safe — you have 7 days to resolve this.</p>
+<p><a href="{base_url}/billing" style="background:#dc3545;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Update Payment</a></p>
+</div>""",
+    },
+    "payment_success": {
+        "subject": "Payment Confirmed — You're All Set",
+        "body": """<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;">
+<h2 style="color:#198754;">Payment confirmed!</h2>
+<p>Your Freight Intelligence subscription is active. $49.99 has been charged to your card.</p>
+<p>View your invoice and manage your subscription anytime from the billing page.</p>
+<p><a href="{base_url}/billing" style="background:#0047AB;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">View Billing</a></p>
+</div>""",
+    },
+}
+
+
+def _send_transactional(to_email: str, template_name: str, base_url: str = ""):
+    """Send a transactional email using a predefined template."""
+    tmpl = TRANSACTIONAL_TEMPLATES.get(template_name)
+    if not tmpl:
+        return {"ok": False, "error": f"Unknown template: {template_name}"}
+    subject = tmpl["subject"]
+    body = tmpl["body"].replace("{base_url}", base_url)
+    try:
+        _mailer.send(to=to_email, subject=subject, body_html=body)
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -344,6 +684,57 @@ def login():
     return render_template("login.html", error=error, paywall=paywall)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Adaptive Pitch Page (public — no login required)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/pitch")
+def pitch_page():
+    return render_template("pitch.html")
+
+
+@app.route("/api/pitch/profiles")
+def api_pitch_profiles():
+    """Serve profession profiles as JSON (fallback if static file fails)."""
+    import json
+    try:
+        with open(os.path.join(BASE_DIR, "pitch_profiles.json"), "r") as f:
+            return jsonify(json.load(f))
+    except Exception:
+        return jsonify({"default": {"label": "Business Professional", "icon": "bi-briefcase",
+                                     "analogies": {}, "scoring_questions": {}}})
+
+
+@app.route("/api/pitch/score", methods=["POST"])
+def api_pitch_score():
+    """Save a visitor's pitch score and feedback."""
+    import json as _json
+    data = request.get_json() or {}
+    now = datetime.now().isoformat()
+    conn = get_db()
+    try:
+        conn.execute(
+            """INSERT INTO pitch_scores
+               (visitor_name, profession_key, profession_label, score,
+                risk_answer, advice_answer, fund_answer, scoring_answers,
+                ip_address, user_agent, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (data.get("name", ""), data.get("profession", ""),
+             data.get("profession_label", ""), data.get("score", 5),
+             data.get("risk_answer", ""), data.get("advice_answer", ""),
+             data.get("fund_answer", ""),
+             _json.dumps(data.get("scoring_answers", [])),
+             request.remote_addr or "", request.headers.get("User-Agent", "")[:200],
+             now)
+        )
+        conn.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if session.get("logged_in"):
@@ -352,27 +743,48 @@ def register():
     error   = None
     success = None
     if request.method == "POST":
-        name         = request.form.get("name", "").strip()
-        email        = request.form.get("email", "").strip()
-        company_name = request.form.get("company_name", "").strip()
-        password     = request.form.get("password", "")
-        confirm      = request.form.get("confirm", "")
+        name          = request.form.get("name", "").strip()
+        email         = request.form.get("email", "").strip()
+        company_name  = request.form.get("company_name", "").strip()
+        password      = request.form.get("password", "")
+        confirm       = request.form.get("confirm", "")
+        referral_code = request.form.get("referral_code", "").strip()
 
         if password != confirm:
             error = "Passwords do not match."
         else:
-            result = _auth.register_user(name, email, password, company_name=company_name)
+            result = _auth.register_user(name, email, password,
+                                         role="customer", company_name=company_name)
             if result["ok"]:
+                # Process referral code if provided
+                if referral_code:
+                    try:
+                        import admin_panel as _ap
+                        _ap.complete_referral(referral_code, result["tenant_id"], email)
+                    except Exception:
+                        pass  # Don't block registration if referral fails
+
                 # Auto-login after registration
                 login_result = _auth.login_user(email, password, ip=request.remote_addr or "")
                 if login_result["ok"]:
                     _auth.set_session(session, login_result["user"])
-                    return _post_login_redirect(login_result["user"]["id"])
+                    session["show_spin"] = True  # Flag to show spin wheel
+                    return redirect(url_for("spin_page"))
                 success = "Account created! Please log in."
             else:
                 error = result["error"]
 
     return render_template("register.html", error=error, success=success)
+
+
+@app.route("/spin")
+@login_required
+def spin_page():
+    """Spin-to-win page shown after registration."""
+    if not session.pop("show_spin", False):
+        # If they navigate here directly without registering, skip to dashboard
+        return redirect(url_for("dashboard"))
+    return render_template("spin.html", sv=STARTUP_TIME)
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])
@@ -2589,6 +3001,8 @@ def init_all_dbs():
     init_predictive_db()
     init_reliability_db()
     ensure_schedule_schema()
+    _quotes.init_quotes_db()
+    _helpbot.init_helpbot_db()
     _migrate_lanes_carrier()
 
 
