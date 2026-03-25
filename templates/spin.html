@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Spin to Win — Your Welcome Bonus{% endblock %}
+{% block navbar %}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center min-vh-100" style="background: linear-gradient(135deg, #0a1628 0%, #1a2a4a 100%);">
+  <div class="text-center text-white" style="max-width: 500px;">
+
+    <!-- Before spin -->
+    <div id="spinBefore">
+      <h2 class="fw-bold mb-3">Welcome, {{ session.get('user_name', 'there') }}!</h2>
+      <p class="lead opacity-75 mb-4">Spin the wheel for your signup bonus.</p>
+
+      <!-- Wheel -->
+      <div class="position-relative d-inline-block mb-4">
+        <canvas id="wheelCanvas" width="360" height="360" style="border-radius: 50%; box-shadow: 0 0 40px rgba(13,110,253,0.4);"></canvas>
+        <div class="position-absolute top-0 start-50 translate-middle-x" style="margin-top: -10px; font-size: 2rem;">
+          <i class="bi bi-caret-down-fill text-warning"></i>
+        </div>
+      </div>
+
+      <br>
+      <button class="btn btn-warning btn-lg fw-bold px-5 py-3" id="spinBtn" onclick="doSpin()">
+        <i class="bi bi-stars me-2"></i>SPIN THE WHEEL
+      </button>
+    </div>
+
+    <!-- After spin -->
+    <div id="spinAfter" class="d-none">
+      <div class="mb-4" style="font-size: 4rem;"><i class="bi bi-trophy-fill text-warning"></i></div>
+      <h2 class="fw-bold mb-2">Congratulations!</h2>
+      <div class="fs-3 fw-bold text-warning mb-3" id="prizeLabel"></div>
+      <p class="opacity-75 mb-4">Your bonus has been applied to your account.</p>
+      <a href="/" class="btn btn-primary btn-lg fw-bold px-5">
+        <i class="bi bi-rocket-takeoff me-2"></i>Go to Dashboard
+      </a>
+      <div class="mt-4">
+        <p class="small opacity-50">Share your result and invite friends for more rewards!</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const prizes = [
+  {label: '10% Off', color: '#198754', weight: 40},
+  {label: '20% Off', color: '#0d6efd', weight: 25},
+  {label: '1 Month Free', color: '#6610f2', weight: 20},
+  {label: '3 Months Free', color: '#fd7e14', weight: 10},
+  {label: '6 Months Free', color: '#dc3545', weight: 4},
+  {label: 'FREE YEAR!', color: '#ffc107', weight: 1},
+];
+
+const canvas = document.getElementById('wheelCanvas');
+const ctx = canvas.getContext('2d');
+const cx = canvas.width / 2, cy = canvas.height / 2, r = 170;
+let currentAngle = 0;
+
+function drawWheel(angle) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const sliceAngle = (2 * Math.PI) / prizes.length;
+  prizes.forEach((p, i) => {
+    const start = angle + i * sliceAngle;
+    const end = start + sliceAngle;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Label
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(start + sliceAngle / 2);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 13px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.label, r * 0.6, 5);
+    ctx.restore();
+  });
+  // Center circle
+  ctx.beginPath();
+  ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
+  ctx.fillStyle = '#0a1628';
+  ctx.fill();
+  ctx.strokeStyle = '#ffc107';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.fillStyle = '#ffc107';
+  ctx.font = 'bold 11px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('SPIN', cx, cy + 4);
+}
+
+drawWheel(0);
+
+let spinning = false;
+async function doSpin() {
+  if (spinning) return;
+  spinning = true;
+  document.getElementById('spinBtn').disabled = true;
+  document.getElementById('spinBtn').innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Spinning...';
+
+  // Call API to get result
+  const res = await fetch('/api/spin', {method: 'POST'});
+  const data = await res.json();
+  const prize = data.prize;
+
+  // Animate wheel (5 full rotations + land on random position)
+  const totalRotation = 5 * 2 * Math.PI + Math.random() * 2 * Math.PI;
+  const duration = 4000;
+  const start = performance.now();
+
+  function animate(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    // Ease out cubic
+    const ease = 1 - Math.pow(1 - progress, 3);
+    currentAngle = ease * totalRotation;
+    drawWheel(currentAngle);
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      // Show result
+      document.getElementById('prizeLabel').textContent = prize.label;
+      document.getElementById('spinBefore').classList.add('d-none');
+      document.getElementById('spinAfter').classList.remove('d-none');
+    }
+  }
+  requestAnimationFrame(animate);
+}
+</script>
+{% endblock %}

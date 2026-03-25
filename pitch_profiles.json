@@ -1,0 +1,401 @@
+{
+  "uber_driver": {
+    "label": "Uber / Rideshare Driver",
+    "icon": "bi-car-front",
+    "analogies": {
+      "cargowise": "Uber itself \u2014 the dominant platform that takes 25% of every ride and you have no choice but to use it",
+      "xeneta": "Surge pricing data that only fleet owners with 500+ cars can afford to see",
+      "our_product": "An app that shows YOU the surge zones, rider demand, and best pickup spots \u2014 the same intel Uber keeps for itself \u2014 for the price of one ride per month",
+      "network_memberships": "Imagine paying $5,000/yr just to JOIN a drivers' group that shares pickup tips \u2014 that's what freight networks charge",
+      "ai_ops": "Like having a co-driver AI that handles navigation, dispatch complaints, and car maintenance scheduling while you just drive",
+      "cold_start": "When Uber launched, they had zero drivers AND zero riders. They solved it one city at a time. We're doing the same \u2014 one trade lane at a time",
+      "network_effect": "More drivers on Waze = better traffic data = better routes for everyone. More agents on our platform = better rate data = better deals for everyone",
+      "growth": "Uber spent $0 on ads for drivers \u2014 drivers told other drivers. Our referral program works the same way",
+      "risk_competition": "Could Uber build a freight tool? Sure. But Uber can't serve a market that pays $49.99/mo \u2014 their cost structure needs $500+ customers. Like a limo company can't compete with a $5 ride",
+      "stage_vision": "Stage 1: Driver app. Stage 2: Riders can book directly. Stage 3: You ARE the platform connecting drivers and riders, cutting out the middleman"
+    },
+    "scoring_questions": {
+      "q1": "As someone who understands platform economics, does the $49.99 price point make sense for disrupting a $50K+ market?",
+      "q2": "Would you trust an AI-powered support system to handle your issues, or would you want a human?",
+      "q3": "If you were a freight forwarder paying $50K/yr for software, would you switch to this?"
+    }
+  },
+  "accountant": {
+    "label": "Accountant / Finance Professional",
+    "icon": "bi-calculator",
+    "analogies": {
+      "cargowise": "SAP or Oracle ERP \u2014 costs $500K+ to implement, takes 12 months, and locks you into a contract you can't escape",
+      "xeneta": "Bloomberg Terminal \u2014 $25,000/yr just to SEE market data, no execution capability included",
+      "our_product": "Think QuickBooks disrupting enterprise accounting \u2014 99% of the functionality at 1% of the price. We're doing the same to freight software",
+      "network_memberships": "Like paying $5,000/yr to join a CPA association just to access their member directory \u2014 then paying again for each conference. Multiply that by 3-5 associations",
+      "ai_ops": "Like having an AI audit assistant that catches discrepancies, flags anomalies, and drafts correction entries \u2014 while you review and approve",
+      "cold_start": "BlackRock started managing money for a handful of clients. Now they manage $10 trillion. Our rate database grows the same way \u2014 every user adds data that makes the system more valuable",
+      "network_effect": "More clients using the same accounting platform = better benchmarking data = better industry insights for everyone. Our rate data works identically",
+      "growth": "Xero and FreshBooks grew through accountant referrals, not ads. When an accountant recommends software, their clients adopt it. Same model \u2014 when a forwarder recommends us, their agent network joins",
+      "risk_competition": "Could NVIDIA pivot to accounting software? They have the AI. But they won't \u2014 wrong market, wrong DNA. CargoWise can't serve the $49.99 market for the same reason. Their P&L requires enterprise clients",
+      "stage_vision": "Stage 1: Chart of accounts (contacts, rates, schedules). Stage 2: Full double-entry system (customer invoicing, booking). Stage 3: The stock exchange of freight \u2014 live bid/ask pricing visible to all, like a financial market"
+    },
+    "scoring_questions": {
+      "q1": "Looking at the unit economics ($49.99/mo, near-zero COGS, AI operations), does the margin structure make sense?",
+      "q2": "At 100K users generating $60M ARR with minimal headcount, how would you value this business?",
+      "q3": "What's the biggest financial risk you see in this model?"
+    }
+  },
+  "doctor": {
+    "label": "Doctor / Healthcare Professional",
+    "icon": "bi-heart-pulse",
+    "analogies": {
+      "cargowise": "Epic Systems \u2014 the hospital EHR monopoly that costs millions to implement, takes years to deploy, and once you're in, you can never leave",
+      "xeneta": "UpToDate subscription \u2014 $500/yr just to look up drug interactions and treatment protocols. Essential but expensive",
+      "our_product": "Like building a diagnostic AI that gives small clinics the same intelligence that Mayo Clinic has \u2014 for the cost of a monthly streaming subscription",
+      "network_memberships": "Imagine paying $5,000/yr to join a medical association just to access their doctor directory, then $3,000 more to attend their annual conference. Freight networks work exactly like that",
+      "ai_ops": "Like AI-assisted diagnosis \u2014 the AI reads the scans, flags anomalies, suggests treatment options, but the doctor makes the final call. Our AI diagnoses system issues, suggests fixes, verifies the cure worked",
+      "cold_start": "Every hospital database started with zero patient records. Ours started with zero rates. But like a hospital that gets better with more cases, our benchmarks get more accurate with every user",
+      "network_effect": "More patients in a health network = better population health data = better treatment protocols for everyone. More agents on our platform = better rate intelligence for everyone",
+      "growth": "Doctors refer patients to specialists they trust. Forwarders refer agents to tools they trust. Word of mouth in tight professional communities is the most powerful growth channel",
+      "risk_competition": "Could Pfizer build an EHR? They have the resources. But pharma companies don't build software \u2014 wrong DNA. Freight networks don't build software either \u2014 they run conferences and collect membership fees",
+      "stage_vision": "Stage 1: Diagnostic tool (intelligence). Stage 2: Treatment platform (booking, execution). Stage 3: The entire healthcare system in one platform \u2014 patients, doctors, pharmacies, insurers all connected"
+    },
+    "scoring_questions": {
+      "q1": "As someone who understands diagnostic accuracy, does an AI-powered support system with verification steps feel reliable enough?",
+      "q2": "In healthcare, trust is everything. What would it take for you to trust a platform run by AI instead of humans?",
+      "q3": "Does the 'more data = better intelligence' network effect resonate with how medical databases improve?"
+    }
+  },
+  "builder": {
+    "label": "Builder / Contractor",
+    "icon": "bi-hammer",
+    "analogies": {
+      "cargowise": "Procore \u2014 $50K+/yr project management software that big general contractors use. Small builders can't afford it",
+      "xeneta": "RS Means cost data \u2014 $3,000/yr subscription just to know what materials should cost in your area",
+      "our_product": "Like giving every small contractor a tool that shows real-time lumber, steel, and concrete prices from every supplier \u2014 the same intel that Bechtel and Turner have \u2014 for $49.99/mo",
+      "network_memberships": "Like paying $5,000/yr to join a builders' association just to access their subcontractor directory. Then paying again for networking events. Freight networks charge exactly this",
+      "ai_ops": "Like having a site foreman AI that monitors every trade, catches quality issues before inspection, and auto-schedules fixes \u2014 while you focus on the big picture",
+      "cold_start": "Every construction cost database started with zero bids. Ours started with zero rates. But like a cost estimator that improves with every project bid, our benchmarks improve with every RFQ",
+      "network_effect": "More builders sharing material prices = better cost estimates for everyone. More freight agents sharing rates = better benchmarks for everyone. Same principle as a co-op buying group",
+      "growth": "Builders hire subs they trust based on referrals from other builders. Forwarders find agents the same way. Our referral program formalizes what already happens naturally",
+      "risk_competition": "Could Caterpillar build project management software? They make the machines, not the tools to manage them. Shipping lines build ships, not freight intelligence platforms",
+      "stage_vision": "Stage 1: Estimating tool (know your costs). Stage 2: Project management (manage the job). Stage 3: The marketplace \u2014 owners, GCs, subs, and suppliers all connected on one platform, bidding transparently"
+    },
+    "scoring_questions": {
+      "q1": "As someone who understands project bidding, does a platform that benchmarks competitor pricing sound valuable?",
+      "q2": "Would you trust an automated system to handle change orders and punch list items, or does it need a human?",
+      "q3": "If every subcontractor in your area was on one platform with verified pricing and reviews, would you use it?"
+    }
+  },
+  "lawyer": {
+    "label": "Lawyer / Legal Professional",
+    "icon": "bi-briefcase",
+    "analogies": {
+      "cargowise": "Westlaw/LexisNexis \u2014 charges thousands per year for legal research that should arguably be public information",
+      "xeneta": "Pacer \u2014 $0.10/page for federal court records, a government-run paywall on public data",
+      "our_product": "Like building a legal research tool that gives solo practitioners access to the same case law and analytics that AmLaw 100 firms have \u2014 for $49.99/mo instead of $15,000/yr",
+      "network_memberships": "Like paying bar association dues in 5 states just to access their referral networks and CLEs. Freight networks charge $500-$5,000/yr per network \u2014 and most forwarders belong to 3-5",
+      "ai_ops": "Like AI legal research \u2014 the AI reads thousands of cases, drafts memos, flags relevant precedents, but the attorney reviews and makes the argument. Our AI diagnoses tech issues, drafts fixes, but verifies before deploying",
+      "cold_start": "Every legal database started with zero indexed cases. Every new case added makes the database more valuable. Our rate database follows the same accumulation principle",
+      "network_effect": "More lawyers on a platform = better precedent matching = better research for everyone. More freight agents = better rate data = better pricing intelligence for everyone",
+      "growth": "Lawyers refer colleagues to tools they trust. Bar associations, CLE events, peer recommendations drive adoption. Freight works identically \u2014 tight professional community, trust-based referrals",
+      "risk_competition": "Could Thomson Reuters enter freight? They have the data infrastructure. But domain expertise matters \u2014 you can't lawyer your way into logistics any more than you can ship your way into law",
+      "stage_vision": "Stage 1: Research tool (find agents, check rates). Stage 2: Case management (manage shipments end-to-end). Stage 3: The courthouse \u2014 transparent, rules-based marketplace where all parties operate by the same standards"
+    },
+    "scoring_questions": {
+      "q1": "From a legal perspective, what's your assessment of the data sourcing strategy \u2014 public directories vs. membership data?",
+      "q2": "Does the AI-verification pipeline for customer support create adequate liability protection?",
+      "q3": "How would you evaluate the intellectual property defensibility of this platform?"
+    }
+  },
+  "teacher": {
+    "label": "Teacher / Educator",
+    "icon": "bi-book",
+    "analogies": {
+      "cargowise": "Pearson or McGraw-Hill \u2014 textbook monopolies charging $300 per book for content that barely changes year to year",
+      "xeneta": "A premium tutoring service \u2014 $200/hour for test prep that only wealthy families can afford",
+      "our_product": "Like Khan Academy disrupting expensive tutoring \u2014 free or near-free access to the same quality education that private school kids get. We're the Khan Academy of freight intelligence",
+      "network_memberships": "Like paying $5,000/yr to join a teachers' union in 5 different states just to access their job boards and professional development. Freight networks charge the same for directory access",
+      "ai_ops": "Like an AI teaching assistant that grades papers, identifies struggling students, and suggests personalized interventions \u2014 while the teacher focuses on actual teaching. Our AI handles the repetitive tech support",
+      "cold_start": "Wikipedia started with zero articles. Now it's the world's encyclopedia. Our platform starts with baseline data and grows richer with every user contribution",
+      "network_effect": "More students on a learning platform = better data on what works = better outcomes for everyone. More agents = better benchmarks = better decisions for everyone",
+      "growth": "Teachers share resources with colleagues constantly \u2014 'I found this great tool, you should try it.' That's exactly how our referral system works",
+      "risk_competition": "Could Google build a freight tool? They build everything. But they also kill everything (Google+, Stadia, countless others). Focused startups beat distracted giants in specialized markets",
+      "stage_vision": "Stage 1: The textbook (reference tool). Stage 2: The classroom (interactive operations). Stage 3: The university \u2014 a complete ecosystem where learning, doing, and evaluating all happen in one place"
+    },
+    "scoring_questions": {
+      "q1": "As an educator, does the 'learning system that improves with more users' concept feel scalable?",
+      "q2": "How important is the human touch in customer support vs. AI-powered resolution?",
+      "q3": "Does the $49.99 price point for democratizing access to premium tools resonate with the education equity angle?"
+    }
+  },
+  "real_estate": {
+    "label": "Real Estate Agent / Broker",
+    "icon": "bi-house-door",
+    "analogies": {
+      "cargowise": "Zillow Premier Agent \u2014 charges thousands per month for leads and listings that agents become dependent on",
+      "xeneta": "CoStar/LoopNet \u2014 $500-$1,000/mo just to access commercial property data and comps",
+      "our_product": "Like building an MLS alternative that gives independent agents the same market intelligence as Keller Williams or RE/MAX \u2014 for $49.99/mo",
+      "network_memberships": "Like paying dues to 5 different realtor associations just to access their listing databases. Freight networks charge $500-$5,000/yr each for directory access",
+      "ai_ops": "Like an AI transaction coordinator that handles paperwork, tracks deadlines, follows up with lenders and inspectors \u2014 while you focus on closing deals",
+      "cold_start": "Zillow started with zero listings. They scraped public county records. We started with public freight directories. Both build value as more data comes in",
+      "network_effect": "More agents listing on a platform = more buyers searching = more value for everyone. More freight agents sharing rates = better benchmarks for everyone. Classic marketplace dynamics",
+      "growth": "Agents refer colleagues to their brokerage's tools all the time. 'I switched to this CRM and my closings went up 30%.' That peer recommendation is our growth engine",
+      "risk_competition": "Could Zillow build a freight platform? No \u2014 domain expertise is everything. Could CargoWise build a $49.99 product? No \u2014 their cost structure requires $50K+ clients. Same reason luxury brokerages can't compete on discount commissions",
+      "stage_vision": "Stage 1: The CRM + comps tool (find agents, compare rates). Stage 2: Transaction management (handle shipments). Stage 3: The MLS of freight \u2014 every rate, every agent, every route, transparent and accessible"
+    },
+    "scoring_questions": {
+      "q1": "As someone who understands commissions and marketplace dynamics, does the referral growth model feel realistic?",
+      "q2": "Would transparency in freight pricing (like Zillow did for home values) disrupt or improve the industry?",
+      "q3": "How do you evaluate the competitive moat \u2014 is network effect data enough to defend against larger players?"
+    }
+  },
+  "tech_founder": {
+    "label": "Tech Founder / Software Engineer",
+    "icon": "bi-code-slash",
+    "analogies": {
+      "cargowise": "Salesforce \u2014 $300/user/mo, 12-month contracts, 6-month implementation, vendor lock-in by design",
+      "xeneta": "Gartner research \u2014 $30K/yr for market intelligence reports that tell you what you could find yourself with better tools",
+      "our_product": "Like building an open-source alternative to Salesforce that's 99% as capable at 1/100th the cost \u2014 deployed in 5 minutes instead of 6 months",
+      "network_memberships": "Like paying $5,000/yr to join 5 different Slack communities just to access their member directories. That's literally what freight networks are \u2014 paid directories with conferences",
+      "ai_ops": "CI/CD pipeline but for customer support \u2014 issue detected, AI writes the fix, automated tests verify it, deployed to production, customer notified. No human in the loop for 95% of issues",
+      "cold_start": "Every SaaS product faces the cold start problem. We solve it the way Stripe did \u2014 be so much better for developers (forwarders) that they evangelize for you",
+      "network_effect": "More developers on GitHub = better packages = more developers join. More agents on our platform = better rate data = more agents join. Classic developer flywheel",
+      "growth": "Slack grew to $1B ARR with near-zero marketing spend. Product-led growth through team virality. Our platform spreads the same way \u2014 one agent invites their entire network",
+      "risk_competition": "Technical moat: our AI-built codebase ships features in hours, not months. Traditional freight software companies have 500 engineers maintaining 20-year-old codebases. We move 100x faster with 1/500th the team",
+      "stage_vision": "Stage 1: API/SaaS (data layer). Stage 2: Platform (execution layer). Stage 3: Infrastructure (the AWS of freight \u2014 every logistics transaction runs through your rails)"
+    },
+    "scoring_questions": {
+      "q1": "As a technical founder, does the AI-first operations model (Claude + Codex as the engineering team) feel viable or risky?",
+      "q2": "How would you evaluate the technical moat \u2014 is speed of development enough, or do you need proprietary technology?",
+      "q3": "At $49.99/mo with near-zero COGS, what growth rate would you need to see to consider this investable?"
+    }
+  },
+  "investor": {
+    "label": "Investor / VC / Angel",
+    "icon": "bi-graph-up",
+    "analogies": {
+      "cargowise": "The Bloomberg Terminal of freight \u2014 $16B market cap (WiseTech Global), 70% market share, just raised prices 20-50% and customers can't leave",
+      "xeneta": "PitchBook/CB Insights for freight \u2014 $25K-$400K/yr for market intelligence that should be a feature, not a product",
+      "our_product": "Canva vs. Adobe. Zoom vs. WebEx. The pattern repeats: incumbent charges $50K+, startup offers 95% of the value at $49.99/mo, captures the 80% of the market that was priced out",
+      "network_memberships": "Freight networks are paid communities (WCA: $2-5K/yr, Pangea: $1.5-3K/yr). 100K+ forwarders belong to 3-5 networks each = $1.5B+ annual spend on directories and conferences. We disintermediate that entire layer",
+      "ai_ops": "The AI-first thesis: what if you could build a $60M ARR SaaS company with 2-3 people? Claude handles support, Codex handles engineering, Azure handles infrastructure. Gross margins above 95%",
+      "cold_start": "Seeded with Maersk free API (real-time spot rates) + carrier schedule data. Network data bootstrapped from public directories. Not dependent on user-generated content to deliver Day 1 value",
+      "network_effect": "Two-sided: supply side (agents share rates) and demand side (forwarders search agents). Each side makes the other more valuable. Defensible at scale \u2014 like LinkedIn for freight",
+      "growth": "CAC = $0 (referral-driven). LTV at 2% monthly churn = $2,500. LTV:CAC = infinity at launch. Even at 5% churn (conservative), LTV = $1,000. Payback period: immediate",
+      "risk_competition": "CargoWise (WiseTech) is publicly traded, $16B market cap. They CANNOT cannibalize their own revenue by offering a $49.99 product. That's the innovator's dilemma \u2014 the same reason Kodak couldn't kill film",
+      "stage_vision": "Stage 1: SaaS ($49.99/mo, 100K users = $60M ARR). Stage 2: Marketplace (take rate on transactions). Stage 3: Fintech layer (trade finance, credit scoring, payment processing). Total addressable outcome: $1B+"
+    },
+    "scoring_questions": {
+      "q1": "Based on the competitive landscape (100+ checked, zero direct matches), how defensible is this position?",
+      "q2": "At what ARR milestone would this become investable for you?",
+      "q3": "What's the #1 risk that would prevent you from writing a check today?"
+    }
+  },
+  "retail_owner": {
+    "label": "Retail / E-commerce Owner",
+    "icon": "bi-shop",
+    "analogies": {
+      "cargowise": "Amazon Seller Central \u2014 the platform you're forced to use, that takes 15-40% of every sale, changes the rules whenever they want",
+      "xeneta": "Jungle Scout or Helium 10 \u2014 $100-500/mo just to see what products are selling and at what price",
+      "our_product": "Like Shopify giving every small retailer the same e-commerce power as Walmart \u2014 for $49.99/mo. We give every small freight forwarder the same intelligence as DHL and Kuehne+Nagel",
+      "network_memberships": "Like paying $5,000/yr to join a retailers' buying group just to access their supplier directory. Then paying for trade shows on top of that",
+      "ai_ops": "Like an AI store manager that handles returns, answers customer questions, reorders inventory, and reconciles the books \u2014 while you focus on growing the business",
+      "cold_start": "Shopify launched with a snowboard shop. We launch with 6 trade lanes. Both expand as demand proves itself",
+      "network_effect": "More sellers on Shopify = better apps, better themes, better ecosystem. More agents on our platform = better rates, better coverage, better intelligence",
+      "growth": "Shopify grew through entrepreneur communities and word of mouth. Our growth comes through freight forwarding communities and referrals",
+      "risk_competition": "Could Amazon build a freight tool? They already have \u2014 it's called Amazon Shipping, and it only serves Amazon sellers. Our platform serves the other 99% of the freight market",
+      "stage_vision": "Stage 1: Your supplier directory (find partners). Stage 2: Your order management (book and track). Stage 3: Your entire supply chain \u2014 from factory to customer door, managed in one platform"
+    },
+    "scoring_questions": {
+      "q1": "As a business owner who ships products, would freight rate transparency change how you choose logistics partners?",
+      "q2": "Does the $49.99 price point feel right for a B2B tool, or does it feel 'too cheap to be good'?",
+      "q3": "Would you switch from your current logistics setup to a platform like this?"
+    }
+  },
+  "engineer": {
+    "label": "Engineer (Mechanical / Civil / Electrical)",
+    "icon": "bi-gear",
+    "analogies": {
+      "cargowise": "AutoCAD/SolidWorks \u2014 $5,000-$10,000/yr per seat, monopoly pricing because engineers have no alternative for their specific workflow",
+      "xeneta": "IHS Markit engineering data \u2014 $20,000/yr for materials specifications and pricing data",
+      "our_product": "Like OnShape or FreeCAD disrupting SolidWorks \u2014 cloud-based, 90% of the functionality, fraction of the price, accessible to every engineer not just those at big firms",
+      "network_memberships": "Like paying IEEE, ASME, and ASCE dues simultaneously just to access their job boards and conference discounts",
+      "ai_ops": "Like a simulation that auto-runs, identifies stress points, suggests design changes, and validates the fix before sending to the shop floor",
+      "cold_start": "Every engineering standards database started from scratch. ASTM didn't have all materials on day one. Our rate database grows the same way \u2014 methodically, verified, increasingly comprehensive",
+      "network_effect": "More engineers using a simulation tool = better validated models = more reliable results for everyone. More freight users = better benchmarks = more accurate pricing for everyone",
+      "growth": "Engineers share tools through professional networks and project teams. When one team member adopts a tool, the whole project follows",
+      "risk_competition": "Autodesk has $5B revenue. They won't build a $49.99 freight tool. Different industry, different DNA. The engineering principle applies: specialize and optimize for your use case",
+      "stage_vision": "Stage 1: Measurement and analysis (rates, contacts, schedules). Stage 2: Design and execution (build shipments, optimize routes). Stage 3: Full systems integration \u2014 like a SCADA system for global freight"
+    },
+    "scoring_questions": {
+      "q1": "As an engineer, does the systematic approach to rate benchmarking (data collection, validation, scoring) feel methodologically sound?",
+      "q2": "How reliable does an AI-run operations model need to be before you'd trust it with your business?",
+      "q3": "Does the platform architecture (cloud-based, API-driven, scalable) feel production-ready?"
+    }
+  },
+  "nurse": {
+    "label": "Nurse / Healthcare Worker",
+    "icon": "bi-bandaid",
+    "analogies": {
+      "cargowise": "The hospital billing system \u2014 costs millions, takes years to implement, and makes everyone's job harder instead of easier",
+      "xeneta": "Premium medical reference apps that charge $500/yr when the information should be accessible to all healthcare workers",
+      "our_product": "Like giving every small clinic the same patient management tools that Johns Hopkins uses \u2014 without the $10 million price tag",
+      "network_memberships": "Like paying nursing association dues in 5 states just to maintain your credentials and access job boards",
+      "ai_ops": "Like a triage AI \u2014 reads the symptoms, prioritizes urgency, suggests initial treatment, but the nurse confirms and acts. Fast, reliable, always available",
+      "cold_start": "Every patient database started empty. Every new record makes the system smarter. Same principle \u2014 every new rate makes our benchmarks more accurate",
+      "network_effect": "More nurses reporting adverse drug reactions = safer medication protocols for everyone. More agents reporting rates = better market intelligence for everyone",
+      "growth": "Nurses share resources through shift handoffs and break room conversations. The most trusted recommendations come from colleagues, not ads",
+      "risk_competition": "Big hospital systems won't build tools for independent clinics \u2014 there's no profit in it. Big freight companies won't build tools for small forwarders \u2014 same reason",
+      "stage_vision": "Stage 1: Patient chart (know your contacts and rates). Stage 2: Care plan (manage shipments). Stage 3: The entire healthcare network \u2014 referrals, records, billing, all connected"
+    },
+    "scoring_questions": {
+      "q1": "As someone who relies on systems that must be reliable 24/7, does an AI-managed platform feel trustworthy?",
+      "q2": "Does the 'democratizing access to professional tools' message resonate with your experience in healthcare?",
+      "q3": "What would make you confident enough to recommend this to a colleague?"
+    }
+  },
+  "chef": {
+    "label": "Chef / Restaurant Owner",
+    "icon": "bi-egg-fried",
+    "analogies": {
+      "cargowise": "Toast or Square POS \u2014 you're locked into their ecosystem, they take a cut of every transaction, and switching costs are enormous",
+      "xeneta": "Sysco's premium ordering portal \u2014 you pay for access to see wholesale food prices that should be transparent",
+      "our_product": "Like building a platform that shows every restaurant the real wholesale prices for every ingredient from every supplier \u2014 so no one overpays again",
+      "network_memberships": "Like paying to join 5 different restaurant associations just to network with suppliers and other chefs",
+      "ai_ops": "Like a sous chef AI that manages inventory, reorders supplies, handles vendor complaints, and adjusts menu costing \u2014 while you cook",
+      "cold_start": "Every restaurant review platform started with zero reviews. Yelp, Google, TripAdvisor \u2014 all grew one review at a time. Our rate data grows one quote at a time",
+      "network_effect": "More restaurants sharing supplier prices = better negotiating power for everyone. Like a co-op buying group but digital and automatic",
+      "growth": "Chefs talk. They share supplier contacts, recipes, equipment tips. Our referral program formalizes what chefs already do naturally",
+      "risk_competition": "Could Sysco build this? They're the supplier \u2014 transparency in pricing is the LAST thing they want. Same reason shipping lines won't build rate transparency tools",
+      "stage_vision": "Stage 1: The menu (what's available, what it costs). Stage 2: The kitchen (ordering, tracking, managing). Stage 3: The food hall \u2014 every supplier, every restaurant, transparent pricing, everyone benefits"
+    },
+    "scoring_questions": {
+      "q1": "As someone who manages supplier relationships daily, does automated rate comparison and scoring sound useful?",
+      "q2": "Would price transparency in your industry help or hurt independent restaurants?",
+      "q3": "Does the subscription model ($49.99/mo for business intelligence) feel fair for the value described?"
+    }
+  },
+  "truck_driver": {
+    "label": "Truck Driver / Logistics Worker",
+    "icon": "bi-truck",
+    "analogies": {
+      "cargowise": "The dispatch system your company forces you to use \u2014 clunky, outdated, crashes constantly, but there's no alternative",
+      "xeneta": "DAT Loadboard premium \u2014 $150+/mo just to see what loads are paying in your area",
+      "our_product": "Like giving every owner-operator the same load intelligence and rate data that the mega-carriers (Werner, JB Hunt, Swift) keep to themselves",
+      "network_memberships": "Like paying to join multiple trucking associations just to access their load boards and networking events",
+      "ai_ops": "Like a dispatcher AI that finds your next load, negotiates the rate, handles paperwork, and reroutes you around weather \u2014 while you drive",
+      "cold_start": "Every load board started with zero loads posted. Our rate database starts lean and grows with every user, just like Uber had zero rides on day one",
+      "network_effect": "More drivers on a load board = more loads available = more drivers join. More agents on our platform = more rates visible = more agents join",
+      "growth": "Drivers share tips at truck stops, rest areas, and on CB radio. Digital version: freight forums, WhatsApp groups, Reddit. That's where our users will come from",
+      "risk_competition": "Could the mega-carriers build this for small operators? They have zero incentive \u2014 small operators are their competition. We serve the underdogs",
+      "stage_vision": "Stage 1: Know your market (rates, routes, partners). Stage 2: Run your business (book, track, invoice). Stage 3: The platform \u2014 shippers, carriers, brokers all transacting transparently"
+    },
+    "scoring_questions": {
+      "q1": "As someone in the logistics industry, does this product solve a real problem you've seen?",
+      "q2": "Would freight rate transparency benefit drivers and small operators, or would it only help the big companies?",
+      "q3": "At $49.99/mo, would an owner-operator find this affordable and useful?"
+    }
+  },
+  "student": {
+    "label": "Student / Recent Graduate",
+    "icon": "bi-mortarboard",
+    "analogies": {
+      "cargowise": "The $200/semester textbook from the campus bookstore \u2014 mandatory, overpriced, and the publisher has a monopoly",
+      "xeneta": "Premium study resources like Chegg or Course Hero \u2014 $15-20/mo for answers that should be part of your tuition",
+      "our_product": "Like Quizlet or Notion disrupting expensive academic tools \u2014 making powerful capabilities free or nearly free for everyone",
+      "network_memberships": "Like paying to join 5 different professional associations as a student just to 'network' and access their member lists",
+      "ai_ops": "Like ChatGPT helping you study \u2014 it reads the material, explains concepts, helps you debug code, checks your work. Our AI does the same for freight companies' tech issues",
+      "cold_start": "Wikipedia, Reddit, Stack Overflow \u2014 all started with zero content and grew through community contributions. Same model",
+      "network_effect": "More students on a study platform = better notes, better flashcards, better resources for everyone. Network effects are in every successful platform you already use",
+      "growth": "Students share tools through GroupMe, Discord, and word of mouth. One person finds something useful, the whole study group adopts it",
+      "risk_competition": "Big companies are slow. By the time they notice a $49.99 disruptor, it already has 100K users and a data moat they can't replicate",
+      "stage_vision": "Stage 1: The study guide (learn the market). Stage 2: The internship (use the tools). Stage 3: The career \u2014 running the entire operation from one platform"
+    },
+    "scoring_questions": {
+      "q1": "As someone entering the workforce, would you want to work at a company that uses AI instead of large teams?",
+      "q2": "Does the 'disrupt expensive tools with affordable alternatives' story feel believable based on what you've seen with other products?",
+      "q3": "If you could invest $100 in this idea, would you?"
+    }
+  },
+  "pharmacist": {
+    "label": "Pharmacist",
+    "icon": "bi-capsule",
+    "analogies": {
+      "cargowise": "McKesson or Cardinal Health's ordering system \u2014 the wholesaler controls the platform, the pricing, and your entire supply chain",
+      "xeneta": "First Databank or Medi-Span drug pricing databases \u2014 $10K+/yr just to verify what drugs should cost",
+      "our_product": "Like GoodRx but for pharmacies themselves \u2014 showing the real wholesale cost from every distributor so no pharmacy overpays",
+      "network_memberships": "Like paying NCPA and APhA dues plus state pharmacy association fees just to access their vendor directories",
+      "ai_ops": "Like an AI pharmacy tech that checks interactions, counts pills, manages inventory, and handles insurance rejections \u2014 while you counsel patients",
+      "cold_start": "GoodRx started with zero pharmacies listing prices. Now they have every pharmacy in America. Our platform grows the same way",
+      "network_effect": "More pharmacies reporting prices = better price transparency = better deals for everyone in the chain",
+      "growth": "Pharmacists are a tight community. CE events, state meetings, WhatsApp groups. One recommendation from a trusted colleague drives adoption",
+      "risk_competition": "Wholesalers don't want price transparency \u2014 opaque pricing is how they profit. Same reason shipping lines won't build rate transparency tools",
+      "stage_vision": "Stage 1: Know the market (pricing intelligence). Stage 2: Manage operations (ordering, tracking). Stage 3: The transparent marketplace \u2014 manufacturers, wholesalers, pharmacies, all with visible pricing"
+    },
+    "scoring_questions": {
+      "q1": "As someone who deals with opaque supply chain pricing, does a transparency platform sound disruptive or threatening?",
+      "q2": "Would AI-powered operations feel reliable enough for a business where accuracy is critical?",
+      "q3": "Does the analogy between drug pricing opacity and freight pricing opacity resonate?"
+    }
+  },
+  "sales": {
+    "label": "Sales Professional",
+    "icon": "bi-megaphone",
+    "analogies": {
+      "cargowise": "Salesforce Enterprise \u2014 $300/user/mo, locks you in, and you need a consultant to set it up",
+      "xeneta": "ZoomInfo \u2014 $15K-$25K/yr just for B2B contact data and company intelligence",
+      "our_product": "Like HubSpot Free CRM disrupting Salesforce \u2014 give away the CRM, make money on the platform. We give freight intelligence away at $49.99 and become the operating system",
+      "network_memberships": "Like paying $5K/yr for Sales Navigator, plus $3K for your industry association, plus $2K for a leads database. Multiple subscriptions for what should be one tool",
+      "ai_ops": "Like an AI SDR that qualifies leads, sends follow-ups, books meetings, and updates the CRM \u2014 while you close deals",
+      "cold_start": "HubSpot's free CRM attracted millions of users who became the distribution channel for paid products. Our $49.99 platform attracts forwarders who become the network",
+      "network_effect": "More salespeople on LinkedIn = better for everyone on LinkedIn. More agents on our platform = better data for everyone on our platform",
+      "growth": "Sales teams share tools that help them hit quota. 'This tool saved me 10 hours/week' spreads faster than any ad campaign",
+      "risk_competition": "Enterprise CRMs can't go downmarket profitably. Salesforce tried with Essentials and killed it. CargoWise faces the same economic impossibility at $49.99",
+      "stage_vision": "Stage 1: Prospecting tool (find and score agents). Stage 2: Deal management (RFQs, quotes, wins). Stage 3: Revenue operations \u2014 the entire sales-to-delivery pipeline in one platform"
+    },
+    "scoring_questions": {
+      "q1": "As a sales professional, does the viral referral model (1 referral = 1 month free) feel like it would actually drive adoption?",
+      "q2": "Would you use a tool that scores your prospects/vendors automatically?",
+      "q3": "Does the 'land with intelligence, expand into operations' go-to-market feel right?"
+    }
+  },
+  "pilot": {
+    "label": "Pilot / Aviation Professional",
+    "icon": "bi-airplane",
+    "analogies": {
+      "cargowise": "Jeppesen/Boeing's navigation database \u2014 mandatory, expensive, monopolistic, and every airline is locked in",
+      "xeneta": "OAG flight data \u2014 $20K+/yr for schedule and capacity analytics",
+      "our_product": "Like ForeFlight disrupting Jeppesen for general aviation pilots \u2014 same charts, same data, fraction of the price, designed for the individual not the airline",
+      "network_memberships": "Like paying AOPA, ALPA, and regional pilot association dues simultaneously just for networking and job access",
+      "ai_ops": "Like autopilot with monitoring \u2014 the system handles 95% of the flight, the pilot monitors and intervenes when needed. Our AI handles 95% of support, humans verify critical fixes",
+      "cold_start": "FlightAware started tracking zero flights. Now they track every aircraft in the sky. Our platform starts with key lanes and expands to global coverage",
+      "network_effect": "More pilots reporting turbulence on ForeFlight = better weather data for all pilots. More agents reporting rates = better benchmarks for all forwarders",
+      "growth": "Pilots share tools in hangars, flight schools, and online forums. Aviation is a tight community. Freight forwarding is equally tight",
+      "risk_competition": "Boeing won't build a $49.99 tool for student pilots. Their business model requires airline contracts. Same dynamic in freight",
+      "stage_vision": "Stage 1: Flight planning (know the routes and conditions). Stage 2: Flight management (execute the journey). Stage 3: Air traffic control \u2014 coordinating all traffic transparently"
+    },
+    "scoring_questions": {
+      "q1": "As someone in aviation, does the 'same intelligence at 1/100th the price' disruption pattern feel familiar?",
+      "q2": "How critical is reliability and uptime for a tool that businesses depend on daily?",
+      "q3": "Does the AI autopilot analogy for operations management feel accurate or oversimplified?"
+    }
+  },
+  "default": {
+    "label": "Business Professional",
+    "icon": "bi-person-workspace",
+    "analogies": {
+      "cargowise": "The dominant software in an industry that charges $50,000-$500,000/yr and has 70% market share because companies have no choice",
+      "xeneta": "A premium data service that charges $25,000/yr just to show you what the market is doing \u2014 information that should be accessible to everyone",
+      "our_product": "We built a tool that gives small companies the same intelligence as the giants \u2014 for $49.99/mo instead of $50,000+/yr. Like giving everyone a Bloomberg Terminal for the price of Netflix",
+      "network_memberships": "Imagine paying $5,000/yr to join 5 different industry associations just to access their member directories. That's $25K/yr before you do any actual business. We replace all of that",
+      "ai_ops": "AI handles customer support, code fixes, system monitoring \u2014 the way autopilot handles flying. Humans verify critical decisions. Result: 2-person team running a platform for 100K users",
+      "cold_start": "Every platform starts empty. LinkedIn had zero profiles. Airbnb had zero listings. We started with public freight data and grow with every user",
+      "network_effect": "More users = better data = more value = more users. The same flywheel that powers LinkedIn, Uber, Airbnb, and every successful platform",
+      "growth": "Zero marketing spend. Referral program (invite friends, earn free months) + word of mouth in a tight professional community. Same playbook as Slack, Dropbox, and Notion",
+      "risk_competition": "The incumbent charges 1,000x more and can't drop their price without destroying their own revenue. That's the innovator's dilemma \u2014 the same reason Blockbuster couldn't compete with Netflix",
+      "stage_vision": "Stage 1: Intelligence tool (know the market). Stage 2: Operations platform (run the business). Stage 3: The marketplace \u2014 connecting all parties with transparent pricing, like a stock exchange for freight"
+    },
+    "scoring_questions": {
+      "q1": "Based on what you've seen, how viable is this business idea on a scale of 1-10?",
+      "q2": "What's the #1 risk or concern you see?",
+      "q3": "Would you recommend this to someone in the freight industry?"
+    }
+  }
+}
