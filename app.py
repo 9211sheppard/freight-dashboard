@@ -366,7 +366,7 @@ def api_create_temp_link():
     if page not in ("pitch", "invest", "review"):
         return jsonify({"ok": False, "error": "Page must be pitch, invest, or review"}), 400
     hours = data.get("hours", 24)
-    max_uses = data.get("max_uses", 1)
+    max_uses = data.get("max_uses", 3)
     token = _secrets.token_urlsafe(32)
     _temp_links[token] = {
         "page": page,
