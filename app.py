@@ -423,7 +423,7 @@ def invest_page():
     token_info = _check_temp_token("invest")
     if token_info:
         return render_template("invest.html", token_info=token_info)
-    return redirect(url_for("landing"))
+    return redirect(url_for("index"))
 
 
 @app.route("/review")
@@ -433,8 +433,8 @@ def review_page():
     token_info = _check_temp_token("review")
     if token_info:
         return render_template("review.html", token_info=token_info)
-    return redirect(url_for("landing"))
-    return redirect(url_for("landing"))
+    return redirect(url_for("index"))
+    return redirect(url_for("index"))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1195,7 +1195,7 @@ def pitch_page():
     token_info = _check_temp_token("pitch")
     if token_info:
         return render_template("pitch.html", token_info=token_info)
-    return redirect(url_for("landing"))
+    return redirect(url_for("index"))
 
 
 @app.route("/api/pitch/profiles")
@@ -2091,7 +2091,7 @@ def dashboard():
 #  API — search / filter
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_query(args, select="id, network, company_name, contact_name, email, phone_number, country, city, verified_status, verified_score, website_url, linkedin_url"):
+def _build_query(args, select="id, network, company_name, contact_name, email, phone_number, country, city, verified_status, verified_score, website_url, linkedin_url", paginate=False):
     country   = args.get("country",   "").strip()
     company   = args.get("company",   "").strip()
     name      = args.get("name",      "").strip()
@@ -2110,13 +2110,13 @@ def _build_query(args, select="id, network, company_name, contact_name, email, p
     params = []
 
     if country:
-        sql += " AND LOWER(country) LIKE LOWER(?)"
+        sql += " AND country LIKE ? COLLATE NOCASE"
         params.append(f"%{country}%")
     if company:
-        sql += " AND LOWER(company_name) LIKE LOWER(?)"
+        sql += " AND company_name LIKE ? COLLATE NOCASE"
         params.append(f"%{company}%")
     if name:
-        sql += " AND LOWER(contact_name) LIKE LOWER(?)"
+        sql += " AND contact_name LIKE ? COLLATE NOCASE"
         params.append(f"%{name}%")
     verify = args.get("verify", "").strip()
     if network:
@@ -2130,19 +2130,42 @@ def _build_query(args, select="id, network, company_name, contact_name, email, p
     if has_phone:
         sql += " AND phone_number IS NOT NULL AND TRIM(phone_number) != ''"
 
-    sql += f" ORDER BY LOWER({sort_by}) {sort_dir.upper()}"
+    sql += f" ORDER BY {sort_by} COLLATE NOCASE {sort_dir.upper()}"
+
+    if paginate:
+        page = max(1, int(args.get("page", 1)))
+        per_page = min(200, max(10, int(args.get("per_page", 50))))
+        offset = (page - 1) * per_page
+        sql += f" LIMIT {per_page} OFFSET {offset}"
+
     return sql, params
 
 
 @app.route("/api/search")
 @login_required
 def api_search():
-    sql, params = _build_query(request.args)
-    conn  = get_db()
-    rows  = conn.execute(sql, params).fetchall()
+    page = max(1, int(request.args.get("page", 1)))
+    per_page = min(200, max(10, int(request.args.get("per_page", 50))))
+
+    # Get paginated results
+    sql, params = _build_query(request.args, paginate=True)
+    conn = get_db()
+    rows = conn.execute(sql, params).fetchall()
+
+    # Get total count for the same filters (without pagination)
+    count_sql, count_params = _build_query(request.args, select="COUNT(*) AS total")
+    total = conn.execute(count_sql, count_params).fetchone()["total"]
     conn.close()
+
     results = [dict(r) for r in rows]
-    return jsonify({"count": len(results), "results": results})
+    total_pages = max(1, -(-total // per_page))  # ceiling division
+    return jsonify({
+        "count": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "results": results,
+    })
 
 
 # ─────────────────────────────────────────────────────────────────────────────
