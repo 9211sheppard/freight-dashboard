@@ -95,7 +95,7 @@
       <input type="text" id="customProf" class="form-control" placeholder="Type your profession..." style="max-width:400px; margin:0 auto; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#fff; text-align:center;">
     </div>
 
-    <button class="btn btn-primary btn-lg mt-4 px-5" id="startBtn" onclick="startPitch()" disabled>
+    <button class="btn btn-primary btn-lg mt-4 px-5" id="startBtn" disabled>
       Show Me <i class="bi bi-arrow-right"></i>
     </button>
   </div>
@@ -462,23 +462,31 @@ function selectProf(key, el) {
 }
 
 document.getElementById('visitorName').addEventListener('input', checkReady);
+document.getElementById('visitorName').addEventListener('change', checkReady);
+document.getElementById('visitorName').addEventListener('keyup', checkReady);
 document.getElementById('customProf').addEventListener('input', checkReady);
 function checkReady() {
   const name = document.getElementById('visitorName').value.trim();
+  const btn = document.getElementById('startBtn');
   // If they picked "Other", require the custom text field too
   if (selectedProf === 'other') {
     const custom = document.getElementById('customProf').value.trim();
-    document.getElementById('startBtn').disabled = !(name && custom);
+    btn.disabled = !(name && custom);
   } else {
-    document.getElementById('startBtn').disabled = !(name && selectedProf);
+    btn.disabled = !(name && selectedProf);
+  }
+  // Also update onclick to be safe
+  if (!btn.disabled) {
+    btn.onclick = startPitch;
   }
 }
 
 // ── Populate steps with profession-specific content ──
 function startPitch() {
-  visitorName = document.getElementById('visitorName').value.trim();
-  const profKey = selectedProf === 'other' ? 'default' : selectedProf;
+  visitorName = document.getElementById('visitorName').value.trim() || 'there';
+  const profKey = (selectedProf === 'other' || !selectedProf) ? 'default' : selectedProf;
   const p = profiles[profKey] || profiles['default'];
+  if (!p || !p.analogies) { alert('Profile not loaded. Please refresh and try again.'); return; }
   const a = p.analogies;
 
   // Step 1: Problem
@@ -598,6 +606,12 @@ function copyLink() {
 document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight' && currentStep > 0 && currentStep < totalSteps) nextStep();
   if (e.key === 'ArrowLeft' && currentStep > 1) prevStep();
+});
+
+// Bind start button properly (not inline onclick)
+document.getElementById('startBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  startPitch();
 });
 
 // Swipe support for mobile
