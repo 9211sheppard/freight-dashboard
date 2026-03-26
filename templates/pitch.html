@@ -459,6 +459,17 @@ function selectProf(key, el) {
   document.getElementById('customProfWrap').style.display = 'none';
   document.getElementById('customProf').value = '';
   checkReady();
+  // If name is already filled, auto-start after a brief pause (no button needed)
+  const nameVal = document.getElementById('visitorName').value.trim();
+  if (nameVal) {
+    setTimeout(() => startPitch(), 500);
+  } else {
+    // Name not filled yet — scroll to name field so they know what's needed
+    setTimeout(() => {
+      document.getElementById('visitorName').scrollIntoView({behavior: 'smooth', block: 'center'});
+      document.getElementById('visitorName').focus();
+    }, 200);
+  }
 }
 
 document.getElementById('visitorName').addEventListener('input', checkReady);
@@ -475,9 +486,13 @@ function checkReady() {
   } else {
     btn.disabled = !(name && selectedProf);
   }
-  // Also update onclick to be safe
-  if (!btn.disabled) {
-    btn.onclick = startPitch;
+  // Auto-start if both name and profession are ready
+  if (!btn.disabled && selectedProf && selectedProf !== 'other') {
+    // Small delay so the user sees the selection before transitioning
+    clearTimeout(window._autoStartTimer);
+    window._autoStartTimer = setTimeout(() => {
+      if (!btn.disabled) startPitch();
+    }, 800);
   }
 }
 
