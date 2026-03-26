@@ -444,8 +444,9 @@ function buildProfGrid() {
   other.onclick = () => {
     document.querySelectorAll('.prof-card').forEach(c => c.classList.remove('selected'));
     other.classList.add('selected');
-    selectedProf = 'default';
+    selectedProf = 'other';
     document.getElementById('customProfWrap').style.display = 'block';
+    document.getElementById('customProf').focus();
     checkReady();
   };
   grid.appendChild(other);
@@ -456,19 +457,28 @@ function selectProf(key, el) {
   el.classList.add('selected');
   selectedProf = key;
   document.getElementById('customProfWrap').style.display = 'none';
+  document.getElementById('customProf').value = '';
   checkReady();
 }
 
 document.getElementById('visitorName').addEventListener('input', checkReady);
+document.getElementById('customProf').addEventListener('input', checkReady);
 function checkReady() {
   const name = document.getElementById('visitorName').value.trim();
-  document.getElementById('startBtn').disabled = !(name && selectedProf);
+  // If they picked "Other", require the custom text field too
+  if (selectedProf === 'other') {
+    const custom = document.getElementById('customProf').value.trim();
+    document.getElementById('startBtn').disabled = !(name && custom);
+  } else {
+    document.getElementById('startBtn').disabled = !(name && selectedProf);
+  }
 }
 
 // ── Populate steps with profession-specific content ──
 function startPitch() {
   visitorName = document.getElementById('visitorName').value.trim();
-  const p = profiles[selectedProf] || profiles['default'];
+  const profKey = selectedProf === 'other' ? 'default' : selectedProf;
+  const p = profiles[profKey] || profiles['default'];
   const a = p.analogies;
 
   // Step 1: Problem
