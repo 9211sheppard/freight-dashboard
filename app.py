@@ -379,6 +379,29 @@ def api_create_temp_link():
                     "expires_hours": hours, "max_uses": max_uses})
 
 
+@app.route("/api/gen-link")
+def api_gen_link_public():
+    """Generate temp link using admin secret key (no login needed)."""
+    key = request.args.get("key", "")
+    if key != os.environ.get("SECRET_KEY", ""):
+        return jsonify({"ok": False, "error": "Invalid key"}), 403
+    page = request.args.get("page", "review")
+    if page not in ("pitch", "invest", "review"):
+        return jsonify({"ok": False, "error": "Invalid page"}), 400
+    hours = int(request.args.get("hours", "24"))
+    max_uses = int(request.args.get("max_uses", "3"))
+    token = _secrets.token_urlsafe(32)
+    _temp_links[token] = {
+        "page": page,
+        "expires": datetime.now() + timedelta(hours=hours),
+        "uses": 0,
+        "max_uses": max_uses,
+    }
+    base = request.host_url.rstrip("/")
+    return jsonify({"ok": True, "url": f"{base}/{page}?token={token}",
+                    "expires_hours": hours, "max_uses": max_uses})
+
+
 @app.route("/api/admin/temp-links")
 @admin_required
 def api_list_temp_links():
