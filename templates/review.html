@@ -284,27 +284,118 @@
   </div>
 </div>
 
-<!-- CTA -->
+<!-- BUILD COST VERIFICATION -->
+<div class="rev-section">
+  <div class="container">
+    <div class="section-label">Build Cost Verification</div>
+    <div class="section-title">What This Codebase Is Worth</div>
+    <p style="opacity:0.8; margin-bottom:20px;">Triple-verified against real agency quotes, developer rates by country, and actual freight tech startup build costs.</p>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.4rem; font-weight:800; color:var(--gold);">31,566</div><div style="font-size:0.75rem; opacity:0.6;">Lines of Code</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.4rem; font-weight:800; color:var(--gold);">1,530-2,160</div><div style="font-size:0.75rem; opacity:0.6;">Dev Hours Est.</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.4rem; font-weight:800; color:var(--accent);">$185K-$540K</div><div style="font-size:0.75rem; opacity:0.6;">US Agency</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.4rem; font-weight:800; color:var(--accent);">$69K-$151K</div><div style="font-size:0.75rem; opacity:0.6;">E. Europe Agency</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.4rem; font-weight:800; color:var(--accent);">$38K-$97K</div><div style="font-size:0.75rem; opacity:0.6;">India Agency</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center" style="border-color:var(--green);"><div style="font-size:1.4rem; font-weight:800; color:var(--green);">~$1,200</div><div style="font-size:0.75rem; opacity:0.6;">Actual Cost (AI)</div></div></div>
+    </div>
+
+    <div class="arch-card" style="border-color:var(--gold);">
+      <h6 style="color:var(--gold);">Comparable Freight Tech Build Costs</h6>
+      <div class="stat-row"><span>Xeneta (rate benchmarking only)</span><span style="color:var(--gold);">$6.5M seed+A</span></div>
+      <div class="stat-row"><span>Freightos (rate quoting for forwarders)</span><span style="color:var(--gold);">$7M+ first 2 yrs</span></div>
+      <div class="stat-row"><span>Wisor AI (RFQ automation only)</span><span style="color:var(--gold);">$8M seed (2023)</span></div>
+      <div class="stat-row"><span>GoComet (procurement + tracking)</span><span style="color:var(--gold);">$2.5M pre-Series A</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ACQUISITION VALUE -->
+<div class="rev-section">
+  <div class="container">
+    <div class="section-label">Acquisition Scenarios</div>
+    <div class="section-title">Strategic Value To Industry Players</div>
+    <div class="row g-3">
+      <div class="col-md-6"><div class="arch-card"><h6 style="color:var(--accent);">Xeneta <small class="opacity-50">$265M valuation</small></h6><p class="opacity-75 mb-0">Gets agent scoring + contact aggregation + RFQ automation. Fills 3 feature gaps. Saves $20M+ and 2-3 years of development.</p></div></div>
+      <div class="col-md-6"><div class="arch-card"><h6 style="color:var(--accent);">Freightos <small class="opacity-50">$105M market cap</small></h6><p class="opacity-75 mb-0">Gets instant SMB market entry at $49.99/mo. A segment they can't profitably serve at their enterprise pricing.</p></div></div>
+      <div class="col-md-6"><div class="arch-card"><h6 style="color:var(--gold);">WiseTech/CargoWise <small class="opacity-50">$16B market cap</small></h6><p class="opacity-75 mb-0">Wins back thousands of SMB customers lost after Dec 2025 price hikes. Ready-made product, zero development time.</p></div></div>
+      <div class="col-md-6"><div class="arch-card"><h6 style="color:var(--gold);">DP World / DF Alliance <small class="opacity-50">8,000+ members</small></h6><p class="opacity-75 mb-0">Technology layer for their entire network. They have the members, we have the software. Instant digital transformation.</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TECHNICAL SCORE -->
 <div class="rev-section" style="text-align:center;">
   <div class="container">
     <div style="background: linear-gradient(135deg, var(--accent), var(--dark)); border-radius: 16px; padding: 40px;">
+      <div class="section-label">Your Perspective</div>
       <div class="section-title mb-3">What's Your Take?</div>
-      <p style="opacity:0.8; max-width:600px; margin: 0 auto 24px;">This review covers architecture, not proprietary algorithms. We're sharing this with technical professionals to pressure-test our approach. Your insight shapes what we build next.</p>
-      <div class="d-flex justify-content-center gap-3 flex-wrap">
-        <a href="mailto:admin@flashcargoglobal.com?subject=Freight%20Intelligence%20-%20Technical%20Review" class="btn btn-light btn-lg px-4">
-          <i class="bi bi-envelope me-2"></i>Request Deep Dive
-        </a>
-        <a href="/invest" class="btn btn-outline-light btn-lg px-4">
-          <i class="bi bi-graph-up me-2"></i>Investor Brief
-        </a>
-        <a href="/pitch" class="btn btn-outline-light btn-lg px-4">
-          <i class="bi bi-play-circle me-2"></i>Product Pitch
-        </a>
+      <p style="opacity:0.8; max-width:600px; margin:0 auto 20px;">How would you rate this architecture and approach?</p>
+
+      <div style="font-size:4rem; font-weight:800; color:var(--accent);" id="revScoreDisplay">5</div>
+      <input type="range" min="1" max="10" value="5" id="revScoreSlider" style="width:100%; max-width:500px; height:8px; -webkit-appearance:none; appearance:none; background:rgba(255,255,255,0.15); border-radius:4px; outline:none;" oninput="document.getElementById('revScoreDisplay').textContent=this.value; document.getElementById('revImproveWrap').style.display=this.value>=10?'none':'block';">
+      <div class="d-flex justify-content-between opacity-50 small mt-1" style="max-width:500px; margin:0 auto;">
+        <span>1 — Weak</span><span>10 — Production-grade</span>
+      </div>
+
+      <div id="revImproveWrap" class="mt-3" style="max-width:500px; margin:0 auto;">
+        <label class="form-label opacity-75">What would make this a 10?</label>
+        <textarea class="form-control" id="revImproveAnswer" rows="2" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;" placeholder="Architecture improvements, missing components, concerns..."></textarea>
+      </div>
+
+      <div class="mt-3" style="max-width:500px; margin:0 auto;">
+        <label class="form-label opacity-75">If this were crowdfunded, how much would you pledge?</label>
+        <div class="d-flex gap-2 flex-wrap mb-2 justify-content-center">
+          <button type="button" class="btn btn-sm btn-outline-light rev-preset" onclick="setRevAmount(500)">$500</button>
+          <button type="button" class="btn btn-sm btn-outline-light rev-preset" onclick="setRevAmount(1000)">$1K</button>
+          <button type="button" class="btn btn-sm btn-outline-light rev-preset" onclick="setRevAmount(5000)">$5K</button>
+          <button type="button" class="btn btn-sm btn-outline-light rev-preset" onclick="setRevAmount(10000)">$10K</button>
+          <button type="button" class="btn btn-sm btn-outline-light rev-preset" onclick="setRevAmount(25000)">$25K</button>
+        </div>
+        <input type="number" class="form-control" id="revAmount" min="0" placeholder="Custom amount..." style="max-width:250px; margin:0 auto; background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff; text-align:center;">
+      </div>
+
+      <button class="btn btn-warning btn-lg px-5 fw-bold mt-4" onclick="submitRevScore()">
+        <i class="bi bi-send me-2"></i>Submit
+      </button>
+
+      <div id="revThanks" class="mt-4 d-none">
+        <div style="font-size:3rem;"><i class="bi bi-heart-fill text-danger"></i></div>
+        <h4 class="mt-2">Thank you for reviewing our architecture.</h4>
+        <div class="d-flex justify-content-center gap-3 mt-3 flex-wrap">
+          <a href="/invest" class="btn btn-outline-light"><i class="bi bi-graph-up me-1"></i>Investor Brief</a>
+          <a href="/pitch" class="btn btn-outline-light"><i class="bi bi-play-circle me-1"></i>Product Pitch</a>
+          <button class="btn btn-outline-light" onclick="navigator.clipboard.writeText(window.location.origin+'/review'); this.innerHTML='<i class=\'bi bi-check-lg me-1\'></i>Copied!'"><i class="bi bi-link-45deg me-1"></i>Copy Link</button>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
+<script>
+function setRevAmount(amt) {
+  document.getElementById('revAmount').value = amt;
+  document.querySelectorAll('.rev-preset').forEach(b => b.classList.remove('btn-warning'));
+  event.target.classList.add('btn-warning');
+}
+async function submitRevScore() {
+  const data = {
+    name: 'Technical Reviewer',
+    profession: 'engineer',
+    profession_label: 'Technical Reviewer',
+    score: parseInt(document.getElementById('revScoreSlider').value),
+    improvement_answer: document.getElementById('revImproveAnswer').value || '',
+    invest_amount: parseInt(document.getElementById('revAmount').value) || 0,
+    risk_answer: '', advice_answer: '',
+    fund_answer: parseInt(document.getElementById('revScoreSlider').value) >= 8 ? 'yes_invest' : 'considering',
+    scoring_answers: [], source: 'review_page'
+  };
+  try { await fetch('/api/pitch/score', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }); } catch(e) {}
+  document.getElementById('revThanks').classList.remove('d-none');
+  event.target.style.display = 'none';
+  document.getElementById('revScoreSlider').disabled = true;
+}
+</script>
 <script src="/static/bootstrap.bundle.min.js"></script>
 </body>
 </html>
