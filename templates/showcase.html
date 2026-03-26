@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Freight Intelligence — The Full Picture</title>
+  <link rel="stylesheet" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/bootstrap-icons.min.css">
+  <style>
+    :root{--bg:#0a0e1a;--card:#111827;--accent:#3b82f6;--gold:#f59e0b;--green:#10b981;--red:#ef4444;--text:#e2e8f0;--muted:#64748b;--glow:0 0 30px rgba(59,130,246,0.15)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+    ::selection{background:var(--accent);color:#fff}
+
+    /* Scroll animations */
+    .reveal{opacity:0;transform:translateY(60px);transition:opacity 0.8s ease,transform 0.8s ease}
+    .reveal.visible{opacity:1;transform:translateY(0)}
+    .reveal-left{opacity:0;transform:translateX(-60px);transition:opacity 0.8s ease,transform 0.8s ease}
+    .reveal-left.visible{opacity:1;transform:translateX(0)}
+    .reveal-right{opacity:0;transform:translateX(60px);transition:opacity 0.8s ease,transform 0.8s ease}
+    .reveal-right.visible{opacity:1;transform:translateX(0)}
+    .reveal-scale{opacity:0;transform:scale(0.85);transition:opacity 0.6s ease,transform 0.6s ease}
+    .reveal-scale.visible{opacity:1;transform:scale(1)}
+
+    /* Sections */
+    .sc{min-height:100vh;display:flex;align-items:center;padding:80px 24px;position:relative}
+    .sc-half{min-height:60vh;padding:60px 24px;display:flex;align-items:center}
+    .sc-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:5px;color:var(--accent);margin-bottom:16px;font-weight:600}
+    .sc-title{font-size:clamp(2rem,5vw,3.5rem);font-weight:800;line-height:1.1;margin-bottom:24px}
+    .sc-sub{font-size:1.15rem;line-height:1.8;color:var(--muted);max-width:640px}
+
+    /* Hero */
+    .hero-price{font-size:clamp(4rem,10vw,8rem);font-weight:900;background:linear-gradient(135deg,var(--accent),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+    .hero-vs{font-size:1.4rem;color:var(--muted);text-decoration:line-through;margin-top:8px}
+
+    /* Glow cards */
+    .glow-card{background:var(--card);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:28px;transition:all 0.3s ease;position:relative;overflow:hidden}
+    .glow-card:hover{border-color:var(--accent);box-shadow:var(--glow);transform:translateY(-4px)}
+    .glow-card .icon{font-size:2rem;margin-bottom:12px;color:var(--accent)}
+    .glow-card h5{font-weight:700;margin-bottom:8px}
+    .glow-card p{color:var(--muted);font-size:0.9rem;line-height:1.6;margin:0}
+
+    /* Competitor wall */
+    .comp-wall{background:var(--card);border-radius:12px;overflow:hidden}
+    .comp-row{display:grid;grid-template-columns:1.5fr 1fr 1fr 0.8fr;align-items:center;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.9rem;transition:background 0.2s}
+    .comp-row:hover{background:rgba(255,255,255,0.02)}
+    .comp-row.header{background:rgba(59,130,246,0.1);font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--accent)}
+    .comp-row.us{background:rgba(16,185,129,0.08);border:1px solid var(--green)}
+    .comp-row .price{color:var(--gold);font-weight:700}
+    .comp-row .check{color:var(--green)}
+    .comp-row .cross{color:var(--red);opacity:0.5}
+    .comp-row .name{font-weight:600}
+
+    /* Network wall */
+    .net-row{display:grid;grid-template-columns:1.5fr 1fr 1fr;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.9rem}
+    .net-row.header{font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--accent);background:rgba(245,158,11,0.1)}
+
+    /* Counter animation */
+    .counter{font-size:clamp(2.5rem,6vw,4rem);font-weight:900;color:var(--accent)}
+    .counter-gold{color:var(--gold)}
+    .counter-green{color:var(--green)}
+    .counter-label{font-size:0.85rem;color:var(--muted);margin-top:4px}
+
+    /* Plug and play */
+    .timeline-step{display:flex;gap:20px;padding:24px 0;border-left:3px solid var(--accent);padding-left:28px;position:relative}
+    .timeline-step::before{content:'';position:absolute;left:-9px;top:28px;width:16px;height:16px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+    .timeline-step .time{font-size:2rem;font-weight:800;color:var(--gold);min-width:80px}
+    .timeline-step .desc h6{font-weight:700;margin-bottom:4px}
+    .timeline-step .desc p{color:var(--muted);font-size:0.9rem;margin:0}
+
+    /* Integration grid */
+    .int-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 14px;font-size:0.8rem;font-weight:500;transition:all 0.2s}
+    .int-badge:hover{border-color:var(--accent);background:rgba(59,130,246,0.08)}
+
+    /* Flywheel */
+    .flywheel{width:300px;height:300px;border-radius:50%;border:3px solid var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto;position:relative;animation:spin 20s linear infinite}
+    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+    .flywheel-center{position:absolute;width:120px;height:120px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;text-align:center;animation:counterspin 20s linear infinite;z-index:2}
+    @keyframes counterspin{from{transform:rotate(0deg)}to{transform:rotate(-360deg)}}
+    .flywheel-node{position:absolute;width:80px;height:80px;border-radius:50%;background:var(--card);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:600;text-align:center;animation:counterspin 20s linear infinite}
+
+    /* Score section */
+    .score-display{font-size:5rem;font-weight:900;color:var(--accent);transition:color 0.3s}
+    .score-slider{width:100%;height:8px;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,0.1);border-radius:4px;outline:none}
+    .score-slider::-webkit-slider-thumb{-webkit-appearance:none;width:36px;height:36px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 16px var(--accent)}
+
+    /* Progress */
+    .sc-progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--gold));z-index:9999;transition:width 0.3s}
+
+    /* Side nav */
+    .side-nav{position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:100;display:flex;flex-direction:column;gap:8px}
+    .side-nav a{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.15);display:block;transition:all 0.3s}
+    .side-nav a.active{background:var(--accent);transform:scale(1.6);box-shadow:0 0 8px var(--accent)}
+
+    /* Pledge buttons */
+    .pledge-btn{background:var(--card);border:2px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 20px;color:var(--text);font-weight:700;font-size:1rem;cursor:pointer;transition:all 0.2s}
+    .pledge-btn:hover,.pledge-btn.active{border-color:var(--gold);background:rgba(245,158,11,0.1);color:var(--gold)}
+
+    /* Token banner */
+    .token-banner{position:fixed;top:0;left:0;right:0;z-index:10000;background:rgba(245,158,11,0.95);color:#000;text-align:center;padding:8px 16px;font-size:0.8rem;font-weight:600}
+
+    /* Mobile */
+    @media(max-width:768px){
+      .sc{padding:40px 16px;min-height:auto}
+      .comp-row{grid-template-columns:1fr 1fr;gap:4px;font-size:0.75rem;padding:8px 12px}
+      .comp-row .price{font-size:0.75rem}
+      .net-row{grid-template-columns:1fr 1fr;font-size:0.8rem}
+      .side-nav{display:none}
+      .flywheel{width:200px;height:200px}
+      .flywheel-center{width:80px;height:80px;font-size:0.7rem}
+      .flywheel-node{width:55px;height:55px;font-size:0.5rem}
+      .timeline-step .time{font-size:1.4rem;min-width:60px}
+      .glow-card{padding:20px}
+    }
+  </style>
+</head>
+<body>
+
+<!-- Progress bar -->
+<div class="sc-progress" id="progressBar" style="width:0%"></div>
+
+<!-- Side nav -->
+<nav class="side-nav" id="sideNav"></nav>
+
+<!-- Token banner (injected by server if temp link) -->
+{% if token_info %}
+<div class="token-banner" id="tokenBanner">
+  <i class="bi bi-lock-fill me-1"></i>
+  Private preview — expires in <span id="tokenCountdown"></span> or after <span id="tokenUses">{{ token_info.remaining_uses }}</span> more views
+</div>
+<script>
+(function(){
+  var exp=new Date("{{ token_info.expires_iso }}");
+  function u(){var n=new Date(),d=exp-n;if(d<=0){document.getElementById('tokenBanner').innerHTML='<i class="bi bi-lock-fill me-1"></i>This preview has expired.';return}
+  var h=Math.floor(d/36e5),m=Math.floor(d%36e5/6e4),s=Math.floor(d%6e4/1e3);document.getElementById('tokenCountdown').textContent=h+'h '+m+'m '+s+'s';setTimeout(u,1e3)}u()})();
+</script>
+<style>body{padding-top:36px}</style>
+{% endif %}
+
+
+<!-- ========== S1: HERO ========== -->
+<section class="sc" id="s-hero">
+  <div class="container text-center">
+    <div class="reveal">
+      <p style="color:var(--muted);font-size:1.1rem;margin-bottom:24px">What if everything you need cost</p>
+      <div class="hero-price">$49.99<span style="font-size:0.3em;opacity:0.6">/mo</span></div>
+      <div class="hero-vs">CargoWise: $50,000–$500,000/yr &bull; Xeneta: $25,000–$400,000/yr &bull; MercuryGate: $500/user/mo</div>
+      <p style="max-width:600px;margin:32px auto 0;color:var(--muted);font-size:1.1rem;line-height:1.7">
+        Freight Intelligence + Full TMS + 50 Integrations + Enterprise Security.<br>
+        One platform. One price. Ready in 5 minutes.
+      </p>
+      <div style="margin-top:40px">
+        <span class="int-badge"><i class="bi bi-shield-check"></i> SOC 2 Ready</span>
+        <span class="int-badge"><i class="bi bi-cloud"></i> Microsoft Azure</span>
+        <span class="int-badge"><i class="bi bi-lock"></i> Enterprise Encryption</span>
+        <span class="int-badge"><i class="bi bi-plug"></i> 50+ Integrations</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ========== S2: PLUG AND PLAY ========== -->
+<section class="sc" id="s-setup" style="background:rgba(255,255,255,0.01)">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-5 reveal-left">
+        <div class="sc-label">Plug &amp; Play</div>
+        <div class="sc-title">Live in 5 Minutes.<br><span style="color:var(--gold)">Not 12 Months.</span></div>
+        <p class="sc-sub">CargoWise takes 6-12 months and $2M to implement. We take 5 minutes and $0. Upload your CSV. Connect your APIs. You're live.</p>
+      </div>
+      <div class="col-lg-7 reveal-right">
+        <div class="timeline-step"><div class="time">30s</div><div class="desc"><h6>Sign Up</h6><p>Name, email, password. No credit card. 14-day free trial.</p></div></div>
+        <div class="timeline-step"><div class="time">2m</div><div class="desc"><h6>Upload Your Data</h6><p>Drag &amp; drop your CSV — contacts, rates, whatever you have. Auto-detected columns. Instant deduplication.</p></div></div>
+        <div class="timeline-step"><div class="time">30s</div><div class="desc"><h6>Connect Carrier APIs</h6><p>Click to authorize Maersk, CMA CGM, MSC, Hapag-Lloyd. Schedules sync automatically every 6 hours.</p></div></div>
+        <div class="timeline-step"><div class="time">1m</div><div class="desc"><h6>You're Live</h6><p>Your contacts are being scored. Rates are being benchmarked. Vessels are being tracked. TMS is ready for shipments.</p></div></div>
+        <div style="margin-top:24px;padding-left:28px">
+          <div style="display:flex;gap:24px;flex-wrap:wrap">
+            <div><span class="counter counter-gold" data-target="5">0</span><div class="counter-label">Minutes to live</div></div>
+            <div><span class="counter counter-green" data-target="0">0</span><div class="counter-label">Setup cost</div></div>
+            <div><span class="counter" data-target="0">0</span><div class="counter-label">Training needed</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ========== S3: WHAT WE BUILT ========== -->
+<section class="sc" id="s-product">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="sc-label">The Platform</div>
+      <div class="sc-title">Three Products. One Price.</div>
+      <p class="sc-sub mx-auto">Companies pay 3 separate vendors $100K+/yr total for what we deliver in one dashboard.</p>
+    </div>
+    <div class="row g-4 mt-4">
+      <div class="col-lg-4 reveal-scale" style="transition-delay:0.1s">
+        <div class="glow-card h-100">
+          <div class="icon"><i class="bi bi-graph-up-arrow"></i></div>
+          <h5>Freight Intelligence</h5>
+          <p>Rate Engine V2 with automated RFQ cycles, 4-factor agent scoring, nudge logic, self-recovery tracking, predictive ETAs, carrier reliability grading, cultural outreach for 73 countries, 5-agent email inspection.</p>
+          <div class="mt-3" style="font-size:0.8rem;color:var(--gold)">Replaces: Xeneta ($25K-$400K/yr) + Quotiss ($1,500/mo) + GoComet</div>
+        </div>
+      </div>
+      <div class="col-lg-4 reveal-scale" style="transition-delay:0.2s">
+        <div class="glow-card h-100">
+          <div class="icon"><i class="bi bi-truck"></i></div>
+          <h5>Full TMS</h5>
+          <p>Shipments, dispatch kanban, drivers, fleet, docks, EDI (X12 + EDIFACT), freight claims, proof of delivery, customer portal, control tower mapping, contract rates, load consolidation, compliance screening.</p>
+          <div class="mt-3" style="font-size:0.8rem;color:var(--gold)">Replaces: MercuryGate ($500/user/mo) + Turvo ($5K/mo) + CargoWise</div>
+        </div>
+      </div>
+      <div class="col-lg-4 reveal-scale" style="transition-delay:0.3s">
+        <div class="glow-card h-100">
+          <div class="icon"><i class="bi bi-shield-lock"></i></div>
+          <h5>Enterprise Security</h5>
+          <p>SOC 2 ready, MFA/TOTP, Google + Microsoft SSO, SAML, field-level AES encryption, WAF/DDoS protection, API key management, audit logging, GDPR compliance, denied party screening.</p>
+          <div class="mt-3" style="font-size:0.8rem;color:var(--gold)">Replaces: $50K+ in security audits + compliance tooling</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-4 mt-5 text-center">
+      <div class="col-4 col-md-2 reveal-scale"><div class="counter" data-target="31566">0</div><div class="counter-label">Lines of Code</div></div>
+      <div class="col-4 col-md-2 reveal-scale"><div class="counter" data-target="150">0</div><div class="counter-label">API Routes</div></div>
+      <div class="col-4 col-md-2 reveal-scale"><div class="counter counter-gold" data-target="75">0</div><div class="counter-label">Pages</div></div>
+      <div class="col-4 col-md-2 reveal-scale"><div class="counter counter-gold" data-target="50">0</div><div class="counter-label">Integrations</div></div>
+      <div class="col-4 col-md-2 reveal-scale"><div class="counter counter-green" data-target="73">0</div><div class="counter-label">Countries</div></div>
+      <div class="col-4 col-md-2 reveal-scale"><div class="counter counter-green" data-target="48">0</div><div class="counter-label">TMS Tables</div></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ========== S4: FEATURE DEEP DIVE ========== -->
+<section class="sc-half" id="s-features" style="background:rgba(255,255,255,0.01)">
+  <div class="container">
+    <div class="sc-label reveal">Features</div>
+    <div class="sc-title reveal">Everything. In One Place.</div>
+    <div class="row g-3 mt-3">
+      <!-- Row 1 -->
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-people"></i></div><h6>Contact Intelligence</h6><p>Behavioral profiling, verification scoring, cultural optimization, timezone-aware sending</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-graph-up"></i></div><h6>Rate Engine V2</h6><p>Benchmarks, agent scoring (4-factor), nudge logic, self-recovery, trend analysis</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-water"></i></div><h6>Vessel Schedules</h6><p>6 carrier APIs, predictive ETAs, reliability grading A+ to D, 6-hour auto-sync</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-envelope-paper"></i></div><h6>5-Agent Email System</h6><p>Identity, redundancy, psychology, formatting, human test — all must pass before sending</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-box-seam"></i></div><h6>Shipment Management</h6><p>Full lifecycle: draft to delivered, multi-leg, multi-currency, 10+ incoterms</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-kanban"></i></div><h6>Dispatch Kanban</h6><p>5-column board: unassigned to delivered, drag-drop, health indicators</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-file-earmark-code"></i></div><h6>EDI Integration</h6><p>X12 (204/210/214/215/850/856/990/997) + EDIFACT, auto-status mapping</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-camera"></i></div><h6>Proof of Delivery</h6><p>E-signature + photo capture, SMS link to driver, PDF generation</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-globe2"></i></div><h6>Control Tower</h6><p>Real-time map, at-risk detection, geolocation, live shipment monitoring</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-file-pdf"></i></div><h6>Document Generation</h6><p>BOL, commercial invoice, packing list, POD — all as branded PDF</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-exclamation-triangle"></i></div><h6>Freight Claims</h6><p>Full workflow: filed to paid/denied, evidence photos, carrier response portal</p></div></div>
+      <div class="col-md-4 col-6 reveal-scale"><div class="glow-card"><div class="icon"><i class="bi bi-leaf"></i></div><h6>ESG Carbon Tracking</h6><p>Emissions per shipment by mode, annual sustainability reports, CSV export</p></div></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ========== S5: COMPETITOR WALL ========== -->
+<section class="sc" id="s-competitors">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="sc-label">The Competition</div>
+      <div class="sc-title">100+ Competitors Analyzed.<br><span style="color:var(--green)">Zero Match.</span></div>
+      <p class="sc-sub mx-auto">We checked every freight tech platform globally. From $1 tools to $500M enterprise software. Nobody does all of this.</p>
+    </div>
+
+    <h6 class="mt-5 mb-3 reveal" style="color:var(--accent)"><i class="bi bi-laptop me-2"></i>SaaS Platforms</h6>
+    <div class="comp-wall reveal">
+      <div class="comp-row header"><span>Platform</span><span>What They Do</span><span>Price</span><span>vs Us</span></div>
+      <div class="comp-row"><span class="name">CargoWise</span><span style="color:var(--muted)">Full ERP (operations only)</span><span class="price">$50K-$500K/yr</span><span class="cross"><i class="bi bi-x-lg"></i> No intelligence</span></div>
+      <div class="comp-row"><span class="name">project44</span><span style="color:var(--muted)">Visibility only</span><span class="price">$75K-$500K/yr</span><span class="cross"><i class="bi bi-x-lg"></i> No TMS</span></div>
+      <div class="comp-row"><span class="name">Xeneta</span><span style="color:var(--muted)">Rate benchmarking only</span><span class="price">$25K-$400K/yr</span><span class="cross"><i class="bi bi-x-lg"></i> No scoring</span></div>
+      <div class="comp-row"><span class="name">FourKites</span><span style="color:var(--muted)">Tracking only</span><span class="price">$50K-$250K/yr</span><span class="cross"><i class="bi bi-x-lg"></i> No rates</span></div>
+      <div class="comp-row"><span class="name">MercuryGate</span><span style="color:var(--muted)">TMS only</span><span class="price">$500/user/mo</span><span class="cross"><i class="bi bi-x-lg"></i> No intel</span></div>
+      <div class="comp-row"><span class="name">Turvo</span><span style="color:var(--muted)">TMS only</span><span class="price">$5,000/mo</span><span class="cross"><i class="bi bi-x-lg"></i> No intel</span></div>
+      <div class="comp-row"><span class="name">Transporeon</span><span style="color:var(--muted)">Rate management (EU)</span><span class="price">Custom enterprise</span><span class="cross"><i class="bi bi-x-lg"></i> Shipper only</span></div>
+      <div class="comp-row"><span class="name">Keelvar</span><span style="color:var(--muted)">Procurement optimization</span><span class="price">Enterprise only</span><span class="cross"><i class="bi bi-x-lg"></i> Fortune 500</span></div>
+      <div class="comp-row"><span class="name">Quotiss</span><span style="color:var(--muted)">Rate management only</span><span class="price">$1,500-$2,500/mo</span><span class="cross"><i class="bi bi-x-lg"></i> No scoring</span></div>
+      <div class="comp-row"><span class="name">Freightify</span><span style="color:var(--muted)">Rate procurement only</span><span class="price">$500-$2,000/mo</span><span class="cross"><i class="bi bi-x-lg"></i> No TMS</span></div>
+      <div class="comp-row"><span class="name">GoComet</span><span style="color:var(--muted)">Shipper procurement</span><span class="price">$100-$500/mo</span><span class="cross"><i class="bi bi-x-lg"></i> Shipper side</span></div>
+      <div class="comp-row"><span class="name">Wisor AI</span><span style="color:var(--muted)">RFQ automation (enterprise)</span><span class="price">Custom</span><span class="cross"><i class="bi bi-x-lg"></i> Enterprise only</span></div>
+      <div class="comp-row us"><span class="name" style="color:var(--gold)"><i class="bi bi-star-fill me-1"></i>Freight Intelligence</span><span style="color:var(--green);font-weight:600">All of the above combined</span><span class="price" style="color:var(--green)">$49.99/mo</span><span class="check"><i class="bi bi-check-circle-fill"></i> Everything</span></div>
+    </div>
+
+    <h6 class="mt-5 mb-3 reveal" style="color:var(--gold)"><i class="bi bi-globe me-2"></i>Agent Networks Disrupted</h6>
+    <p class="reveal" style="color:var(--muted);font-size:0.9rem;margin-bottom:16px">Each network charges $500-$6,000/yr for a walled-garden directory. A forwarder in 3-5 networks spends $15,000-$55,000/yr + conference travel.</p>
+    <div class="comp-wall reveal">
+      <div class="net-row header"><span>Network</span><span>Members</span><span>Annual Fee</span></div>
+      <div class="net-row"><span>WCA World</span><span>12,500 offices</span><span style="color:var(--gold)">$2,000-$5,000</span></div>
+      <div class="net-row"><span>Pangea / Conqueror</span><span>245 cities</span><span style="color:var(--gold)">$1,500-$3,000</span></div>
+      <div class="net-row"><span>The Cooperative</span><span>375 members</span><span style="color:var(--gold)">$1,580/city</span></div>
+      <div class="net-row"><span>PCN (Project Cargo)</span><span>350 companies</span><span style="color:var(--gold)">$1,400/yr</span></div>
+      <div class="net-row"><span>DF Alliance (DP World)</span><span>8,000 members</span><span style="color:var(--gold)">$3,588/yr</span></div>
+      <div class="net-row"><span>JCTrans</span><span>420,000 users</span><span style="color:var(--gold)">$1,000-$3,000</span></div>
+      <div class="net-row"><span>Globalia</span><span>210 members</span><span style="color:var(--gold)">~$500+</span></div>
+      <div class="net-row"><span>X2 Logistics</span><span>1,000+ members</span><span style="color:var(--gold)">Varies by network</span></div>
+      <div class="net-row"><span>FNC Group</span><span>560+ members</span><span style="color:var(--gold)">$1,000-$6,000</span></div>
+      <div class="net-row"><span>Atlas Network</span><span>220 offices</span><span style="color:var(--gold)">Not public</span></div>
+      <div class="net-row" style="background:rgba(16,185,129,0.08);border:1px solid var(--green)"><span style="color:var(--gold);font-weight:700">Our platform replaces all of them</span><span></span><span style="color:var(--green);font-weight:700">$49.99/mo</span></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ========== S6: INTEGRATIONS ========== -->
+<section class="sc-half" id="s-integrations" style="background:rgba(255,255,255,0.01)">
+  <div class="container">
+    <div class="text-center reveal">
+      <div class="sc-label">Ecosystem</div>
+      <div class="sc-title">50+ Integrations. Ready to Connect.</div>
+      <p class="sc-sub mx-auto">Click to authorize. Seconds to connect. No implementation consultants.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 justify-content-center mt-4 reveal">
+      <span class="int-badge"><i class="bi bi-water"></i> Maersk</span>
+      <span class="int-badge"><i class="bi bi-water"></i> MSC</span>
+      <span class="int-badge"><i class="bi bi-water"></i> CMA CGM</span>
+      <span class="int-badge"><i class="bi bi-water"></i> Hapag-Lloyd</span>
+      <span class="int-badge"><i class="bi bi-water"></i> ONE</span>
+      <span class="int-badge"><i class="bi bi-water"></i> Evergreen</span>
+      <span class="int-badge"><i class="bi bi-water"></i> COSCO</span>
+      <span class="int-badge"><i class="bi bi-water"></i> ZIM</span>
+      <span class="int-badge"><i class="bi bi-truck"></i> DAT</span>
+      <span class="int-badge"><i class="bi bi-truck"></i> Truckstop</span>
+      <span class="int-badge"><i class="bi bi-truck"></i> Uber Freight</span>
+      <span class="int-badge"><i class="bi bi-eye"></i> project44</span>
+      <span class="int-badge"><i class="bi bi-eye"></i> FourKites</span>
+      <span class="int-badge"><i class="bi bi-eye"></i> MacroPoint</span>
+      <span class="int-badge"><i class="bi bi-shield-check"></i> Highway</span>
+      <span class="int-badge"><i class="bi bi-shield-check"></i> RMIS</span>
+      <span class="int-badge"><i class="bi bi-shield-check"></i> Carrier Assure</span>
+      <span class="int-badge"><i class="bi bi-globe"></i> Descartes</span>
+      <span class="int-badge"><i class="bi bi-globe"></i> INTTRA</span>
+      <span class="int-badge"><i class="bi bi-globe"></i> Flexport</span>
+      <span class="int-badge"><i class="bi bi-globe"></i> Freightos</span>
+      <span class="int-badge"><i class="bi bi-airplane"></i> Cargo.AI</span>
+      <span class="int-badge"><i class="bi bi-airplane"></i> WebCargo</span>
+      <span class="int-badge"><i class="bi bi-credit-card"></i> TriumphPay</span>
+      <span class="int-badge"><i class="bi bi-credit-card"></i> Apex Capital</span>
+      <span class="int-badge"><i class="bi bi-credit-card"></i> QuickBooks</span>
+      <span class="int-badge"><i class="bi bi-credit-card"></i> Xero</span>
+      <span class="int-badge"><i class="bi bi-laptop"></i> CargoWise</span>
+      <span class="int-badge"><i class="bi bi-laptop"></i> Rose Rocket</span>
+      <span class="int-badge"><i class="bi bi-laptop"></i> McLeod</span>
+      <span class="int-badge"><i class="bi bi-envelope"></i> Microsoft Graph</span>
+      <span class="int-badge"><i class="bi bi-envelope"></i> Gmail OAuth</span>
+      <span class="int-badge"><i class="bi bi-stripe"></i> Stripe</span>
+    </div>
+  </div>
+</section>
+
+
+<!-- ========== S7: AI OPS ========== -->
+<section class="sc" id="s-ai">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-5 reveal-left">
+        <div class="sc-label">Operations</div>
+        <div class="sc-title">AI Runs Everything.<br><span style="color:var(--gold)">No Human Team.</span></div>
+        <p class="sc-sub">Multi-layer AI operations pipeline handles support, engineering, and quality assurance autonomously. 95% of issues resolved without human intervention.</p>
+      </div>
+      <div class="col-lg-7 reveal-right">
+        <div class="glow-card mb-3"><div class="d-flex align-items-center gap-3"><div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">1</div><div><strong>Customer submits ticket</strong><br><span style="color:var(--muted);font-size:0.85rem">Categorized automatically: password, billing, import, rates, schedules, bug, general</span></div></div></div>
+        <div class="glow-card mb-3"><div class="d-flex align-items-center gap-3"><div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">2</div><div><strong>AI diagnostic layer</strong><br><span style="color:var(--muted);font-size:0.85rem">Reads ticket, checks logs, identifies root cause. 40% resolved instantly with pre-built instructions.</span></div></div></div>
+        <div class="glow-card mb-3"><div class="d-flex align-items-center gap-3"><div style="width:40px;height:40px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;color:#000">3</div><div><strong>AI engineering layer</strong><br><span style="color:var(--muted);font-size:0.85rem">Generates fix: code patch, config correction, or data repair. No human developer needed.</span></div></div></div>
+        <div class="glow-card mb-3"><div class="d-flex align-items-center gap-3"><div style="width:40px;height:40px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0">4</div><div><strong>AI verification layer</strong><br><span style="color:var(--muted);font-size:0.85rem">Reviews fix independently. Validates it doesn't break anything. Only approved fixes deploy.</span></div></div></div>
+        <div class="glow-card"><div class="d-flex align-items-center gap-3"><div style="width:40px;height:40px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0"><i class="bi bi-check-lg"></i></div><div><strong>Customer notified: "Fixed"</strong><br><span style="color:var(--muted);font-size:0.85rem">Total time: minutes, not days. Scales to 100,000+ users with zero additional headcount.</span></div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ========== S8: NETWORK EFFECT ========== -->
+<section class="sc" id="s-network" style="background:rgba(255,255,255,0.01)">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-6 text-center reveal-left">
+        <div class="flywheel">
+          <div class="flywheel-center">More<br>Value</div>
+          <div class="flywheel-node" style="top:-40px;left:50%;transform:translateX(-50%)">More Users</div>
+          <div class="flywheel-node" style="right:-40px;top:50%;transform:translateY(-50%)">More Data</div>
+          <div class="flywheel-node" style="bottom:-40px;left:50%;transform:translateX(-50%)">Better Benchmarks</div>
+          <div class="flywheel-node" style="left:-40px;top:50%;transform:translateY(-50%)">Smarter Scoring</div>
+        </div>
+      </div>
+      <div class="col-lg-6 reveal-right">
+        <div class="sc-label">The Flywheel</div>
+        <div class="sc-title">More Users = <span style="color:var(--green)">More Valuable</span></div>
+        <div class="glow-card mb-3"><strong style="color:var(--accent)">Stage 1 — Now</strong><br><span style="color:var(--muted)">Freight agents: find partners, score them, manage rates, track vessels, run operations.</span></div>
+        <div class="glow-card mb-3"><strong style="color:var(--gold)">Stage 2 — Next</strong><br><span style="color:var(--muted)">Bring customers onto the platform. They see rates, book directly, track shipments. Agents become service providers.</span></div>
+        <div class="glow-card"><strong style="color:var(--green)">Stage 3 — Vision</strong><br><span style="color:var(--muted)">Direct shipping line integration. Live rates posted like a stock exchange. Real-time market transparency for everyone.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ========== S9: REVENUE ========== -->
+<section class="sc" id="s-revenue">
+  <div class="container text-center">
+    <div class="reveal">
+      <div class="sc-label">The Numbers</div>
+      <div class="sc-title">Path to $60M ARR</div>
+    </div>
+    <div class="row g-4 mt-4">
+      <div class="col-md-3 col-6 reveal-scale"><div class="glow-card"><div class="counter" data-target="100">0</div><div class="counter-label">Year 1 Users</div><div style="color:var(--muted);font-size:0.85rem;margin-top:8px">$60K ARR</div></div></div>
+      <div class="col-md-3 col-6 reveal-scale"><div class="glow-card"><div class="counter" data-target="1000">0</div><div class="counter-label">Year 2 Users</div><div style="color:var(--muted);font-size:0.85rem;margin-top:8px">$600K ARR</div></div></div>
+      <div class="col-md-3 col-6 reveal-scale"><div class="glow-card"><div class="counter counter-gold" data-target="10000">0</div><div class="counter-label">Year 3 Users</div><div style="color:var(--gold);font-size:0.85rem;margin-top:8px">$6M ARR</div></div></div>
+      <div class="col-md-3 col-6 reveal-scale"><div class="glow-card" style="border-color:var(--gold)"><div class="counter counter-gold" data-target="100000">0</div><div class="counter-label">Year 5 Users</div><div style="color:var(--gold);font-size:0.9rem;font-weight:700;margin-top:8px">$60M ARR</div></div></div>
+    </div>
+    <div class="row g-4 mt-4 justify-content-center">
+      <div class="col-md-3 col-6 reveal-scale"><div class="glow-card"><div style="font-size:1.6rem;font-weight:800;color:var(--green)">24:1</div><div class="counter-label">LTV:CAC Ratio</div></div></div>
+      <div class="col-md-3 col-6 reveal-scale"><div class="glow-card"><div style="font-size:1.6rem;font-weight:800;color:var(--green)">~95%</div><div class="counter-label">Gross Margin</div></div></div>
+      <div class="col-md-3 col-6 reveal-scale"><div class="glow-card"><div style="font-size:1.6rem;font-weight:800;color:var(--green)">1 month</div><div class="counter-label">Payback Period</div></div></div>
+      <div class="col-md-3 col-6 reveal-scale"><div class="glow-card"><div style="font-size:1.6rem;font-weight:800;color:var(--accent)">$0</div><div class="counter-label">Marketing Spend</div></div></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ========== S10: SCORE ========== -->
+<section class="sc" id="s-score" style="background:rgba(255,255,255,0.01)">
+  <div class="container" style="max-width:600px">
+    <div class="text-center reveal">
+      <div class="sc-label">Your Perspective</div>
+      <div class="sc-title">What's Your Take?</div>
+      <p style="color:var(--muted);margin-bottom:32px">Based on everything you've seen — how viable is this?</p>
+
+      <div class="score-display" id="scoreDisplay">5</div>
+      <input type="range" class="score-slider" id="scoreSlider" min="1" max="10" value="5" oninput="updateScore(this.value)">
+      <div class="d-flex justify-content-between" style="color:var(--muted);font-size:0.8rem;margin-top:8px">
+        <span>1 — Not viable</span><span>10 — This is a winner</span>
+      </div>
+
+      <div id="improvementWrap" class="mt-4 text-start">
+        <label style="color:var(--muted);font-size:0.9rem">What would make this a 10?</label>
+        <textarea class="form-control mt-2" id="improvementAnswer" rows="3" placeholder="One thing that would change your mind..." style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:var(--text);border-radius:12px"></textarea>
+      </div>
+
+      <div class="mt-4">
+        <label style="color:var(--muted);font-size:0.9rem">If this were crowdfunded, how much would you pledge?</label>
+        <div class="d-flex flex-wrap gap-2 justify-content-center mt-3">
+          <button class="pledge-btn" onclick="setPledge(100,this)">$100</button>
+          <button class="pledge-btn" onclick="setPledge(500,this)">$500</button>
+          <button class="pledge-btn" onclick="setPledge(1000,this)">$1,000</button>
+          <button class="pledge-btn" onclick="setPledge(5000,this)">$5,000</button>
+          <button class="pledge-btn" onclick="setPledge(10000,this)">$10,000</button>
+          <button class="pledge-btn" onclick="setPledge(25000,this)">$25,000</button>
+          <button class="pledge-btn" onclick="setPledge(50000,this)">$50,000</button>
+        </div>
+        <input type="number" class="form-control mt-3" id="pledgeAmount" min="0" placeholder="Or type custom amount..." style="max-width:250px;margin:0 auto;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:var(--text);border-radius:12px;text-align:center">
+        <small style="color:var(--muted)">Non-binding — helps us gauge interest.</small>
+      </div>
+
+      <button class="btn btn-lg px-5 mt-4" style="background:var(--accent);color:#fff;border-radius:50px;font-weight:700" onclick="submitShowcaseScore()">
+        <i class="bi bi-send me-2"></i>Submit
+      </button>
+    </div>
+
+    <!-- Thank you -->
+    <div id="thankYou" class="text-center" style="display:none">
+      <div style="font-size:4rem"><i class="bi bi-heart-fill" style="color:var(--red)"></i></div>
+      <div class="sc-title mt-3">Thank You.</div>
+      <p style="color:var(--muted);margin-bottom:24px">Your perspective shapes what we build next.</p>
+      <button class="btn btn-outline-light" onclick="navigator.clipboard.writeText(window.location.origin+'/showcase');this.innerHTML='<i class=\'bi bi-check-lg me-1\'></i>Copied!'">
+        <i class="bi bi-link-45deg me-1"></i>Copy Link to Share
+      </button>
+    </div>
+  </div>
+</section>
+
+
+<!-- ========== SCRIPTS ========== -->
+<script>
+// Counter animation
+function animateCounter(el){
+  const target=parseInt(el.dataset.target);if(!target)return;
+  const duration=2000;const start=performance.now();
+  function tick(now){
+    const p=Math.min((now-start)/duration,1);
+    const ease=1-Math.pow(1-p,3);
+    el.textContent=Math.floor(ease*target).toLocaleString();
+    if(p<1)requestAnimationFrame(tick);else el.textContent=target.toLocaleString();
+  }
+  requestAnimationFrame(tick);
+}
+
+// Scroll reveal
+const observer=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+      if(e.target.classList.contains('counter'))animateCounter(e.target);
+    }
+  });
+},{threshold:0.15,rootMargin:'0px 0px -50px 0px'});
+
+document.querySelectorAll('.reveal,.reveal-left,.reveal-right,.reveal-scale,.counter').forEach(el=>observer.observe(el));
+
+// Progress bar
+window.addEventListener('scroll',()=>{
+  const h=document.documentElement;
+  const pct=(h.scrollTop/(h.scrollHeight-h.clientHeight))*100;
+  document.getElementById('progressBar').style.width=pct+'%';
+});
+
+// Side nav
+const sections=document.querySelectorAll('.sc,.sc-half');
+const nav=document.getElementById('sideNav');
+sections.forEach((s,i)=>{
+  const a=document.createElement('a');a.href='#'+s.id;nav.appendChild(a);
+});
+window.addEventListener('scroll',()=>{
+  const dots=nav.querySelectorAll('a');
+  sections.forEach((s,i)=>{
+    const r=s.getBoundingClientRect();
+    if(dots[i])dots[i].classList.toggle('active',r.top<window.innerHeight/2&&r.bottom>window.innerHeight/2);
+  });
+});
+
+// Score
+function updateScore(v){
+  document.getElementById('scoreDisplay').textContent=v;
+  document.getElementById('improvementWrap').style.display=parseInt(v)>=10?'none':'block';
+  const c=v>=8?'var(--green)':v>=5?'var(--accent)':'var(--red)';
+  document.getElementById('scoreDisplay').style.color=c;
+}
+
+// Pledge
+let pledgeVal=0;
+function setPledge(amt,btn){
+  pledgeVal=amt;document.getElementById('pledgeAmount').value=amt;
+  document.querySelectorAll('.pledge-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// Submit
+async function submitShowcaseScore(){
+  const data={
+    name:'showcase_visitor',profession:'showcase',profession_label:'Showcase Viewer',
+    score:parseInt(document.getElementById('scoreSlider').value),
+    improvement_answer:document.getElementById('improvementAnswer')?.value||'',
+    invest_amount:parseInt(document.getElementById('pledgeAmount').value)||pledgeVal,
+    risk_answer:'',advice_answer:'',fund_answer:'showcase',scoring_answers:[]
+  };
+  try{await fetch('/api/pitch/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})}catch(e){}
+  document.getElementById('s-score').querySelector('.reveal,.text-center').style.display='none';
+  document.getElementById('thankYou').style.display='block';
+}
+
+// Keyboard/swipe
+document.addEventListener('keydown',e=>{if(e.key==='ArrowDown')window.scrollBy({top:window.innerHeight,behavior:'smooth'});if(e.key==='ArrowUp')window.scrollBy({top:-window.innerHeight,behavior:'smooth'})});
+</script>
+<script src="/static/bootstrap.bundle.min.js"></script>
+</body>
+</html>

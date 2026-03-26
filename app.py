@@ -363,7 +363,7 @@ def api_create_temp_link():
     """Admin creates a temporary access link for pitch/invest/review."""
     data = request.get_json() or {}
     page = data.get("page", "pitch")
-    if page not in ("pitch", "invest", "review"):
+    if page not in ("pitch", "invest", "review", "showcase"):
         return jsonify({"ok": False, "error": "Page must be pitch, invest, or review"}), 400
     hours = data.get("hours", 24)
     max_uses = data.get("max_uses", 3)
@@ -386,7 +386,7 @@ def api_gen_link_public():
     if key != os.environ.get("SECRET_KEY", ""):
         return jsonify({"ok": False, "error": "Invalid key"}), 403
     page = request.args.get("page", "review")
-    if page not in ("pitch", "invest", "review"):
+    if page not in ("pitch", "invest", "review", "showcase"):
         return jsonify({"ok": False, "error": "Invalid page"}), 400
     hours = int(request.args.get("hours", "24"))
     max_uses = int(request.args.get("max_uses", "3"))
@@ -457,6 +457,16 @@ def review_page():
     if token_info:
         return render_template("review.html", token_info=token_info)
     return redirect(url_for("index"))
+    return redirect(url_for("index"))
+
+
+@app.route("/showcase")
+def showcase_page():
+    if session.get("user_role") == "admin":
+        return render_template("showcase.html", token_info=None)
+    token_info = _check_temp_token("showcase")
+    if token_info:
+        return render_template("showcase.html", token_info=token_info)
     return redirect(url_for("index"))
 
 
