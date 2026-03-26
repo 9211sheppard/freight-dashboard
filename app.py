@@ -5,6 +5,7 @@ Then open: http://127.0.0.1:5000
 """
 
 import csv
+import hashlib
 import io
 import os
 import re
@@ -37,7 +38,11 @@ import urllib.request
 import urllib.parse
 import json as _json
 
-from config import SECRET_KEY, PASSWORD, DB_PATH, CSV_SOURCES, DATA_DIR
+from config import (
+    SECRET_KEY, PASSWORD, DB_PATH, CSV_SOURCES, DATA_DIR,
+    API_RATE_LIMIT, LOGIN_RATE_LIMIT, MAX_UPLOAD_SIZE_MB,
+    SESSION_LIFETIME_HOURS,
+)
 from carrier_api import ORIGIN_PORTS, DEST_PORTS, has_any_api_keys_configured
 from schedule_sync_api import ensure_schedule_schema, start_background_sync
 import mailer as _mailer
@@ -53,6 +58,7 @@ import rate_engine_v2
 import auth as _auth
 import quotes as _quotes
 import helpbot as _helpbot
+from permissions import feature_required
 
 if getattr(sys, 'frozen', False):
     # When running as a PyInstaller .exe, templates and static files
@@ -65,9 +71,64 @@ else:
     app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0   # disable static file caching
+app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=SESSION_LIFETIME_HOURS)
+if not app.debug:
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_NAME'] = '__Host-session'
 ensure_schedule_schema()
+_get_tms_tracking_context = None
+
+# ── TMS Blueprint ─────────────────────────────────────────────────────────────
+try:
+    from tms import portal as portal_blueprint, public as public_blueprint, tms as tms_blueprint
+    from tms.tms_db import get_tracking_page_context, init_tms_db
+    init_tms_db()
+    _get_tms_tracking_context = get_tracking_page_context
+    app.register_blueprint(tms_blueprint)
+    app.register_blueprint(portal_blueprint)
+    app.register_blueprint(public_blueprint)
+    print("[TMS] Loaded OK — available at /tms and /portal/login")
+except Exception as _tms_err:
+    print(f"[TMS] Failed to load: {_tms_err}")
+
+# ── Microservices Gateway ─────────────────────────────────────────────────────
+# Register all 12 microservice blueprints.
+# In monolith mode (current), they run as blueprints under this single Flask app.
+# Each service wraps its own business logic, models, and inter-service client.
+# To split into independent services later, each can be deployed separately.
+try:
+    from gateway import register_all_services
+    register_all_services(app)
+    print("[microservices] All 12 services registered successfully:")
+    print("  1. Auth & Permissions    7. Documents & OCR")
+    print("  2. Contact Engine        8. Billing & Invoicing")
+    print("  3. Email & Mailer        9. Compliance & Audit")
+    print("  4. Rate Engine          10. Scrapers & Data Sync")
+    print("  5. TMS Core             11. AI & Support")
+    print("  6. Carrier & Fleet      12. Admin & Monitoring")
+except Exception as _svc_err:
+    print(f"[microservices] Gateway registration failed: {_svc_err}")
 
 STARTUP_TIME = str(int(time.time()))          # changes on every restart → cache-busting
+
+
+@app.route("/track/<ref>")
+def public_tracking(ref):
+    if _get_tms_tracking_context is None:
+        return render_template(
+            "error.html",
+            code=503,
+            message="Shipment tracking is temporarily unavailable.",
+        ), 503
+
+    context = _get_tms_tracking_context(ref)
+    if not context:
+        return render_template("tms/tracking.html", shipment=None, ref=ref), 404
+
+    return render_template("tms/tracking.html", **context)
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  CSV auto-sync state  (shared between watcher thread + request handlers)
@@ -197,6 +258,15 @@ def health_endpoint():
     return jsonify(result), code
 
 
+@app.route("/status")
+def status_page():
+    """Public status page — no login required."""
+    import datetime as _dt
+    from health import full_health_check
+    health = full_health_check()
+    return render_template("status.html", health=health, now=_dt.datetime.utcnow())
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Admin Panel (admin only — internal team and customers never see this)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -278,17 +348,82 @@ def api_validate_referral():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Investor & Technical Review Pages (public, no login)
+#  Investor & Technical Review Pages (token-gated — admin generates temp links)
 # ─────────────────────────────────────────────────────────────────────────────
+
+import secrets as _secrets
+
+# In-memory temp link store: {token: {"page": str, "expires": datetime, "uses": int, "max_uses": int}}
+_temp_links = {}
+
+
+@app.route("/api/admin/temp-link", methods=["POST"])
+@admin_required
+def api_create_temp_link():
+    """Admin creates a temporary access link for pitch/invest/review."""
+    data = request.get_json() or {}
+    page = data.get("page", "pitch")
+    if page not in ("pitch", "invest", "review"):
+        return jsonify({"ok": False, "error": "Page must be pitch, invest, or review"}), 400
+    hours = data.get("hours", 24)
+    max_uses = data.get("max_uses", 1)
+    token = _secrets.token_urlsafe(32)
+    _temp_links[token] = {
+        "page": page,
+        "expires": datetime.now() + timedelta(hours=hours),
+        "uses": 0,
+        "max_uses": max_uses,
+    }
+    base = request.host_url.rstrip("/")
+    return jsonify({"ok": True, "url": f"{base}/{page}?token={token}", "token": token,
+                    "expires_hours": hours, "max_uses": max_uses})
+
+
+@app.route("/api/admin/temp-links")
+@admin_required
+def api_list_temp_links():
+    """List all active temp links."""
+    now = datetime.now()
+    active = []
+    for token, info in list(_temp_links.items()):
+        if info["expires"] > now and info["uses"] < info["max_uses"]:
+            active.append({"token": token[:8] + "...", "page": info["page"],
+                           "uses": info["uses"], "max_uses": info["max_uses"],
+                           "expires": info["expires"].isoformat()})
+    return jsonify(active)
+
+
+def _check_temp_token(page_name):
+    """Check if request has a valid temp token for this page."""
+    token = request.args.get("token", "")
+    if not token:
+        return False
+    info = _temp_links.get(token)
+    if not info:
+        return False
+    if info["page"] != page_name:
+        return False
+    if datetime.now() > info["expires"]:
+        del _temp_links[token]
+        return False
+    if info["uses"] >= info["max_uses"]:
+        return False
+    info["uses"] += 1
+    return True
+
 
 @app.route("/invest")
 def invest_page():
-    return render_template("invest.html")
+    if session.get("user_role") == "admin" or _check_temp_token("invest"):
+        return render_template("invest.html")
+    return redirect(url_for("landing"))
 
 
 @app.route("/review")
 def review_page():
-    return render_template("review.html")
+    if session.get("user_role") == "admin" or _check_temp_token("review"):
+        return render_template("review.html")
+    return redirect(url_for("landing"))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -349,7 +484,7 @@ def billing_webhook():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/quotes", methods=["POST"])
-@login_required
+@feature_required("quotes", "write")
 def api_create_quote():
     data = request.get_json() or {}
     tenant_id = session.get("tenant_id", 1)
@@ -358,7 +493,7 @@ def api_create_quote():
     return jsonify(result), 201 if result.get("ok") else 400
 
 @app.route("/api/quotes")
-@login_required
+@feature_required("quotes")
 def api_list_quotes():
     tenant_id = session.get("tenant_id", 1)
     doc_type = request.args.get("type")
@@ -384,7 +519,7 @@ def api_update_quote(qid):
     return jsonify(result)
 
 @app.route("/api/quotes/<int:qid>", methods=["DELETE"])
-@login_required
+@feature_required("quotes", "delete")
 def api_delete_quote(qid):
     tenant_id = session.get("tenant_id", 1)
     result = _quotes.delete_quote(qid, tenant_id)
@@ -489,10 +624,21 @@ def api_admin_dashboard():
 # ─────────────────────────────────────────────────────────────────────────────
 
 _rate_limit_store = {}  # {ip: [timestamps]}
+_RATE_LIMIT_CLEANUP_COUNTER = 0
 
 def _check_rate_limit(ip: str, max_requests: int = 60, window: int = 60) -> bool:
-    """Simple in-memory rate limiter. Returns True if allowed."""
+    """In-memory rate limiter with periodic cleanup."""
+    global _RATE_LIMIT_CLEANUP_COUNTER
     now = time.time()
+
+    # Periodic cleanup to prevent unbounded memory growth
+    _RATE_LIMIT_CLEANUP_COUNTER += 1
+    if _RATE_LIMIT_CLEANUP_COUNTER >= 500:
+        _RATE_LIMIT_CLEANUP_COUNTER = 0
+        stale_keys = [k for k, v in _rate_limit_store.items() if not v or now - v[-1] > 300]
+        for k in stale_keys:
+            _rate_limit_store.pop(k, None)
+
     if ip not in _rate_limit_store:
         _rate_limit_store[ip] = []
     _rate_limit_store[ip] = [t for t in _rate_limit_store[ip] if now - t < window]
@@ -501,13 +647,208 @@ def _check_rate_limit(ip: str, max_requests: int = 60, window: int = 60) -> bool
     _rate_limit_store[ip].append(now)
     return True
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  CSRF Protection
+# ─────────────────────────────────────────────────────────────────────────────
+import secrets as _secrets
+
+def _generate_csrf_token():
+    """Generate or retrieve CSRF token from session."""
+    token = session.get("_csrf_token")
+    if not token:
+        token = _secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+@app.context_processor
+def _inject_csrf():
+    """Make csrf_token(), csp_nonce, and security config available in all templates."""
+    from config import HCAPTCHA_SITE_KEY, GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID
+    import oauth as _oauth
+    return {
+        "csrf_token": _generate_csrf_token,
+        "csp_nonce": getattr(g, "csp_nonce", ""),
+        "hcaptcha_site_key": HCAPTCHA_SITE_KEY,
+        "google_oauth_enabled": _oauth.google_enabled(),
+        "microsoft_oauth_enabled": _oauth.microsoft_enabled(),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Security: before_request hooks
+# ─────────────────────────────────────────────────────────────────────────────
+from flask import g
+
+# Paths that are exempt from CSRF checks
+_CSRF_EXEMPT_PATHS = frozenset([
+    "/api/billing/webhook",     # Stripe uses signature verification
+    "/api/pitch/score",         # Public endpoint
+    "/r/",                      # Public click tracking
+])
+
 @app.before_request
-def _apply_rate_limit():
-    """Apply rate limiting to API endpoints."""
-    if request.path.startswith("/api/"):
-        ip = request.remote_addr or "unknown"
-        if not _check_rate_limit(ip, max_requests=120, window=60):
-            return jsonify({"error": "Rate limit exceeded. Try again shortly."}), 429
+def _security_before_request():
+    """Combined security checks: request ID, CSP nonce, rate limiting, API key auth, CSRF, session fingerprint, timeout."""
+
+    # ── 0. Request ID + CSP nonce (every request) ───────────────────────
+    import uuid
+    g.request_id = str(uuid.uuid4())
+    g.csp_nonce = _secrets.token_urlsafe(16)
+
+    path = request.path
+
+    # ── 0.5. WAF / DDoS protection layer ─────────────────────────────
+    from waf import get_real_ip, is_ip_banned, check_ddos
+    ip = get_real_ip(request)
+    g.real_ip = ip
+
+    if is_ip_banned(ip):
+        return jsonify({"error": "Access denied."}), 403
+
+    if not check_ddos(ip):
+        return jsonify({"error": "Too many requests. Try again later."}), 429
+
+    # ── 1. Rate limiting (application-level, on top of WAF) ──────────
+    if path == "/login" and request.method == "POST":
+        if not _check_rate_limit(ip, max_requests=LOGIN_RATE_LIMIT, window=300):
+            return jsonify({"error": "Too many login attempts. Try again in a few minutes."}), 429
+    elif path.startswith("/api/"):
+        if not _check_rate_limit(ip, max_requests=API_RATE_LIMIT, window=60):
+            resp = jsonify({"error": "Rate limit exceeded. Try again shortly."})
+            resp.headers["Retry-After"] = "60"
+            return resp, 429
+
+    # ── 2. API key authentication ───────────────────────────────────────
+    g.api_user = None
+    g.is_api_request = False
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer fid_"):
+        from api_auth import validate_api_key
+        api_key = auth_header[7:]  # Strip "Bearer "
+        api_user = validate_api_key(api_key)
+        if api_user:
+            g.api_user = api_user
+            g.is_api_request = True
+        else:
+            return jsonify({"ok": False, "error": "Invalid or expired API key."}), 401
+
+    # ── 3. CSRF validation on state-changing requests ───────────────────
+    if request.method in ("POST", "PATCH", "PUT", "DELETE"):
+        # Skip CSRF for API key authenticated requests
+        if g.is_api_request:
+            pass
+        # Skip CSRF for exempt paths
+        elif any(path.startswith(p) for p in _CSRF_EXEMPT_PATHS):
+            pass
+        # Skip CSRF for JSON API requests that have session auth
+        # (browser JS sends X-CSRF-Token header)
+        elif request.is_json or request.content_type and "json" in request.content_type:
+            csrf_header = request.headers.get("X-CSRF-Token", "")
+            csrf_session = session.get("_csrf_token", "")
+            if csrf_session and csrf_header:
+                if not _secrets.compare_digest(csrf_header, csrf_session):
+                    return jsonify({"ok": False, "error": "Invalid CSRF token."}), 403
+        else:
+            # Form submissions must include csrf_token
+            csrf_form = request.form.get("csrf_token", "")
+            csrf_session = session.get("_csrf_token", "")
+            if csrf_session and csrf_form:
+                if not _secrets.compare_digest(csrf_form, csrf_session):
+                    return jsonify({"ok": False, "error": "Invalid CSRF token."}), 403
+
+    # ── 4. Session timeout check ────────────────────────────────────────
+    if session.get("logged_in") and not g.is_api_request:
+        created = session.get("_created_at")
+        if not created:
+            # Legacy session without timestamp — force re-login
+            _auth.clear_session(session)
+            if path.startswith("/api/"):
+                return jsonify({"ok": False, "error": "Session expired. Please log in again."}), 401
+            return redirect(url_for("login"))
+        try:
+            created_dt = datetime.fromisoformat(created)
+            if datetime.now() - created_dt > timedelta(hours=SESSION_LIFETIME_HOURS):
+                _auth.clear_session(session)
+                if path.startswith("/api/"):
+                    return jsonify({"ok": False, "error": "Session expired. Please log in again."}), 401
+                return redirect(url_for("login"))
+        except (ValueError, TypeError):
+            _auth.clear_session(session)
+            return redirect(url_for("login"))
+
+        # ── 5. Session fingerprint validation (detect hijacking) ──────
+        stored_fp = session.get("_fingerprint")
+        if stored_fp:
+            current_fp = hashlib.sha256(
+                (request.headers.get("User-Agent", "") +
+                 request.headers.get("Accept-Language", "")).encode()
+            ).hexdigest()
+            if current_fp != stored_fp:
+                from audit import log_event
+                log_event(session.get("tenant_id"), session.get("user_id"),
+                          "session_hijack_detected",
+                          details=f"fingerprint mismatch",
+                          ip=request.remote_addr or "")
+                _auth.clear_session(session)
+                if path.startswith("/api/"):
+                    return jsonify({"ok": False, "error": "Session invalidated. Please log in again."}), 401
+                return redirect(url_for("login"))
+
+        # ── 6. Single-session enforcement (detect password sharing) ───
+        if not _auth.validate_session_token(session):
+            _auth.clear_session(session)
+            if path.startswith("/api/"):
+                return jsonify({"ok": False, "error": "Session ended — your account was logged in elsewhere."}), 401
+            return redirect(url_for("login"))
+
+        # ── 7. MFA enforcement (admin can force all users to set up MFA)
+        if path not in ("/logout", "/api/auth/mfa/setup", "/api/auth/mfa/enable"):
+            tenant_id = session.get("tenant_id", 1)
+            user_id = session.get("user_id")
+            if _auth.check_mfa_enforced(tenant_id) and not _auth.is_user_mfa_enabled(user_id):
+                if path.startswith("/api/"):
+                    return jsonify({"ok": False, "error": "MFA is required. Please set up two-factor authentication.", "mfa_required": True}), 403
+                return redirect(url_for("mfa_setup_required"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Security Headers
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.after_request
+def _set_security_headers(response):
+    """Add security headers to all responses."""
+    nonce = getattr(g, "csp_nonce", "")
+    req_id = getattr(g, "request_id", "")
+
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    if req_id:
+        response.headers['X-Request-ID'] = req_id
+    if not app.debug:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    # CSP with nonces (replaces unsafe-inline)
+    hcaptcha_src = ""
+    try:
+        from config import HCAPTCHA_SITE_KEY
+        if HCAPTCHA_SITE_KEY:
+            hcaptcha_src = " https://hcaptcha.com https://*.hcaptcha.com"
+    except Exception:
+        pass
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        f"script-src 'self' 'nonce-{nonce}' https://js.stripe.com https://cdn.jsdelivr.net{hcaptcha_src}; "
+        f"style-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net{hcaptcha_src}; "
+        "img-src 'self' data: https:; "
+        f"frame-src https://js.stripe.com{hcaptcha_src}; "
+        f"connect-src 'self' https://api.stripe.com{hcaptcha_src}; "
+        "font-src 'self' https://cdn.jsdelivr.net"
+    )
+    return response
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -515,7 +856,7 @@ def _apply_rate_limit():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/helpbot/ask", methods=["POST"])
-@login_required
+@feature_required("helpbot")
 def api_helpbot_ask():
     data = request.get_json() or {}
     question = data.get("question", "").strip()
@@ -646,15 +987,64 @@ def admin_health():
     })
 
 
+@app.route("/api/admin/bounces")
+@admin_required
+def admin_bounces():
+    """Return all recorded bounces and optionally trigger a new scan."""
+    from bounce_monitor import get_all_bounces, check_bounces
+    action = request.args.get("action", "")
+    if action == "scan":
+        result = check_bounces()
+        return jsonify({"ok": True, "scan_result": result, "bounces": get_all_bounces()})
+    return jsonify({"ok": True, "bounces": get_all_bounces()})
+
+
+@app.route("/api/admin/bounces/scan", methods=["POST"])
+@admin_required
+def admin_bounces_scan():
+    """Trigger a bounce scan now."""
+    from bounce_monitor import check_bounces
+    result = check_bounces()
+    return jsonify({"ok": True, **result})
+
+
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Error Handlers (user-friendly error pages)
 # ─────────────────────────────────────────────────────────────────────────────
+
+@app.errorhandler(400)
+def bad_request(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Bad request"}), 400
+    return render_template("error.html", code=400, message="Bad request"), 400
+
+
+@app.errorhandler(403)
+def forbidden(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    return render_template("error.html", code=403, message="Access denied"), 403
+
 
 @app.errorhandler(404)
 def not_found(e):
     if request.path.startswith("/api/"):
         return jsonify({"ok": False, "error": "Not found"}), 404
     return render_template("error.html", code=404, message="Page not found"), 404
+
+
+@app.errorhandler(413)
+def request_too_large(e):
+    return jsonify({"ok": False, "error": f"File too large. Maximum size is {MAX_UPLOAD_SIZE_MB} MB."}), 413
+
+
+@app.errorhandler(429)
+def rate_limited(e):
+    resp = jsonify({"ok": False, "error": "Rate limit exceeded. Try again shortly."})
+    resp.headers["Retry-After"] = "60"
+    return resp, 429
 
 
 @app.errorhandler(500)
@@ -677,6 +1067,48 @@ def index():
     return render_template("landing.html")
 
 
+def _build_session_fingerprint():
+    """Build a session fingerprint from browser characteristics."""
+    return hashlib.sha256(
+        (request.headers.get("User-Agent", "") +
+         request.headers.get("Accept-Language", "")).encode()
+    ).hexdigest()
+
+
+def _send_login_notification(user, ip):
+    """Send email notification for new device/IP login (non-blocking)."""
+    try:
+        conn = get_db()
+        # Check if this IP has been seen before for this user
+        seen = conn.execute(
+            "SELECT COUNT(*) FROM user_logins WHERE user_id = ? AND ip_address = ?",
+            (user["id"], ip)
+        ).fetchone()[0]
+        # Check user preference
+        row = conn.execute(
+            "SELECT COALESCE(login_notifications_enabled, 1) as notif FROM users WHERE id = ?",
+            (user["id"],)
+        ).fetchone()
+        conn.close()
+        if seen <= 1 and row and row["notif"]:  # <= 1 because current login already inserted
+            ua = request.headers.get("User-Agent", "Unknown browser")[:100]
+            _auth._send_email(
+                to=user["email"],
+                subject="New login to your Freight Intelligence account",
+                body=(
+                    f"Hi {user['name']},\n\n"
+                    f"We detected a new login to your account:\n\n"
+                    f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}\n"
+                    f"IP: {ip}\n"
+                    f"Browser: {ua}\n\n"
+                    f"If this wasn't you, change your password immediately.\n\n"
+                    f"— Freight Intelligence Security"
+                ),
+            )
+    except Exception:
+        pass  # Non-blocking — never crash login for notifications
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("logged_in"):
@@ -685,12 +1117,27 @@ def login():
     error = None
     paywall = False
     if request.method == "POST":
+        # hCaptcha verification
+        from validators import verify_captcha
+        captcha_token = request.form.get("h-captcha-response", "")
+        if not verify_captcha(captcha_token):
+            error = "Please complete the security check."
+            return render_template("login.html", error=error, paywall=False)
+
         email    = request.form.get("email", "").strip()
         password = request.form.get("password", "")
+        ip       = request.remote_addr or ""
 
-        result = _auth.login_user(email, password, ip=request.remote_addr or "")
+        result = _auth.login_user(email, password, ip=ip)
         if result["ok"]:
-            _auth.set_session(session, result["user"])
+            if result.get("mfa_required"):
+                session["_mfa_pending"]  = True
+                session["_mfa_user"]     = result["user"]
+                return redirect(url_for("mfa_verify_page"))
+            _auth.set_session(session, result["user"],
+                              ip=ip, user_agent=request.headers.get("User-Agent", ""))
+            session["_fingerprint"] = _build_session_fingerprint()
+            _send_login_notification(result["user"], ip)
             return _post_login_redirect(result["user"]["id"])
         error = result["error"]
         paywall = result.get("paywall", False)
@@ -698,13 +1145,43 @@ def login():
     return render_template("login.html", error=error, paywall=paywall)
 
 
+@app.route("/mfa-verify", methods=["GET", "POST"])
+def mfa_verify_page():
+    """MFA verification page shown after successful password check."""
+    if not session.get("_mfa_pending"):
+        return redirect(url_for("login"))
+
+    error = None
+    if request.method == "POST":
+        code = request.form.get("code", "").strip()
+        user = session.get("_mfa_user")
+        if not user:
+            return redirect(url_for("login"))
+
+        result = _auth.verify_mfa(user["id"], code)
+        if result["ok"]:
+            session.pop("_mfa_pending", None)
+            session.pop("_mfa_user", None)
+            _auth.set_session(session, user,
+                              ip=request.remote_addr or "",
+                              user_agent=request.headers.get("User-Agent", ""))
+            session["_fingerprint"] = _build_session_fingerprint()
+            _send_login_notification(user, request.remote_addr or "")
+            return _post_login_redirect(user["id"])
+        error = result["error"]
+
+    return render_template("mfa_verify.html", error=error)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
-#  Adaptive Pitch Page (public — no login required)
+#  Adaptive Pitch Page (token-gated — admin generates temp links)
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/pitch")
 def pitch_page():
-    return render_template("pitch.html")
+    if session.get("user_role") == "admin" or _check_temp_token("pitch"):
+        return render_template("pitch.html")
+    return redirect(url_for("landing"))
 
 
 @app.route("/api/pitch/profiles")
@@ -757,6 +1234,13 @@ def register():
     error   = None
     success = None
     if request.method == "POST":
+        # hCaptcha verification
+        from validators import verify_captcha, check_password_breach
+        captcha_token = request.form.get("h-captcha-response", "")
+        if not verify_captcha(captcha_token):
+            error = "Please complete the security check."
+            return render_template("register.html", error=error, success=None)
+
         name          = request.form.get("name", "").strip()
         email         = request.form.get("email", "").strip()
         company_name  = request.form.get("company_name", "").strip()
@@ -767,6 +1251,12 @@ def register():
         if password != confirm:
             error = "Passwords do not match."
         else:
+            # Check for breached password (advisory warning)
+            breached, count = check_password_breach(password)
+            breach_warning = ""
+            if breached:
+                breach_warning = f"Warning: This password has appeared in {count:,} data breaches. Consider using a different one."
+
             result = _auth.register_user(name, email, password,
                                          role="customer", company_name=company_name)
             if result["ok"]:
@@ -781,7 +1271,9 @@ def register():
                 # Auto-login after registration
                 login_result = _auth.login_user(email, password, ip=request.remote_addr or "")
                 if login_result["ok"]:
-                    _auth.set_session(session, login_result["user"])
+                    _auth.set_session(session, login_result["user"],
+                                          ip=request.remote_addr or "",
+                                          user_agent=request.headers.get("User-Agent", ""))
                     session["show_spin"] = True  # Flag to show spin wheel
                     return redirect(url_for("spin_page"))
                 success = "Account created! Please log in."
@@ -834,6 +1326,9 @@ def reset_password():
 
 @app.route("/logout")
 def logout():
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "logout",
+              ip=request.remote_addr or "")
     _auth.clear_session(session)
     return redirect(url_for("login"))
 
@@ -1008,6 +1503,511 @@ def api_users_invite():
         return jsonify({"ok": False, "error": f"Account created but email failed: {e}"}), 500
 
     return jsonify({"ok": True, "message": f"Invite sent to {email}"})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  OAuth2 / SSO routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/auth/google")
+def auth_google():
+    import oauth as _oauth
+    if not _oauth.google_enabled():
+        return redirect(url_for("login"))
+    state = _secrets.token_urlsafe(32)
+    session["_oauth_state"] = state
+    return redirect(_oauth.get_google_auth_url(state))
+
+
+@app.route("/auth/google/callback")
+def auth_google_callback():
+    import oauth as _oauth
+    code = request.args.get("code", "")
+    state = request.args.get("state", "")
+    if not state or state != session.pop("_oauth_state", ""):
+        return redirect(url_for("login"))
+    result = _oauth.handle_google_callback(code)
+    if not result["ok"]:
+        return render_template("login.html", error=result["error"], paywall=False)
+    login_result = _oauth.oauth_login_or_register(
+        result["email"], result["name"], "google", ip=request.remote_addr or ""
+    )
+    if login_result["ok"]:
+        _auth.set_session(session, login_result["user"],
+                                          ip=request.remote_addr or "",
+                                          user_agent=request.headers.get("User-Agent", ""))
+        session["_fingerprint"] = _build_session_fingerprint()
+        if login_result.get("new_user"):
+            session["show_spin"] = True
+            return redirect(url_for("spin_page"))
+        return _post_login_redirect(login_result["user"]["id"])
+    return render_template("login.html", error=login_result.get("error", "OAuth failed."), paywall=False)
+
+
+@app.route("/auth/microsoft")
+def auth_microsoft():
+    import oauth as _oauth
+    if not _oauth.microsoft_enabled():
+        return redirect(url_for("login"))
+    state = _secrets.token_urlsafe(32)
+    session["_oauth_state"] = state
+    return redirect(_oauth.get_microsoft_auth_url(state))
+
+
+@app.route("/auth/microsoft/callback")
+def auth_microsoft_callback():
+    import oauth as _oauth
+    code = request.args.get("code", "")
+    state = request.args.get("state", "")
+    if not state or state != session.pop("_oauth_state", ""):
+        return redirect(url_for("login"))
+    result = _oauth.handle_microsoft_callback(code)
+    if not result["ok"]:
+        return render_template("login.html", error=result["error"], paywall=False)
+    login_result = _oauth.oauth_login_or_register(
+        result["email"], result["name"], "microsoft", ip=request.remote_addr or ""
+    )
+    if login_result["ok"]:
+        _auth.set_session(session, login_result["user"],
+                                          ip=request.remote_addr or "",
+                                          user_agent=request.headers.get("User-Agent", ""))
+        session["_fingerprint"] = _build_session_fingerprint()
+        if login_result.get("new_user"):
+            session["show_spin"] = True
+            return redirect(url_for("spin_page"))
+        return _post_login_redirect(login_result["user"]["id"])
+    return render_template("login.html", error=login_result.get("error", "OAuth failed."), paywall=False)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Security.txt (RFC 9116)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/.well-known/security.txt")
+def security_txt():
+    from config import SECURITY_CONTACT_EMAIL, BUG_BOUNTY_ENABLED, BUG_BOUNTY_URL
+    lines = [
+        f"Contact: mailto:{SECURITY_CONTACT_EMAIL}",
+        f"Preferred-Languages: en",
+        f"Canonical: {request.url_root.rstrip('/')}/.well-known/security.txt",
+        f"Policy: {request.url_root.rstrip('/')}/security",
+        f"Expires: 2027-12-31T23:59:59Z",
+    ]
+    if BUG_BOUNTY_ENABLED and BUG_BOUNTY_URL:
+        lines.append(f"Acknowledgments: {BUG_BOUNTY_URL}")
+    return Response("\n".join(lines) + "\n", mimetype="text/plain")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Security API routes (MFA, permissions, audit, API keys, IP allowlist)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/mfa-setup-required")
+@login_required
+def mfa_setup_required():
+    """Page shown when admin enforces MFA and user hasn't set it up yet."""
+    if _auth.is_user_mfa_enabled(session.get("user_id")):
+        return redirect(url_for("dashboard"))
+    return render_template("mfa_setup_required.html")
+
+
+@app.route("/api/admin/enforce-mfa", methods=["POST"])
+@admin_required
+def api_enforce_mfa():
+    """Admin toggle: force all users in tenant to enable MFA."""
+    data = request.get_json() or {}
+    enabled = 1 if data.get("enabled") else 0
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE tenants SET mfa_enforced = ? WHERE id = ?",
+            (enabled, session.get("tenant_id", 1))
+        )
+        conn.commit()
+        from audit import log_event
+        log_event(session.get("tenant_id"), session.get("user_id"),
+                  "mfa_enforcement_toggled", details=f"enabled={enabled}")
+        return jsonify({"ok": True, "mfa_enforced": bool(enabled)})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/enforce-single-session", methods=["POST"])
+@admin_required
+def api_enforce_single_session():
+    """Admin toggle: enforce single active session per user."""
+    data = request.get_json() or {}
+    enabled = 1 if data.get("enabled") else 0
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE tenants SET single_session_enforced = ? WHERE id = ?",
+            (enabled, session.get("tenant_id", 1))
+        )
+        conn.commit()
+        from audit import log_event
+        log_event(session.get("tenant_id"), session.get("user_id"),
+                  "single_session_enforcement_toggled", details=f"enabled={enabled}")
+        return jsonify({"ok": True, "single_session_enforced": bool(enabled)})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/active-sessions")
+@admin_required
+def api_active_sessions():
+    """View all active sessions for the tenant — see who's logged in right now."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT s.user_id, u.name, u.email, s.ip_address, s.user_agent, "
+            "s.created_at, s.last_seen "
+            "FROM active_sessions s JOIN users u ON s.user_id = u.id "
+            "WHERE u.tenant_id = ? ORDER BY s.last_seen DESC",
+            (session.get("tenant_id", 1),)
+        ).fetchall()
+        return jsonify({"sessions": [dict(r) for r in rows]})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/kill-session/<int:target_user_id>", methods=["POST"])
+@admin_required
+def api_kill_session(target_user_id):
+    """Admin force-logout a specific user."""
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM active_sessions WHERE user_id = ?", (target_user_id,))
+        conn.commit()
+        from audit import log_event
+        log_event(session.get("tenant_id"), session.get("user_id"),
+                  "session_killed_by_admin", resource=f"user:{target_user_id}")
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+@app.route("/api/auth/mfa/setup", methods=["GET"])
+@login_required
+def api_mfa_setup():
+    result = _auth.setup_mfa(session.get("user_id"))
+    return jsonify(result)
+
+
+@app.route("/api/auth/mfa/enable", methods=["POST"])
+@login_required
+def api_mfa_enable():
+    data = request.get_json() or {}
+    code = data.get("code", "")
+    result = _auth.enable_mfa(session.get("user_id"), code)
+    return jsonify(result)
+
+
+@app.route("/api/auth/mfa/disable", methods=["POST"])
+@login_required
+def api_mfa_disable():
+    data = request.get_json() or {}
+    password = data.get("password", "")
+    result = _auth.disable_mfa(session.get("user_id"), password)
+    return jsonify(result)
+
+
+@app.route("/api/auth/api-keys", methods=["GET"])
+@login_required
+def api_list_keys():
+    from api_auth import list_api_keys
+    keys = list_api_keys(session.get("user_id"), session.get("tenant_id", 1))
+    return jsonify({"keys": keys})
+
+
+@app.route("/api/auth/api-keys", methods=["POST"])
+@login_required
+def api_create_key():
+    from api_auth import create_api_key
+    data = request.get_json() or {}
+    result = create_api_key(
+        user_id=session.get("user_id"),
+        tenant_id=session.get("tenant_id", 1),
+        name=data.get("name", ""),
+        permissions=data.get("permissions"),
+        expires_days=data.get("expires_days"),
+    )
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "api_key_created",
+              details=f"name={data.get('name', '')}")
+    return jsonify(result)
+
+
+@app.route("/api/auth/api-keys/<int:key_id>", methods=["DELETE"])
+@login_required
+def api_revoke_key(key_id):
+    from api_auth import revoke_api_key
+    result = revoke_api_key(key_id, session.get("user_id"), session.get("tenant_id", 1))
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "api_key_revoked",
+              details=f"key_id={key_id}")
+    return jsonify(result)
+
+
+@app.route("/api/admin/permissions/<int:target_user_id>", methods=["GET"])
+@admin_required
+def api_get_permissions(target_user_id):
+    from permissions import get_user_permissions
+    perms = get_user_permissions(target_user_id, session.get("tenant_id", 1))
+    return jsonify({"permissions": perms})
+
+
+@app.route("/api/admin/permissions/<int:target_user_id>", methods=["PATCH"])
+@admin_required
+def api_set_permissions(target_user_id):
+    from permissions import bulk_set_permissions
+    data = request.get_json() or {}
+    result = bulk_set_permissions(
+        admin_user_id=session.get("user_id"),
+        target_user_id=target_user_id,
+        tenant_id=session.get("tenant_id", 1),
+        permissions_map=data,
+    )
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "permissions_changed",
+              resource=f"user:{target_user_id}",
+              details=str(data)[:500])
+    return jsonify(result)
+
+
+@app.route("/api/admin/permissions/templates", methods=["GET"])
+@admin_required
+def api_list_permission_templates():
+    from permissions import list_templates
+    templates = list_templates(session.get("tenant_id", 1))
+    return jsonify({"templates": templates})
+
+
+@app.route("/api/admin/permissions/templates", methods=["POST"])
+@admin_required
+def api_save_permission_template():
+    from permissions import save_template
+    data = request.get_json() or {}
+    result = save_template(
+        tenant_id=session.get("tenant_id", 1),
+        name=data.get("name", ""),
+        permissions=data.get("permissions", {}),
+        created_by=session.get("user_id"),
+    )
+    return jsonify(result)
+
+
+@app.route("/api/admin/audit")
+@admin_required
+def api_audit_log():
+    from audit import get_audit_log
+    page = request.args.get("page", 1, type=int)
+    per_page = min(request.args.get("per_page", 50, type=int), 200)
+    result = get_audit_log(
+        tenant_id=session.get("tenant_id", 1),
+        page=page,
+        per_page=per_page,
+        action_filter=request.args.get("action"),
+        user_id_filter=request.args.get("user_id", type=int),
+        date_from=request.args.get("from"),
+        date_to=request.args.get("to"),
+    )
+    return jsonify(result)
+
+
+@app.route("/api/admin/audit/user/<int:target_user_id>")
+@admin_required
+def api_user_audit(target_user_id):
+    from audit import get_user_audit
+    events = get_user_audit(target_user_id, session.get("tenant_id", 1))
+    return jsonify({"events": events})
+
+
+@app.route("/api/admin/ip-allowlist", methods=["GET"])
+@admin_required
+def api_list_ip_allowlist():
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, ip_address, label, created_at FROM ip_allowlist WHERE tenant_id = ?",
+            (session.get("tenant_id", 1),)
+        ).fetchall()
+        tenant = conn.execute(
+            "SELECT COALESCE(ip_restriction_enabled, 0) as ip_restriction_enabled FROM tenants WHERE id = ?",
+            (session.get("tenant_id", 1),)
+        ).fetchone()
+        return jsonify({
+            "entries": [dict(r) for r in rows],
+            "enabled": bool(tenant and tenant["ip_restriction_enabled"]),
+        })
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/ip-allowlist", methods=["POST"])
+@admin_required
+def api_add_ip_allowlist():
+    data = request.get_json() or {}
+    ip_addr = data.get("ip_address", "").strip()
+    label = data.get("label", "").strip()
+    if not ip_addr:
+        return jsonify({"ok": False, "error": "IP address is required."}), 400
+    # Validate IP/CIDR
+    import ipaddress
+    try:
+        ipaddress.ip_network(ip_addr, strict=False)
+    except ValueError:
+        return jsonify({"ok": False, "error": "Invalid IP address or CIDR notation."}), 400
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO ip_allowlist (tenant_id, ip_address, label, created_by, created_at) VALUES (?,?,?,?,?)",
+            (session.get("tenant_id", 1), ip_addr, label,
+             session.get("user_id"), datetime.now().isoformat())
+        )
+        conn.commit()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/ip-allowlist/<int:entry_id>", methods=["DELETE"])
+@admin_required
+def api_delete_ip_allowlist(entry_id):
+    conn = get_db()
+    try:
+        conn.execute(
+            "DELETE FROM ip_allowlist WHERE id = ? AND tenant_id = ?",
+            (entry_id, session.get("tenant_id", 1))
+        )
+        conn.commit()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/ip-allowlist/toggle", methods=["POST"])
+@admin_required
+def api_toggle_ip_restriction():
+    data = request.get_json() or {}
+    enabled = 1 if data.get("enabled") else 0
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE tenants SET ip_restriction_enabled = ? WHERE id = ?",
+            (enabled, session.get("tenant_id", 1))
+        )
+        conn.commit()
+        from audit import log_event
+        log_event(session.get("tenant_id"), session.get("user_id"),
+                  "ip_restriction_toggled", details=f"enabled={enabled}")
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Compliance & WAF Admin routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/compliance/status")
+@admin_required
+def api_compliance_status():
+    from compliance import get_compliance_status
+    return jsonify(get_compliance_status(session.get("tenant_id", 1)))
+
+
+@app.route("/api/admin/compliance/access-review")
+@admin_required
+def api_access_review():
+    from compliance import get_access_review_report
+    from audit import log_event
+    report = get_access_review_report(session.get("tenant_id", 1))
+    log_event(session.get("tenant_id"), session.get("user_id"), "access_review_generated")
+    return jsonify(report)
+
+
+@app.route("/api/admin/compliance/export-user-data/<int:target_user_id>")
+@admin_required
+def api_export_user_data(target_user_id):
+    from compliance import export_user_data
+    return jsonify(export_user_data(target_user_id, session.get("tenant_id", 1)))
+
+
+@app.route("/api/admin/compliance/anonymize/<int:target_user_id>", methods=["POST"])
+@admin_required
+def api_anonymize_user(target_user_id):
+    from compliance import anonymize_user
+    return jsonify(anonymize_user(session.get("user_id"), target_user_id, session.get("tenant_id", 1)))
+
+
+@app.route("/api/admin/compliance/purge-old-logs", methods=["POST"])
+@admin_required
+def api_purge_old_logs():
+    from compliance import purge_old_audit_logs, purge_old_login_records
+    audit_result = purge_old_audit_logs()
+    login_result = purge_old_login_records()
+    return jsonify({"audit": audit_result, "logins": login_result})
+
+
+@app.route("/api/admin/waf/status")
+@admin_required
+def api_waf_status():
+    from waf import get_banned_ips, get_top_requesters
+    from config import CLOUDFLARE_ENABLED, BEHIND_PROXY, DDOS_RATE_LIMIT, DDOS_BAN_THRESHOLD
+    return jsonify({
+        "cloudflare_enabled": CLOUDFLARE_ENABLED,
+        "behind_proxy": BEHIND_PROXY,
+        "ddos_rate_limit": DDOS_RATE_LIMIT,
+        "ddos_ban_threshold": DDOS_BAN_THRESHOLD,
+        "banned_ips": get_banned_ips(),
+        "top_requesters": get_top_requesters(),
+    })
+
+
+@app.route("/api/admin/waf/ban", methods=["POST"])
+@admin_required
+def api_waf_ban_ip():
+    from waf import ban_ip
+    data = request.get_json() or {}
+    ip_addr = data.get("ip", "").strip()
+    minutes = data.get("minutes", 60)
+    if not ip_addr:
+        return jsonify({"ok": False, "error": "IP address required."}), 400
+    ban_ip(ip_addr, minutes)
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "ip_manually_banned",
+              details=f"ip={ip_addr}, minutes={minutes}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/waf/unban", methods=["POST"])
+@admin_required
+def api_waf_unban_ip():
+    from waf import unban_ip
+    data = request.get_json() or {}
+    ip_addr = data.get("ip", "").strip()
+    if not ip_addr:
+        return jsonify({"ok": False, "error": "IP address required."}), 400
+    unban_ip(ip_addr)
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "ip_unbanned",
+              details=f"ip={ip_addr}")
+    return jsonify({"ok": True})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Bug Bounty / Responsible Disclosure
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/security")
+def security_page():
+    """Public security page with responsible disclosure policy."""
+    from config import SECURITY_CONTACT_EMAIL, BUG_BOUNTY_ENABLED, BUG_BOUNTY_URL
+    return render_template("security_policy.html",
+                           contact_email=SECURITY_CONTACT_EMAIL,
+                           bug_bounty_enabled=BUG_BOUNTY_ENABLED,
+                           bug_bounty_url=BUG_BOUNTY_URL)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1187,7 +2187,7 @@ def api_verify_stats():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/export")
-@login_required
+@feature_required("contacts", "export")
 def api_export():
     sql, params = _build_query(request.args)
     conn  = get_db()
@@ -1207,6 +2207,10 @@ def api_export():
             row["country"],
             row["city"],
         ])
+
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "data_exported",
+              details=f"rows={len(rows)}", ip=request.remote_addr or "")
 
     output.seek(0)
     return Response(
@@ -1255,29 +2259,53 @@ def api_refresh():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/upload-csv", methods=["POST"])
-@login_required
+@feature_required("contacts", "write")
 def api_upload_csv():
+    from validators import sanitize_filename
+    from werkzeug.utils import secure_filename as _secure_filename
+
     if "file" not in request.files:
         return jsonify({"ok": False, "error": "No file received."})
 
     f = request.files["file"]
-    if not f.filename.lower().endswith(".csv"):
+    if not f.filename:
+        return jsonify({"ok": False, "error": "No filename."})
+
+    safe_name = sanitize_filename(_secure_filename(f.filename))
+    if not safe_name.lower().endswith(".csv"):
         return jsonify({"ok": False, "error": "File must be a .csv"})
 
-    # Detect network from filename  (wfa_... → WFA,  wwpc_... → WWPC, else custom)
-    name_lower = f.filename.lower()
+    # Validate file content looks like text/CSV (not binary)
+    header_bytes = f.read(512)
+    f.seek(0)
+    try:
+        header_bytes.decode("utf-8")
+    except (UnicodeDecodeError, AttributeError):
+        return jsonify({"ok": False, "error": "File does not appear to be a valid CSV."})
+
+    # Detect network from filename (whitelisted network names only)
+    _ALLOWED_NETWORKS = {"WFA", "WWPC", "FIATA", "FREIGHTNET", "AHK-JAPAN", "IMPORT"}
+    name_lower = safe_name.lower()
     if "wfa" in name_lower:
         network = "WFA"
     elif "wwpc" in name_lower:
         network = "WWPC"
     elif "fiata" in name_lower:
         network = "FIATA"
+    elif "freightnet" in name_lower:
+        network = "FREIGHTNET"
+    elif "ahk" in name_lower:
+        network = "AHK-JAPAN"
     else:
-        network = os.path.splitext(f.filename)[0].upper()
+        network = "IMPORT"
 
-    # Save into the app's data folder
+    # Save into the app's data folder with safe path
     os.makedirs(DATA_DIR, exist_ok=True)
-    save_path = os.path.join(DATA_DIR, f"upload_{network.lower()}.csv")
+    save_name = f"upload_{network.lower().replace('-', '_')}.csv"
+    save_path = os.path.join(DATA_DIR, save_name)
+    # Verify resolved path is within DATA_DIR (prevent path traversal)
+    if not os.path.realpath(save_path).startswith(os.path.realpath(DATA_DIR)):
+        return jsonify({"ok": False, "error": "Invalid file path."}), 400
     f.save(save_path)
 
     try:
@@ -1288,6 +2316,12 @@ def api_upload_csv():
         with _sync_lock:
             _sync_state["last_sync"]  = datetime.now()
             _sync_state["row_count"]  = count
+
+        from audit import log_event
+        log_event(session.get("tenant_id"), session.get("user_id"), "csv_imported",
+                  resource=f"network:{network}", details=f"imported={result['imported']}",
+                  ip=request.remote_addr or "")
+
         return jsonify({
             "ok":        True,
             "network":   network,
@@ -1295,7 +2329,7 @@ def api_upload_csv():
             "row_count": count,
         })
     except Exception as exc:
-        return jsonify({"ok": False, "error": str(exc)})
+        return jsonify({"ok": False, "error": "Import failed. Please check the CSV format."})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2058,7 +3092,7 @@ def rates():
 
 
 @app.route("/api/rates")
-@login_required
+@feature_required("rates")
 def api_rates():
     """List rates with optional filters: carrier, origin, destination, cycle, verified."""
     carrier     = request.args.get("carrier",     "").strip()
@@ -2156,7 +3190,7 @@ def api_rates_options():
 
 
 @app.route("/api/rates/parse", methods=["POST"])
-@login_required
+@feature_required("rates", "write")
 def api_rates_parse():
     """Parse an email body for rate data.
     Body JSON: {email_body: str, contact_id: int, cycle: str}
@@ -2440,7 +3474,7 @@ def api_rate_patch(rate_id):
 
 
 @app.route("/api/rates/<int:rate_id>", methods=["DELETE"])
-@login_required
+@feature_required("rates", "delete")
 def api_rate_delete(rate_id):
     """Delete a rate record."""
     conn = get_db()
@@ -2487,7 +3521,7 @@ def api_contacts_ids():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/learning/progress", methods=["GET"])
-@login_required
+@feature_required("learning")
 def api_learning_progress():
     """Return learning progress for all users (admin) or current user."""
     conn = get_db()
@@ -2503,7 +3537,7 @@ def api_learning_progress():
 
 
 @app.route("/api/learning/progress", methods=["POST"])
-@login_required
+@feature_required("learning", "write")
 def api_learning_record():
     """Record a completed lesson.
     Body JSON: {user_id: int, book: str, lesson: str, score: int}
@@ -2594,7 +3628,7 @@ def api_v2_benchmarks():
 
 
 @app.route("/api/v2/rates/run-cycle", methods=["POST"])
-@login_required
+@feature_required("rates", "write")
 def api_v2_run_cycle():
     """Run full intelligence cycle for a given cycle_id."""
     data     = request.get_json() or {}
@@ -2773,7 +3807,7 @@ def api_intro_stats():
 
 
 @app.route("/api/intro/send/<int:contact_id>", methods=["POST"])
-@login_required
+@feature_required("outreach", "write")
 def api_intro_send(contact_id):
     """Send the intro email to a single contact by id."""
     import intro_mailer as _im
@@ -2851,7 +3885,7 @@ def outreach_page():
 
 
 @app.route("/api/outreach/replies")
-@login_required
+@feature_required("outreach")
 def api_outreach_replies():
     conn = get_db()
     rows = conn.execute("""
@@ -3028,7 +4062,19 @@ def open_browser():
 
 
 def init_all_dbs():
-    """Initialize all database tables — called on startup."""
+    """Initialize all database tables — called on startup.
+
+    Microservice mapping:
+      Service 12 (Admin)      → init_tenants_db()
+      Service 2  (Contacts)   → init_db(), init_contact_intelligence_db()
+      Service 4  (Rates)      → init_rates_db(), init_lanes_db()
+      Service 1  (Auth)       → init_users_db()
+      Service 3  (Email)      → init_email_outreach_db(), init_bounced_emails_db()
+      Service 6  (Carriers)   → init_predictive_db(), init_reliability_db(), ensure_schedule_schema()
+      Service 8  (Billing)    → init_quotes_db()
+      Service 11 (AI Support) → init_helpbot_db()
+      Service 2  (Contacts)   → init_inspection_log_db()
+    """
     from database import init_tenants_db
     init_tenants_db()
     init_db()
@@ -3044,6 +4090,8 @@ def init_all_dbs():
     _quotes.init_quotes_db()
     _helpbot.init_helpbot_db()
     _migrate_lanes_carrier()
+    from bounce_monitor import init_bounced_emails_db
+    init_bounced_emails_db()
 
 
 def start_background_workers():
@@ -3103,6 +4151,23 @@ def start_background_workers():
     threading.Thread(target=_poll_replies, daemon=True).start()
     print("[reply_parser] Inbox poller started — runs every 30 min.")
 
+
+    # Bounce monitor poller
+    def _poll_bounces():
+        while True:
+            time.sleep(3600)  # check every hour
+            try:
+                from bounce_monitor import check_bounces
+                result = check_bounces()
+                if result["new_bounces"] > 0:
+                    print(f"[bounce_monitor] Found {result['new_bounces']} new bounces")
+                else:
+                    print("[bounce_monitor] No new bounces")
+            except Exception as _e:
+                print(f"[bounce_monitor] poll error: {_e}")
+
+    threading.Thread(target=_poll_bounces, daemon=True).start()
+    print("[bounce_monitor] Bounce poller started -- runs every 60 min.")
 
 if __name__ == "__main__":
     init_all_dbs()
