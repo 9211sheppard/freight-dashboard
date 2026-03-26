@@ -279,18 +279,18 @@
       <div style="font-family: monospace; font-size: 0.9rem; line-height: 2;">
         Customer submits issue<br>
         &nbsp;&nbsp;<i class="bi bi-arrow-down text-info"></i><br>
-        Claude AI reads + diagnoses the problem<br>
+        AI diagnostic layer reads + identifies root cause<br>
         &nbsp;&nbsp;<i class="bi bi-arrow-down text-info"></i><br>
-        Codex AI writes the fix<br>
+        AI engineering layer writes the fix<br>
         &nbsp;&nbsp;<i class="bi bi-arrow-down text-info"></i><br>
-        Claude AI <span class="highlight">verifies</span> the fix works<br>
+        AI verification layer <span class="highlight">confirms</span> the fix works<br>
         &nbsp;&nbsp;<i class="bi bi-arrow-down text-info"></i><br>
         Customer notified: <span class="accent">"Fixed."</span>
       </div>
     </div>
     <div class="analogy-card">
       <div class="analogy-label">What this means</div>
-      <div>Traditional SaaS needs 50-500 engineers ($15M-$75M/yr in salaries). We need <span class="highlight">zero</span>. That's why we can charge $49.99 and still be wildly profitable.</div>
+      <div>Traditional SaaS needs 50-500 engineers ($15M-$75M/yr in salaries). Our multi-layer AI pipeline handles what entire teams do. That's why we can charge $49.99 and still be wildly profitable.</div>
     </div>
   </div>
 </div>
@@ -339,13 +339,13 @@
 <div class="pitch-step hidden" id="step-10" data-step="10">
   <div class="step-content text-center">
     <div class="step-number">Final Step</div>
-    <div class="step-title">Rate This Idea</div>
+    <div class="step-title">What's Your Take?</div>
     <p class="step-body mb-4">Based on everything you've seen — in <span class="highlight" id="profLabel2">your</span> terms — how viable is this?</p>
 
     <div class="score-display" id="scoreDisplay">5</div>
     <input type="range" class="score-slider" id="scoreSlider" min="1" max="10" value="5" oninput="document.getElementById('scoreDisplay').textContent=this.value">
     <div class="d-flex justify-content-between opacity-50 small mt-1">
-      <span>1 — No chance</span><span>10 — Shut up and take my money</span>
+      <span>1 — Not viable</span><span>10 — This is a winner</span>
     </div>
 
     <div class="mt-4 text-start" style="max-width: 500px; margin: 0 auto;">
@@ -360,14 +360,28 @@
         <textarea class="form-control" id="adviceAnswer" rows="2" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;" placeholder="What would you do differently?"></textarea>
       </div>
       <div class="mb-3">
-        <label class="form-label opacity-75">Would you fund this if you could?</label>
-        <select class="form-select" id="fundAnswer" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;">
+        <label class="form-label opacity-75">If this were on a crowdfunding platform, would you back it?</label>
+        <select class="form-select" id="fundAnswer" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;" onchange="toggleInvestAmount(this.value)">
           <option value="">Select...</option>
-          <option value="yes_100">Yes — I'd invest $100+</option>
-          <option value="yes_maybe">Maybe — need more info</option>
-          <option value="no_not_now">Not now — but interesting</option>
+          <option value="yes_invest">Yes — I'd invest</option>
+          <option value="yes_maybe">Maybe — need more info first</option>
+          <option value="no_not_now">Not right now — but I see potential</option>
           <option value="no">No — I don't see it</option>
         </select>
+      </div>
+      <div class="mb-3" id="investAmountWrap" style="display:none;">
+        <label class="form-label opacity-75">How much would you pledge? (USD)</label>
+        <div class="d-flex gap-2 flex-wrap mb-2">
+          <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(100)">$100</button>
+          <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(500)">$500</button>
+          <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(1000)">$1,000</button>
+          <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(5000)">$5,000</button>
+          <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(10000)">$10,000</button>
+          <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(25000)">$25,000</button>
+          <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(50000)">$50,000</button>
+        </div>
+        <input type="number" class="form-control" id="investAmount" min="1" placeholder="Or type a custom amount..." style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;">
+        <small class="opacity-50 mt-1 d-block">This is non-binding — just helps us gauge interest for crowdfunding.</small>
       </div>
     </div>
 
@@ -382,7 +396,7 @@
   <div class="step-content text-center">
     <div style="font-size: 4rem;"><i class="bi bi-heart-fill text-danger"></i></div>
     <div class="step-title mt-3">Thank You, <span id="thankName"></span>.</div>
-    <p class="step-body">Your score and feedback mean everything to us. We're building this for people who believe small companies deserve the same tools as the giants.</p>
+    <p class="step-body">Your perspective matters. We're building this for companies that deserve better tools — and insights like yours help shape what comes next.</p>
     <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
       <button class="btn btn-outline-light" onclick="copyLink()">
         <i class="bi bi-link-45deg me-1"></i>Copy Link to Share
@@ -581,6 +595,16 @@ function updateNav() {
   document.getElementById('nextBtn').style.display = currentStep >= totalSteps ? 'none' : 'inline-block';
 }
 
+// ── Investment amount helpers ──
+function toggleInvestAmount(val) {
+  document.getElementById('investAmountWrap').style.display = (val === 'yes_invest') ? 'block' : 'none';
+}
+function setInvestAmount(amt) {
+  document.getElementById('investAmount').value = amt;
+  document.querySelectorAll('.invest-preset').forEach(b => b.classList.remove('btn-warning'));
+  event.target.classList.add('btn-warning');
+}
+
 // ── Submit Score ──
 async function submitScore() {
   const score = document.getElementById('scoreSlider').value;
@@ -595,6 +619,7 @@ async function submitScore() {
     risk_answer: document.getElementById('riskAnswer').value,
     advice_answer: document.getElementById('adviceAnswer').value,
     fund_answer: document.getElementById('fundAnswer').value,
+    invest_amount: parseInt(document.getElementById('investAmount').value) || 0,
     scoring_answers: scoringAnswers,
   };
 

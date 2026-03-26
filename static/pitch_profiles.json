@@ -162,7 +162,7 @@
       "stage_vision": "Stage 1: API/SaaS (data layer). Stage 2: Platform (execution layer). Stage 3: Infrastructure (the AWS of freight \u2014 every logistics transaction runs through your rails)"
     },
     "scoring_questions": {
-      "q1": "As a technical founder, does the AI-first operations model (Claude + Codex as the engineering team) feel viable or risky?",
+      "q1": "As a technical founder, does the AI-first operations model (multi-layer AI pipeline as the engineering team) feel viable or risky?",
       "q2": "How would you evaluate the technical moat \u2014 is speed of development enough, or do you need proprietary technology?",
       "q3": "At $49.99/mo with near-zero COGS, what growth rate would you need to see to consider this investable?"
     }
@@ -175,7 +175,7 @@
       "xeneta": "PitchBook/CB Insights for freight \u2014 $25K-$400K/yr for market intelligence that should be a feature, not a product",
       "our_product": "Canva vs. Adobe. Zoom vs. WebEx. The pattern repeats: incumbent charges $50K+, startup offers 95% of the value at $49.99/mo, captures the 80% of the market that was priced out",
       "network_memberships": "Freight networks are paid communities (WCA: $2-5K/yr, Pangea: $1.5-3K/yr). 100K+ forwarders belong to 3-5 networks each = $1.5B+ annual spend on directories and conferences. We disintermediate that entire layer",
-      "ai_ops": "The AI-first thesis: what if you could build a $60M ARR SaaS company with 2-3 people? Claude handles support, Codex handles engineering, Azure handles infrastructure. Gross margins above 95%",
+      "ai_ops": "The AI-first thesis: what if you could build a $60M ARR SaaS company with a lean team? A multi-layer AI pipeline handles support, engineering, and verification. Azure handles infrastructure. Gross margins above 95%",
       "cold_start": "Seeded with Maersk free API (real-time spot rates) + carrier schedule data. Network data bootstrapped from public directories. Not dependent on user-generated content to deliver Day 1 value",
       "network_effect": "Two-sided: supply side (agents share rates) and demand side (forwarders search agents). Each side makes the other more valuable. Defensible at scale \u2014 like LinkedIn for freight",
       "growth": "CAC = $0 (referral-driven). LTV at 2% monthly churn = $2,500. LTV:CAC = infinity at launch. Even at 5% churn (conservative), LTV = $1,000. Payback period: immediate",
