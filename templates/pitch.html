@@ -339,39 +339,26 @@
 <div class="pitch-step hidden" id="step-10" data-step="10">
   <div class="step-content text-center">
     <div class="step-number">Final Step</div>
-    <div class="step-title">What's Your Take?</div>
-    <p class="step-body mb-4">Based on everything you've seen — in <span class="highlight" id="profLabel2">your</span> terms — how viable is this?</p>
+    <div class="step-title" id="s10Title">What's Your Take?</div>
+    <p class="step-body mb-4">Based on everything you've seen — how viable is this?</p>
 
     <div class="score-display" id="scoreDisplay">5</div>
-    <input type="range" class="score-slider" id="scoreSlider" min="1" max="10" value="5" oninput="document.getElementById('scoreDisplay').textContent=this.value">
+    <input type="range" class="score-slider" id="scoreSlider" min="1" max="10" value="5" oninput="updateScoreUI(this.value)">
     <div class="d-flex justify-content-between opacity-50 small mt-1">
       <span>1 — Not viable</span><span>10 — This is a winner</span>
     </div>
 
+    <!-- Only shows if score < 10 -->
     <div class="mt-4 text-start" style="max-width: 500px; margin: 0 auto;">
-      <div class="mb-3" id="scoringQs"></div>
+      <div class="mb-3" id="improvementWrap">
+        <label class="form-label opacity-75" id="improvementLabel">What would make this a 10?</label>
+        <textarea class="form-control" id="improvementAnswer" rows="3" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;" placeholder="One thing that would change your mind..."></textarea>
+      </div>
 
-      <div class="mb-3">
-        <label class="form-label opacity-75">What's the #1 risk you see?</label>
-        <textarea class="form-control" id="riskAnswer" rows="2" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;" placeholder="Be honest — we want the hard truth"></textarea>
-      </div>
-      <div class="mb-3">
-        <label class="form-label opacity-75">Any advice for us?</label>
-        <textarea class="form-control" id="adviceAnswer" rows="2" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;" placeholder="What would you do differently?"></textarea>
-      </div>
-      <div class="mb-3">
-        <label class="form-label opacity-75">If this were on a crowdfunding platform, would you back it?</label>
-        <select class="form-select" id="fundAnswer" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;" onchange="toggleInvestAmount(this.value)">
-          <option value="">Select...</option>
-          <option value="yes_invest">Yes — I'd invest</option>
-          <option value="yes_maybe">Maybe — need more info first</option>
-          <option value="no_not_now">Not right now — but I see potential</option>
-          <option value="no">No — I don't see it</option>
-        </select>
-      </div>
-      <div class="mb-3" id="investAmountWrap" style="display:none;">
-        <label class="form-label opacity-75">How much would you pledge? (USD)</label>
-        <div class="d-flex gap-2 flex-wrap mb-2">
+      <!-- Pledge section — always visible -->
+      <div class="mb-3 mt-4">
+        <label class="form-label opacity-75">If this were on a crowdfunding platform, how much would you pledge?</label>
+        <div class="d-flex gap-2 flex-wrap mb-2 justify-content-center">
           <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(100)">$100</button>
           <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(500)">$500</button>
           <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(1000)">$1,000</button>
@@ -380,13 +367,13 @@
           <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(25000)">$25,000</button>
           <button type="button" class="btn btn-sm btn-outline-light invest-preset" onclick="setInvestAmount(50000)">$50,000</button>
         </div>
-        <input type="number" class="form-control" id="investAmount" min="1" placeholder="Or type a custom amount..." style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;">
-        <small class="opacity-50 mt-1 d-block">This is non-binding — just helps us gauge interest for crowdfunding.</small>
+        <input type="number" class="form-control" id="investAmount" min="0" placeholder="Or type a custom amount..." style="max-width:300px; margin:0 auto; background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff; text-align:center;">
+        <small class="opacity-50 mt-1 d-block">Non-binding — helps us gauge interest.</small>
       </div>
     </div>
 
     <button class="btn btn-warning btn-lg px-5 fw-bold mt-3" onclick="submitScore()">
-      <i class="bi bi-send me-2"></i>Submit My Score
+      <i class="bi bi-send me-2"></i>Submit
     </button>
   </div>
 </div>
@@ -547,15 +534,7 @@ function startPitch() {
   // Step 9: Vision
   document.getElementById('s9Body').innerHTML = `<p>${a.stage_vision}</p>`;
 
-  // Step 10: Scoring
-  document.getElementById('profLabel2').textContent = p.label;
-  const qDiv = document.getElementById('scoringQs');
-  if (p.scoring_questions) {
-    Object.values(p.scoring_questions).forEach((q, i) => {
-      qDiv.innerHTML += `<div class="mb-3"><label class="form-label opacity-75">${q}</label>
-        <textarea class="form-control scoring-q" rows="2" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;"></textarea></div>`;
-    });
-  }
+  // Step 10: no pre-populated questions — just score + one conditional question
 
   document.getElementById('thankName').textContent = visitorName;
 
@@ -595,10 +574,17 @@ function updateNav() {
   document.getElementById('nextBtn').style.display = currentStep >= totalSteps ? 'none' : 'inline-block';
 }
 
-// ── Investment amount helpers ──
-function toggleInvestAmount(val) {
-  document.getElementById('investAmountWrap').style.display = (val === 'yes_invest') ? 'block' : 'none';
+// ── Score UI: hide question if score is 10 ──
+function updateScoreUI(val) {
+  document.getElementById('scoreDisplay').textContent = val;
+  const wrap = document.getElementById('improvementWrap');
+  if (parseInt(val) >= 10) {
+    wrap.style.display = 'none';
+  } else {
+    wrap.style.display = 'block';
+  }
 }
+
 function setInvestAmount(amt) {
   document.getElementById('investAmount').value = amt;
   document.querySelectorAll('.invest-preset').forEach(b => b.classList.remove('btn-warning'));
@@ -608,19 +594,18 @@ function setInvestAmount(amt) {
 // ── Submit Score ──
 async function submitScore() {
   const score = document.getElementById('scoreSlider').value;
-  const scoringAnswers = [];
-  document.querySelectorAll('.scoring-q').forEach(t => scoringAnswers.push(t.value));
 
   const data = {
     name: visitorName,
     profession: selectedProf,
     profession_label: (profiles[selectedProf] || profiles['default']).label,
     score: parseInt(score),
-    risk_answer: document.getElementById('riskAnswer').value,
-    advice_answer: document.getElementById('adviceAnswer').value,
-    fund_answer: document.getElementById('fundAnswer').value,
+    improvement_answer: document.getElementById('improvementAnswer').value,
     invest_amount: parseInt(document.getElementById('investAmount').value) || 0,
-    scoring_answers: scoringAnswers,
+    risk_answer: '',
+    advice_answer: '',
+    fund_answer: parseInt(score) >= 8 ? 'yes_invest' : 'considering',
+    scoring_answers: [],
   };
 
   try {
