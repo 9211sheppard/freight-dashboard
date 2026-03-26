@@ -278,6 +278,20 @@ def api_validate_referral():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  Investor & Technical Review Pages (public, no login)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/invest")
+def invest_page():
+    return render_template("invest.html")
+
+
+@app.route("/review")
+def review_page():
+    return render_template("review.html")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  Billing Routes (Stripe)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -2977,6 +2991,32 @@ def api_agents_stats():
     totals["overall_response_rate"] = round(totals["total_replies"] / totals["total_sent"] * 100, 1) if totals["total_sent"] > 0 else 0
 
     return jsonify({"countries": countries, "totals": totals})
+
+
+@app.route("/api/translate", methods=["POST"])
+@login_required
+def api_translate():
+    """Translate text — used by dashboard to show translated replies inline."""
+    data = request.get_json(force=True)
+    text = (data.get("text") or "").strip()
+    target_lang = (data.get("target_lang") or "en").strip()
+    source_lang = data.get("source_lang")  # optional, auto-detect if None
+
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    try:
+        from translation_service import translate_text, detect_language
+        if not target_lang or target_lang == "auto":
+            target_lang = "en"
+        if not source_lang:
+            source_lang = detect_language(text)
+        result = translate_text(text, target_lang, source_lang=source_lang)
+        return jsonify(result)
+    except ImportError:
+        return jsonify({"error": "translation_service not available"}), 500
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
 
 def open_browser():
