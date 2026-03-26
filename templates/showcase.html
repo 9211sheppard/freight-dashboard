@@ -6,113 +6,7 @@
   <title>Freight Intelligence — The Full Picture</title>
   <link rel="stylesheet" href="/static/bootstrap.min.css">
   <link rel="stylesheet" href="/static/bootstrap-icons.min.css">
-  <style>
-    :root{--bg:#0a0e1a;--card:#111827;--accent:#3b82f6;--gold:#f59e0b;--green:#10b981;--red:#ef4444;--text:#e2e8f0;--muted:#64748b;--glow:0 0 30px rgba(59,130,246,0.15)}
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;-webkit-font-smoothing:antialiased}
-    ::selection{background:var(--accent);color:#fff}
-
-    /* Scroll animations */
-    .reveal{opacity:0;transform:translateY(60px);transition:opacity 0.8s ease,transform 0.8s ease}
-    .reveal.visible{opacity:1;transform:translateY(0)}
-    .reveal-left{opacity:0;transform:translateX(-60px);transition:opacity 0.8s ease,transform 0.8s ease}
-    .reveal-left.visible{opacity:1;transform:translateX(0)}
-    .reveal-right{opacity:0;transform:translateX(60px);transition:opacity 0.8s ease,transform 0.8s ease}
-    .reveal-right.visible{opacity:1;transform:translateX(0)}
-    .reveal-scale{opacity:0;transform:scale(0.85);transition:opacity 0.6s ease,transform 0.6s ease}
-    .reveal-scale.visible{opacity:1;transform:scale(1)}
-
-    /* Sections */
-    .sc{min-height:100vh;display:flex;align-items:center;padding:80px 24px;position:relative}
-    .sc-half{min-height:60vh;padding:60px 24px;display:flex;align-items:center}
-    .sc-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:5px;color:var(--accent);margin-bottom:16px;font-weight:600}
-    .sc-title{font-size:clamp(2rem,5vw,3.5rem);font-weight:800;line-height:1.1;margin-bottom:24px}
-    .sc-sub{font-size:1.15rem;line-height:1.8;color:var(--muted);max-width:640px}
-
-    /* Hero */
-    .hero-price{font-size:clamp(4rem,10vw,8rem);font-weight:900;background:linear-gradient(135deg,var(--accent),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
-    .hero-vs{font-size:1.4rem;color:var(--muted);text-decoration:line-through;margin-top:8px}
-
-    /* Glow cards */
-    .glow-card{background:var(--card);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:28px;transition:all 0.3s ease;position:relative;overflow:hidden}
-    .glow-card:hover{border-color:var(--accent);box-shadow:var(--glow);transform:translateY(-4px)}
-    .glow-card .icon{font-size:2rem;margin-bottom:12px;color:var(--accent)}
-    .glow-card h5{font-weight:700;margin-bottom:8px}
-    .glow-card p{color:var(--muted);font-size:0.9rem;line-height:1.6;margin:0}
-
-    /* Competitor wall */
-    .comp-wall{background:var(--card);border-radius:12px;overflow:hidden}
-    .comp-row{display:grid;grid-template-columns:1.5fr 1fr 1fr 0.8fr;align-items:center;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.9rem;transition:background 0.2s}
-    .comp-row:hover{background:rgba(255,255,255,0.02)}
-    .comp-row.header{background:rgba(59,130,246,0.1);font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--accent)}
-    .comp-row.us{background:rgba(16,185,129,0.08);border:1px solid var(--green)}
-    .comp-row .price{color:var(--gold);font-weight:700}
-    .comp-row .check{color:var(--green)}
-    .comp-row .cross{color:var(--red);opacity:0.5}
-    .comp-row .name{font-weight:600}
-
-    /* Network wall */
-    .net-row{display:grid;grid-template-columns:1.5fr 1fr 1fr;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.9rem}
-    .net-row.header{font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--accent);background:rgba(245,158,11,0.1)}
-
-    /* Counter animation */
-    .counter{font-size:clamp(2.5rem,6vw,4rem);font-weight:900;color:var(--accent)}
-    .counter-gold{color:var(--gold)}
-    .counter-green{color:var(--green)}
-    .counter-label{font-size:0.85rem;color:var(--muted);margin-top:4px}
-
-    /* Plug and play */
-    .timeline-step{display:flex;gap:20px;padding:24px 0;border-left:3px solid var(--accent);padding-left:28px;position:relative}
-    .timeline-step::before{content:'';position:absolute;left:-9px;top:28px;width:16px;height:16px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
-    .timeline-step .time{font-size:2rem;font-weight:800;color:var(--gold);min-width:80px}
-    .timeline-step .desc h6{font-weight:700;margin-bottom:4px}
-    .timeline-step .desc p{color:var(--muted);font-size:0.9rem;margin:0}
-
-    /* Integration grid */
-    .int-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 14px;font-size:0.8rem;font-weight:500;transition:all 0.2s}
-    .int-badge:hover{border-color:var(--accent);background:rgba(59,130,246,0.08)}
-
-    /* Flywheel */
-    .flywheel{width:300px;height:300px;border-radius:50%;border:3px solid var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto;position:relative;animation:spin 20s linear infinite}
-    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-    .flywheel-center{position:absolute;width:120px;height:120px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;text-align:center;animation:counterspin 20s linear infinite;z-index:2}
-    @keyframes counterspin{from{transform:rotate(0deg)}to{transform:rotate(-360deg)}}
-    .flywheel-node{position:absolute;width:80px;height:80px;border-radius:50%;background:var(--card);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:600;text-align:center;animation:counterspin 20s linear infinite}
-
-    /* Score section */
-    .score-display{font-size:5rem;font-weight:900;color:var(--accent);transition:color 0.3s}
-    .score-slider{width:100%;height:8px;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,0.1);border-radius:4px;outline:none}
-    .score-slider::-webkit-slider-thumb{-webkit-appearance:none;width:36px;height:36px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 16px var(--accent)}
-
-    /* Progress */
-    .sc-progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--gold));z-index:9999;transition:width 0.3s}
-
-    /* Side nav */
-    .side-nav{position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:100;display:flex;flex-direction:column;gap:8px}
-    .side-nav a{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.15);display:block;transition:all 0.3s}
-    .side-nav a.active{background:var(--accent);transform:scale(1.6);box-shadow:0 0 8px var(--accent)}
-
-    /* Pledge buttons */
-    .pledge-btn{background:var(--card);border:2px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 20px;color:var(--text);font-weight:700;font-size:1rem;cursor:pointer;transition:all 0.2s}
-    .pledge-btn:hover,.pledge-btn.active{border-color:var(--gold);background:rgba(245,158,11,0.1);color:var(--gold)}
-
-    /* Token banner */
-    .token-banner{position:fixed;top:0;left:0;right:0;z-index:10000;background:rgba(245,158,11,0.95);color:#000;text-align:center;padding:8px 16px;font-size:0.8rem;font-weight:600}
-
-    /* Mobile */
-    @media(max-width:768px){
-      .sc{padding:40px 16px;min-height:auto}
-      .comp-row{grid-template-columns:1fr 1fr;gap:4px;font-size:0.75rem;padding:8px 12px}
-      .comp-row .price{font-size:0.75rem}
-      .net-row{grid-template-columns:1fr 1fr;font-size:0.8rem}
-      .side-nav{display:none}
-      .flywheel{width:200px;height:200px}
-      .flywheel-center{width:80px;height:80px;font-size:0.7rem}
-      .flywheel-node{width:55px;height:55px;font-size:0.5rem}
-      .timeline-step .time{font-size:1.4rem;min-width:60px}
-      .glow-card{padding:20px}
-    }
-  </style>
+  <link rel="stylesheet" href="/static/showcase.css">
 </head>
 <body>
 
@@ -128,7 +22,7 @@
   <i class="bi bi-lock-fill me-1"></i>
   Private preview — expires in <span id="tokenCountdown"></span> or after <span id="tokenUses">{{ token_info.remaining_uses }}</span> more views
 </div>
-<script>
+<script nonce="{{ csp_nonce }}">
 (function(){
   var exp=new Date("{{ token_info.expires_iso }}");
   function u(){var n=new Date(),d=exp-n;if(d<=0){document.getElementById('tokenBanner').innerHTML='<i class="bi bi-lock-fill me-1"></i>This preview has expired.';return}
@@ -475,7 +369,7 @@
 
 
 <!-- ========== SCRIPTS ========== -->
-<script>
+<script nonce="{{ csp_nonce }}">
 // Counter animation
 function animateCounter(el){
   const target=parseInt(el.dataset.target);if(!target)return;
