@@ -3922,7 +3922,7 @@ def outreach_page():
 
 
 @app.route("/api/outreach/replies")
-@feature_required("outreach")
+@login_required
 def api_outreach_replies():
     conn = get_db()
     rows = conn.execute("""
@@ -3940,7 +3940,7 @@ def api_outreach_replies():
     keys = ["id","email","country","sent_at","status","reply_received",
             "lanes_confirmed","carriers_confirmed","lane_clicks","carrier_clicks",
             "company_name","contact_name","city"]
-    return jsonify([dict(zip(keys, r)) for r in rows])
+    return jsonify([{k: r[k] for k in keys} for r in rows])
 
 
 # ── Agents Office ────────────────────────────────────────────────────────────
