@@ -5,7 +5,70 @@ import sys
 #  LOGIN PASSWORD  — change this to your own
 #  On Azure, set env var DASHBOARD_PASSWORD
 # ─────────────────────────────────────────────
-PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "admin123")  # MUST override via env var in production
+PASSWORD = os.environ.get("DASHBOARD_PASSWORD", "")
+if not PASSWORD and not os.environ.get("FLASK_DEBUG"):
+    import warnings
+    warnings.warn("DASHBOARD_PASSWORD not set! Set env var DASHBOARD_PASSWORD for production.", stacklevel=2)
+
+# ─────────────────────────────────────────────
+#  SECURITY SETTINGS
+# ─────────────────────────────────────────────
+MAX_LOGIN_ATTEMPTS    = int(os.environ.get("MAX_LOGIN_ATTEMPTS", "5"))
+LOCKOUT_MINUTES       = int(os.environ.get("LOCKOUT_MINUTES", "15"))
+SESSION_LIFETIME_HOURS = int(os.environ.get("SESSION_LIFETIME_HOURS", "8"))
+MFA_ISSUER_NAME       = os.environ.get("MFA_ISSUER_NAME", "Freight Intelligence")
+SECURITY_PASSWORD_SALT = os.environ.get("SECURITY_PASSWORD_SALT", "freight-salt-v1")
+API_RATE_LIMIT        = int(os.environ.get("API_RATE_LIMIT", "120"))
+LOGIN_RATE_LIMIT      = int(os.environ.get("LOGIN_RATE_LIMIT", "10"))
+MAX_UPLOAD_SIZE_MB    = int(os.environ.get("MAX_UPLOAD_SIZE_MB", "10"))
+
+# ─────────────────────────────────────────────
+#  OAuth2 / SSO  (set env vars to enable)
+# ─────────────────────────────────────────────
+GOOGLE_CLIENT_ID      = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET  = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+MICROSOFT_CLIENT_ID   = os.environ.get("MICROSOFT_CLIENT_ID", "")
+MICROSOFT_CLIENT_SECRET = os.environ.get("MICROSOFT_CLIENT_SECRET", "")
+OAUTH_REDIRECT_BASE   = os.environ.get("OAUTH_REDIRECT_BASE", "http://localhost:5000")
+
+# ─────────────────────────────────────────────
+#  Bot Protection (hCaptcha — set env vars to enable)
+# ─────────────────────────────────────────────
+HCAPTCHA_SITE_KEY     = os.environ.get("HCAPTCHA_SITE_KEY", "")
+HCAPTCHA_SECRET_KEY   = os.environ.get("HCAPTCHA_SECRET_KEY", "")
+
+# ─────────────────────────────────────────────
+#  Security Contact (for security.txt)
+# ─────────────────────────────────────────────
+SECURITY_CONTACT_EMAIL = os.environ.get("SECURITY_CONTACT_EMAIL", "security@flashcargo.com")
+
+# ─────────────────────────────────────────────
+#  WAF / Reverse Proxy (Cloudflare, AWS ALB)
+#  Set BEHIND_PROXY=true when behind Cloudflare/ALB
+# ─────────────────────────────────────────────
+BEHIND_PROXY          = os.environ.get("BEHIND_PROXY", "").lower() in ("true", "1", "yes")
+TRUSTED_PROXY_IPS     = [ip.strip() for ip in os.environ.get("TRUSTED_PROXY_IPS", "127.0.0.1").split(",") if ip.strip()]
+CLOUDFLARE_ENABLED    = os.environ.get("CLOUDFLARE_ENABLED", "").lower() in ("true", "1", "yes")
+
+# ─────────────────────────────────────────────
+#  DDoS / Abuse Protection
+# ─────────────────────────────────────────────
+DDOS_RATE_LIMIT       = int(os.environ.get("DDOS_RATE_LIMIT", "300"))       # max requests/min per IP (global)
+DDOS_BAN_THRESHOLD    = int(os.environ.get("DDOS_BAN_THRESHOLD", "1000"))   # auto-ban IP after this many in 1 min
+DDOS_BAN_DURATION_MIN = int(os.environ.get("DDOS_BAN_DURATION_MIN", "60"))  # ban duration in minutes
+
+# ─────────────────────────────────────────────
+#  SOC 2 / Compliance
+# ─────────────────────────────────────────────
+AUDIT_RETENTION_DAYS  = int(os.environ.get("AUDIT_RETENTION_DAYS", "365"))  # keep audit logs for 1 year
+DATA_RETENTION_DAYS   = int(os.environ.get("DATA_RETENTION_DAYS", "730"))   # keep user data for 2 years
+ACCESS_REVIEW_INTERVAL_DAYS = int(os.environ.get("ACCESS_REVIEW_INTERVAL", "90"))  # quarterly access reviews
+
+# ─────────────────────────────────────────────
+#  Bug Bounty
+# ─────────────────────────────────────────────
+BUG_BOUNTY_ENABLED    = os.environ.get("BUG_BOUNTY_ENABLED", "").lower() in ("true", "1", "yes")
+BUG_BOUNTY_URL        = os.environ.get("BUG_BOUNTY_URL", "")  # e.g., HackerOne/Bugcrowd URL
 
 # ─────────────────────────────────────────────
 #  EMAIL — Microsoft Graph API (no SMTP needed)
