@@ -394,35 +394,46 @@ def api_list_temp_links():
 
 
 def _check_temp_token(page_name):
-    """Check if request has a valid temp token for this page."""
+    """Check if request has a valid temp token. Returns token info dict or None."""
     token = request.args.get("token", "")
     if not token:
-        return False
+        return None
     info = _temp_links.get(token)
     if not info:
-        return False
+        return None
     if info["page"] != page_name:
-        return False
+        return None
     if datetime.now() > info["expires"]:
         del _temp_links[token]
-        return False
+        return None
     if info["uses"] >= info["max_uses"]:
-        return False
+        return None
     info["uses"] += 1
-    return True
+    return {
+        "expires_iso": info["expires"].isoformat(),
+        "remaining_uses": info["max_uses"] - info["uses"],
+        "max_uses": info["max_uses"],
+    }
 
 
 @app.route("/invest")
 def invest_page():
-    if session.get("user_role") == "admin" or _check_temp_token("invest"):
-        return render_template("invest.html")
+    if session.get("user_role") == "admin":
+        return render_template("invest.html", token_info=None)
+    token_info = _check_temp_token("invest")
+    if token_info:
+        return render_template("invest.html", token_info=token_info)
     return redirect(url_for("landing"))
 
 
 @app.route("/review")
 def review_page():
-    if session.get("user_role") == "admin" or _check_temp_token("review"):
-        return render_template("review.html")
+    if session.get("user_role") == "admin":
+        return render_template("review.html", token_info=None)
+    token_info = _check_temp_token("review")
+    if token_info:
+        return render_template("review.html", token_info=token_info)
+    return redirect(url_for("landing"))
     return redirect(url_for("landing"))
 
 
@@ -1179,8 +1190,11 @@ def mfa_verify_page():
 
 @app.route("/pitch")
 def pitch_page():
-    if session.get("user_role") == "admin" or _check_temp_token("pitch"):
-        return render_template("pitch.html")
+    if session.get("user_role") == "admin":
+        return render_template("pitch.html", token_info=None)
+    token_info = _check_temp_token("pitch")
+    if token_info:
+        return render_template("pitch.html", token_info=token_info)
     return redirect(url_for("landing"))
 
 
