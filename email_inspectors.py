@@ -47,6 +47,18 @@ _FILLER_PHRASES = [
     "just wanted to check",
     "touching base",
     "circling back",
+    "at your convenience",
+    "i look forward to",
+    "i hope this message finds you well",
+    "please don’t hesitate",
+    "we specialize in",
+    "we are pleased to",
+    "we would like to",
+    "i would like to introduce",
+    "thank you for your time",
+    "best regards",
+    "kind regards",
+    "warm regards",
 ]
 
 _EMPTY_AUTHORITY = [
@@ -195,6 +207,36 @@ def inspect_identity(email_dict):
                 score -= 5
     except ImportError:
         pass
+
+    # ── Local-language subject / country mismatch check ─────────────────────
+    # If a local-language subject is used, verify it matches the contact's country.
+    # A Turkish subject should never go to a German contact.
+    subject = (email_dict.get("subject") or "").strip()
+    if subject and country:
+        try:
+            from intro_mailer import _COUNTRY_SUBJECTS
+            for subj_country, templates in _COUNTRY_SUBJECTS.items():
+                if subj_country == country:
+                    continue  # correct country — skip
+                # Check if subject matches any template from a DIFFERENT country
+                for tpl in templates:
+                    # Build a rough regex from the template: replace placeholders with .*
+                    import re as _re
+                    pattern = _re.escape(tpl)
+                    for ph in [r"\{greeting_name\}", r"\{sender_first\}", r"\{_co\}", r"\{_loc\}"]:
+                        pattern = pattern.replace(_re.escape("{" + ph.strip("\\{}") + "}"), ".+")
+                    # Check for distinctive non-ASCII words (>= 3 chars) from the template
+                    # that are unique to that language
+                    non_ascii_words = [w for w in tpl.split() if any(ord(c) > 127 for c in w) and len(w) >= 3]
+                    if non_ascii_words and any(w in subject for w in non_ascii_words):
+                        issues.append(
+                            "Local-language subject contains '%s' words but contact country is '%s'"
+                            % (subj_country, country)
+                        )
+                        score -= 25
+                        break
+        except ImportError:
+            pass
 
     passed = score >= 60 and not any("identity collision" in i for i in issues)
     return {"pass": passed, "issues": issues, "score": max(0, score)}
@@ -407,12 +449,15 @@ def inspect_formatting(email_dict):
     return {"pass": score >= 60, "issues": issues, "score": max(0, score)}
 
 # ==============================================================================
-# AGENT 5: Human Test Inspector
+# AGENT 5: Human Test Inspector (AI Detection)
 # ==============================================================================
+# AI detection checklist: filler phrases, specificity, formal patterns,
+# word count, template structure. Score: 0-2 AI signals = pass, 3+ = fail
 def inspect_human_test(email_dict):
     issues = []
     score = 100
     reply_score = 7
+    ai_signals = 0
     subject = (email_dict.get("subject") or "").strip()
     body_html = email_dict.get("body_html") or ""
     body_text = email_dict.get("body_text") or _strip_html(body_html)
@@ -421,16 +466,87 @@ def inspect_human_test(email_dict):
     recipient_name = (email_dict.get("recipient_name") or "").strip()
     body_lower = body_text.lower()
     first_name = recipient_name.split()[0] if recipient_name else ""
-
     words = body_text.split()
+    wc = _word_count(body_text)
     first_15 = " ".join(words[:15]).lower() if len(words) >= 15 else body_lower
+
+    # — AI SIGNAL 1: Filler phrases (+1 per filler found)
+    filler_count = 0
+    for filler in _FILLER_PHRASES:
+        if filler in body_lower:
+            filler_count += 1
+            issues.append("AI filler: %s" % filler)
+            score -= 8
+            reply_score -= 0.5
+    ai_signals += filler_count
+
+    # — AI SIGNAL 2: No specific details (city, port, company name)
+    specific_details = 0
+    if country and country.lower() in body_lower:
+        specific_details += 1
+    # Extract city/company from contact data passed in email_dict
+    _city = (email_dict.get("city") or "").strip()
+    _company = (email_dict.get("company_name") or "").strip()
+    if _city and _city.lower() in body_lower:
+        specific_details += 1
+    if _company and _company.lower() in body_lower:
+        specific_details += 1
+    port_terms = ["port", "istanbul", "hamburg", "mumbai", "shanghai", "rotterdam",
+                  "fcl", "lcl", "container", "maersk", "msc", "cma", "hapag",
+                  "cosco", "evergreen", "zim"]
+    for pt in port_terms:
+        if pt in body_lower:
+            specific_details += 1
+            break
+    if specific_details < 2:
+        ai_signals += 1
+        issues.append("AI signal: only %d specific details (need 2+)" % specific_details)
+        score -= 12
+        reply_score -= 1
+
+    # — AI SIGNAL 3: Formal greeting + formal sign-off
+    formal_greetings = ["dear ", "good morning", "good afternoon", "good evening",
+                        "i hope this", "greetings"]
+    formal_signoffs = ["best regards", "kind regards", "warm regards", "sincerely",
+                       "yours truly", "respectfully", "with best wishes"]
+    has_formal_greeting = any(fg in first_15 for fg in formal_greetings)
+    tail_text = body_lower[int(len(body_lower) * 0.8):]
+    has_formal_signoff = any(fs in tail_text for fs in formal_signoffs)
+    if has_formal_greeting and has_formal_signoff:
+        ai_signals += 1
+        issues.append("AI signal: formal greeting + formal sign-off = robot pattern")
+        score -= 10
+        reply_score -= 1
+
+    # — AI SIGNAL 4: Over 150 words for intros
+    if email_stage == "intro" and wc > 150:
+        ai_signals += 1
+        issues.append("AI signal: intro %d words (max 150 for human feel)" % wc)
+        score -= 10
+        reply_score -= 1
+
+    # — AI SIGNAL 5: Template structure detection
+    structure_markers = [
+        ("my name is", "i" + chr(8217) + "m ", "allow me to introduce"),
+        ("we came across", "your company stood out", "we" + chr(8217) + "ve been expanding", "while sourcing"),
+        ("two quick questions", "we" + chr(8217) + "d love to know", "just two things"),
+    ]
+    sections_found = 0
+    for marker_group in structure_markers:
+        if any(m in body_lower for m in marker_group):
+            sections_found += 1
+    if sections_found >= 3:
+        ai_signals += 1
+        issues.append("AI signal: follows exact template structure")
+        score -= 8
+
+    # — EXISTING CHECKS (freight relevance, name, country, etc)
     triggers = ["freight", "cargo", "shipping", "logistics", "agent",
                 "partner", "ocean", "air"]
     if country:
         triggers.append(country.lower())
-
     post = body_lower
-    if re.match(r'^hi\\s|^hello\\s|^dear\\s|^good\\s', first_15):
+    if re.match(r'^hi\s|^hello\s|^dear\s|^good\s|^hey\s', first_15):
         blines = body_text.split(chr(10))
         post = " ".join(blines[1:3]).lower() if len(blines) > 1 else body_lower
     p30 = " ".join(post.split()[:30]).lower()
@@ -438,11 +554,6 @@ def inspect_human_test(email_dict):
         issues.append("3-second FAIL: no freight relevance in opening")
         score -= 15
         reply_score -= 2
-
-    if not re.findall(r'<strong>(.*?)</strong>', body_html, re.IGNORECASE):
-        issues.append("No bold text -- scanners miss message")
-        score -= 5
-        reply_score -= 1
 
     if first_name and first_name.lower() not in first_15:
         issues.append("Name not in greeting -- generic feel")
@@ -453,17 +564,16 @@ def inspect_human_test(email_dict):
         score -= 10
         reply_score -= 1
 
-    wc = _word_count(body_text)
     if email_stage == "intro" and wc > 200:
-        issues.append("Intro %d words -- too long" % wc)
-        score -= 10
-        reply_score -= 1
+        issues.append("Intro %d words -- way too long" % wc)
+        score -= 15
+        reply_score -= 2
     elif email_stage != "intro" and wc > 180:
         issues.append("%d words -- trim it" % wc)
         score -= 5
 
     vals = ["cargo", "rate request", "volume", "inquiries your way", "partner",
-            "include you", "send you", "route", "rate round", "freight from your region"]
+            "include you", "send you", "route", "rate round", "freight", "lanes", "container"]
     if sum(1 for v in vals if v in body_lower) < 1:
         issues.append("No value proposition")
         score -= 15
@@ -476,7 +586,7 @@ def inspect_human_test(email_dict):
             reply_score -= 3
 
     ctas = re.findall(
-        r'<a\\s+[^>]*style="[^"]*(?:padding|display:\\s*inline-block)[^"]*"[^>]*>(.*?)</a>',
+        r'<a\s+[^>]*style="[^"]*(?:padding|display:\s*inline-block)[^"]*"[^>]*>(.*?)</a>',
         body_html, re.IGNORECASE)
     if email_stage == "intro":
         if len(ctas) == 0:
@@ -488,19 +598,29 @@ def inspect_human_test(email_dict):
             score -= 8
             reply_score -= 1
 
+    # Bonus for human feel
     if first_name and first_name.lower() in first_15:
         reply_score += 0.5
     if country and country.lower() in subject.lower():
         reply_score += 0.5
     if wc < 150:
         reply_score += 0.5
+    if specific_details >= 3:
+        reply_score += 1
+
     reply_score = max(1, min(10, round(reply_score)))
     if reply_score < 6:
         issues.append("Reply score %d/10 -- would be deleted" % reply_score)
         score -= 15
 
-    return {"pass": score >= 60 and reply_score >= 6, "issues": issues,
-            "score": max(0, score), "reply_score": reply_score}
+    # — FINAL: AI signal scoring (0-2 pass, 3+ fail)
+    ai_pass = ai_signals <= 2
+    if not ai_pass:
+        issues.append("AI DETECTION FAIL: %d AI signals (max 2)" % ai_signals)
+        score -= 20
+
+    return {"pass": score >= 60 and reply_score >= 6 and ai_pass, "issues": issues,
+            "score": max(0, score), "reply_score": reply_score, "ai_signals": ai_signals}
 
 # ==============================================================================
 # INTEGRATION
@@ -569,7 +689,8 @@ def build_email_dict(subject, body_html, sender_name, sender_email,
                      recipient_name="", recipient_email="", country="",
                      behavior_type="unknown", email_stage="intro",
                      reply_to="pricing@flashcargoglobal.com",
-                     allow_pricing_fallback=False):
+                     allow_pricing_fallback=False,
+                     city="", company_name=""):
     return {
         "subject": subject, "body_html": body_html,
         "body_text": _strip_html(body_html),
@@ -578,6 +699,7 @@ def build_email_dict(subject, body_html, sender_name, sender_email,
         "country": country, "behavior_type": behavior_type,
         "email_stage": email_stage, "reply_to": reply_to,
         "allow_pricing_fallback": allow_pricing_fallback,
+        "city": city, "company_name": company_name,
     }
 
 
@@ -587,7 +709,13 @@ def inspect_and_retry(build_fn, contact, email_type="intro",
     contact_id = contact.get("id", 0)
     country = (contact.get("country") or "").strip()
     contact_name = (contact.get("contact_name") or "").strip()
-    contact_first = contact_name.split()[0] if contact_name else None
+    # Strip honorifics (Mr., Ms., Mrs., Dr., etc.)
+    _hon = {"mr", "ms", "mrs", "dr", "prof"}
+    _parts = contact_name.split() if contact_name else []
+    while _parts and _parts[0].lower().rstrip(".") in _hon:
+        _parts.pop(0)
+    contact_first = _parts[0] if _parts else None
+    clean_name = " ".join(_parts) if _parts else contact_name
     email_addr = (contact.get("email") or "").strip()
     sender_name = _display_name_for_country(
         country, contact_id, contact_first_name=contact_first)
@@ -603,12 +731,14 @@ def inspect_and_retry(build_fn, contact, email_type="intro",
         ed = build_email_dict(
             subject=subject, body_html=body_html,
             sender_name=sender_name, sender_email=sender_email,
-            recipient_name=contact_name, recipient_email=email_addr,
+            recipient_name=clean_name, recipient_email=email_addr,
             country=country,
             behavior_type=contact.get("behavior_type", "unknown"),
             email_stage=email_stage,
             reply_to="pricing@flashcargoglobal.com",
-            allow_pricing_fallback=sender_email.startswith("pricing@"))
+            allow_pricing_fallback=sender_email.startswith("pricing@"),
+            city=(contact.get("city") or "").strip(),
+            company_name=(contact.get("company_name") or "").strip())
         result = run_all_inspectors(ed)
         last_result = result
         log_inspection(contact_id, email_type, attempt, result)

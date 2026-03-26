@@ -70,6 +70,188 @@ _CARRIER_OPTIONS = [
 
 _CARRIER_SLUG = {c: c.lower().replace(" ", "-").replace("/", "-") for c in _CARRIER_OPTIONS}
 
+# ── Local-language subject lines (20 high-priority countries) ─────────────
+# Psychology rules: Win Friends (use name), Think & Grow Rich (specificity),
+# Never Split (transparency). NO scarcity, NO fake social proof, NO pressure.
+# Placeholders: {greeting_name}, {sender_first}, {_co}, {_loc}
+_COUNTRY_SUBJECTS = {
+    # ── Turkish ────────────────────────────────────────────────────────────
+    "turkey": [
+        "{greeting_name}, {_co} hakkında bir sorumuz var",
+        "{sender_first} for {greeting_name} | {_loc} navlun",
+        "{_co} — {_loc} kargo ortaklığı",
+        "{greeting_name}, {_loc} hatlarınız hakkında",
+        "{sender_first}, {_co} ile çalışmak istiyoruz",
+    ],
+    # ── German ─────────────────────────────────────────────────────────────
+    "germany": [
+        "{greeting_name}, Anfrage zu {_co} — Seefracht ab {_loc}",
+        "{sender_first} for {greeting_name} | Fracht ab {_loc}",
+        "{_co} — Partnerschaft für {_loc} Seefracht",
+        "{greeting_name}, wir suchen einen Partner in {_loc}",
+        "{sender_first} von Flash Cargo für {greeting_name} bei {_co}",
+    ],
+    # ── French ─────────────────────────────────────────────────────────────
+    "france": [
+        "{greeting_name}, question au sujet de {_co}",
+        "{sender_first} for {greeting_name} | fret depuis {_loc}",
+        "{_co} — partenariat fret depuis {_loc}",
+        "{greeting_name}, vos lignes au départ de {_loc}",
+        "{sender_first} de Flash Cargo pour {greeting_name} chez {_co}",
+    ],
+    # ── Brazilian Portuguese ───────────────────────────────────────────────
+    "brazil": [
+        "{greeting_name}, pergunta sobre a {_co}",
+        "{sender_first} for {greeting_name} | frete de {_loc}",
+        "{_co} — parceria de carga desde {_loc}",
+        "{greeting_name}, sobre suas rotas de {_loc}",
+        "{sender_first} da Flash Cargo para {greeting_name} na {_co}",
+    ],
+    # ── Japanese ───────────────────────────────────────────────────────────
+    "japan": [
+        "{greeting_name}様、{_co}について",
+        "{sender_first} for {greeting_name}様 | {_loc}発の貨物",
+        "{_co} — {_loc}からの海上輸送パートナーシップ",
+        "{greeting_name}様、{_loc}の輸送ルートについて",
+    ],
+    # ── Chinese (Simplified) ──────────────────────────────────────────────
+    "china": [
+        "{greeting_name}，关于{_co}的合作咨询",
+        "{sender_first} for {greeting_name} | {_loc}货运",
+        "{_co} — {_loc}货运合作",
+        "{greeting_name}，{_loc}航线咨询",
+        "{sender_first}（Flash Cargo）致{greeting_name}（{_co}）",
+    ],
+    # ── Korean ─────────────────────────────────────────────────────────────
+    "south korea": [
+        "{greeting_name}님, {_co} 관련 문의드립니다",
+        "{sender_first} for {greeting_name}님 | {_loc} 화물",
+        "{_co} — {_loc} 해상 운송 파트너십",
+        "{greeting_name}님, {_loc} 노선에 대해",
+    ],
+    # ── Hindi ──────────────────────────────────────────────────────────────
+    "india": [
+        "{greeting_name}, {_co} के बारे में एक प्रश्न",
+        "{sender_first} for {greeting_name} | {_loc} माल ढुलाई",
+        "{_co} — {_loc} कार्गो साझेदारी",
+        "{greeting_name}, {_loc} से आपके मार्गों के बारे में",
+    ],
+    # ── Spanish (Spain) ───────────────────────────────────────────────────
+    "spain": [
+        "{greeting_name}, consulta sobre {_co}",
+        "{sender_first} for {greeting_name} | carga desde {_loc}",
+        "{_co} — colaboración de carga desde {_loc}",
+        "{greeting_name}, sobre sus rutas desde {_loc}",
+        "{sender_first} de Flash Cargo para {greeting_name} en {_co}",
+    ],
+    # ── Italian ────────────────────────────────────────────────────────────
+    "italy": [
+        "{greeting_name}, domanda su {_co}",
+        "{sender_first} for {greeting_name} | trasporto da {_loc}",
+        "{_co} — collaborazione cargo da {_loc}",
+        "{greeting_name}, sulle vostre rotte da {_loc}",
+        "{sender_first} di Flash Cargo per {greeting_name} presso {_co}",
+    ],
+    # ── Portuguese (Portugal) ─────────────────────────────────────────────
+    "portugal": [
+        "{greeting_name}, questão sobre a {_co}",
+        "{sender_first} for {greeting_name} | carga desde {_loc}",
+        "{_co} — parceria de carga desde {_loc}",
+        "{greeting_name}, sobre as vossas rotas de {_loc}",
+        "{sender_first} da Flash Cargo para {greeting_name} na {_co}",
+    ],
+    # ── Russian ────────────────────────────────────────────────────────────
+    "russia": [
+        "{greeting_name}, вопрос о {_co}",
+        "{sender_first} for {greeting_name} | грузоперевозки из {_loc}",
+        "{_co} — партнёрство по грузам из {_loc}",
+        "{greeting_name}, о ваших маршрутах из {_loc}",
+    ],
+    # ── Mexican Spanish ───────────────────────────────────────────────────
+    "mexico": [
+        "{greeting_name}, consulta sobre {_co}",
+        "{sender_first} for {greeting_name} | carga desde {_loc}",
+        "{_co} — alianza de carga desde {_loc}",
+        "{greeting_name}, sobre sus rutas desde {_loc}",
+        "{sender_first} de Flash Cargo para {greeting_name} en {_co}",
+    ],
+    # ── Colombian Spanish ─────────────────────────────────────────────────
+    "colombia": [
+        "{greeting_name}, consulta sobre {_co}",
+        "{sender_first} for {greeting_name} | carga desde {_loc}",
+        "{_co} — alianza de carga desde {_loc}",
+        "{greeting_name}, sobre sus rutas desde {_loc}",
+    ],
+    # ── Argentine Spanish ─────────────────────────────────────────────────
+    "argentina": [
+        "{greeting_name}, consulta sobre {_co}",
+        "{sender_first} for {greeting_name} | carga desde {_loc}",
+        "{_co} — alianza de carga desde {_loc}",
+        "{greeting_name}, sobre sus rutas desde {_loc}",
+    ],
+    # ── Chilean Spanish ───────────────────────────────────────────────────
+    "chile": [
+        "{greeting_name}, consulta sobre {_co}",
+        "{sender_first} for {greeting_name} | carga desde {_loc}",
+        "{_co} — alianza de carga desde {_loc}",
+        "{greeting_name}, sobre sus rutas desde {_loc}",
+    ],
+    # ── Peruvian Spanish ──────────────────────────────────────────────────
+    "peru": [
+        "{greeting_name}, consulta sobre {_co}",
+        "{sender_first} for {greeting_name} | carga desde {_loc}",
+        "{_co} — alianza de carga desde {_loc}",
+        "{greeting_name}, sobre sus rutas desde {_loc}",
+    ],
+    # ── Arabic (Saudi Arabia) — RTL-safe subject ──────────────────────────
+    "saudi arabia": [
+        "{greeting_name}، استفسار عن {_co}",
+        "{sender_first} for {greeting_name} | شحن من {_loc}",
+        "{_co} — شراكة شحن من {_loc}",
+        "{greeting_name}، بخصوص خطوطكم من {_loc}",
+    ],
+    # ── Arabic (UAE) ──────────────────────────────────────────────────────
+    "uae": [
+        "{greeting_name}، استفسار عن {_co}",
+        "{sender_first} for {greeting_name} | شحن من {_loc}",
+        "{_co} — شراكة شحن من {_loc}",
+        "{greeting_name}، بخصوص خطوطكم من {_loc}",
+    ],
+    # ── Indonesian ─────────────────────────────────────────────────────────
+    "indonesia": [
+        "{greeting_name}, pertanyaan tentang {_co}",
+        "{sender_first} for {greeting_name} | kargo dari {_loc}",
+        "{_co} — kemitraan kargo dari {_loc}",
+        "{greeting_name}, tentang rute Anda dari {_loc}",
+        "{sender_first} dari Flash Cargo untuk {greeting_name} di {_co}",
+    ],
+}
+
+# ── Local-language greetings (first line of email body) ──────────────────
+# Culturally appropriate: formal where needed, correct honorifics for CJK.
+_LOCAL_GREETINGS = {
+    "turkey":       "Merhaba {name},",
+    "germany":      "Hallo {name},",
+    "france":       "Bonjour {name},",
+    "brazil":       "Olá {name},",
+    "japan":        "{name}様、",
+    "china":        "{name}，您好，",
+    "south korea":  "{name}님, 안녕하세요,",
+    "india":        "नमस्ते {name},",
+    "spain":        "Hola {name},",
+    "italy":        "Buongiorno {name},",
+    "portugal":     "Olá {name},",
+    "russia":       "Здравствуйте, {name},",
+    "mexico":       "Hola {name},",
+    "colombia":     "Hola {name},",
+    "argentina":    "Hola {name},",
+    "chile":        "Hola {name},",
+    "peru":         "Hola {name},",
+    "saudi arabia": "{name}، مرحبًا",
+    "uae":          "{name}، مرحبًا",
+    "indonesia":    "Halo {name},",
+}
+
 
 def _dedupe_lane_labels(regions: list) -> list:
     seen = set()
@@ -130,7 +312,12 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
     contact_name = (contact.get("contact_name") or "").strip()
     email        = (contact.get("email") or "").strip()
 
-    first_name    = contact_name.split()[0] if contact_name else ""
+    # Strip honorifics (Mr., Ms., Mrs., Dr., etc.) to get actual first name
+    _honorifics = {"mr.", "ms.", "mrs.", "dr.", "mr", "ms", "mrs", "dr", "prof.", "prof"}
+    name_parts = contact_name.split() if contact_name else []
+    while name_parts and name_parts[0].lower().rstrip(".") in {h.rstrip(".") for h in _honorifics}:
+        name_parts.pop(0)
+    first_name    = name_parts[0] if name_parts else ""
     greeting_name = first_name or company_name or "there"
 
     location_str = f"{city}, {country}" if city and country else (city or country or "your region")
@@ -152,98 +339,104 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
     _rng = random.Random(_seed)
 
     # ── Subject line variations ───────────────────────────────────────────────
-    # Mix of standard subjects + psych-hook-driven subjects for maximum variety
+    # Every subject must feel like it was written for THIS person at THIS company.
+    # No generic "freight partnership" language. Use company name + city to stand out.
     _loc = city or country or "your region"
+    _co = company_name or "your company"
+
+    # Try local-language subjects first, fall back to English
+    _country_lower = country.lower() if country else ""
+    _local_subjects = _COUNTRY_SUBJECTS.get(_country_lower)
+    if _local_subjects:
+        _formatted_local = []
+        for tpl in _local_subjects:
+            try:
+                _formatted_local.append(tpl.format(
+                    greeting_name=greeting_name,
+                    sender_first=sender_first,
+                    _co=_co,
+                    _loc=_loc,
+                ))
+            except (KeyError, IndexError):
+                pass
+        if _formatted_local:
+            subject = _rng.choice(_formatted_local)
+            # Skip the English pool
+            _use_english_subject = False
+        else:
+            _use_english_subject = True
+    else:
+        _use_english_subject = True
+
     _SUBJECTS = [
-        # Standard
-        f"Quick question \u2014 {_loc} origin freight | Flash Cargo Global",
-        f"Partnership inquiry \u2014 freight from {_loc} | Flash Cargo Global",
-        f"Freight from {_loc} \u2014 looking for the right partner",
-        f"{sender_first} here \u2014 quick question about {_loc} freight",
-        f"Ocean freight from {_loc} \u2014 60 seconds of your time?",
-        f"Connecting with agents in {_loc} | Flash Cargo Global",
-        f"Cargo from {_loc} \u2014 are you the right fit?",
-        # Psych-hook driven (Atomic Habits: make it obvious)
-        f"One click \u2014 {_loc} freight partnership | Flash Cargo",
-        f"30 seconds \u2014 freight from {_loc} | Flash Cargo Global",
-        # Win Friends: genuine interest
-        f"Your expertise in {_loc} \u2014 quick question | Flash Cargo",
-        f"Impressed by your {_loc} operation | Flash Cargo Global",
-        # (calibrated questions banned from intro — moved to engaged stage)
-        # Think & Grow Rich: definiteness
-        f"Looking for one great partner in {_loc} | Flash Cargo",
-        f"We chose your company in {_loc} \u2014 here\u2019s why",
+        f"{greeting_name}, {_loc} freight",
+        f"{_co}, quick question",
+        f"{greeting_name}, {_loc} lanes",
+        f"Freight from {_loc}",
+        f"{greeting_name} at {_co}",
+        f"{_loc} cargo, {_co}",
+        f"{greeting_name}, {_loc} agent?",
+        f"Re: {_co}",
     ]
-    subject = _rng.choice(_SUBJECTS)
+    if _use_english_subject:
+        subject = _rng.choice(_SUBJECTS)
 
-    # ── Opening paragraph variations ──────────────────────────────────────────
+    # ── Opener variations (short, direct, like a busy freight pro) ───
+    _city = city or country or "your area"
+    _co = company_name or "your company"
     _OPENERS = [
-        f"I\u2019m {sender_first} from <strong>Flash Cargo Global</strong> \u2014 we move ocean and air freight worldwide, and over-the-road across North America.",
-        f"My name is {sender_first}, I work with <strong>Flash Cargo Global</strong>. We handle ocean, air, and over-the-road freight across the globe.",
-        f"I\u2019m {sender_first} with <strong>Flash Cargo Global</strong> \u2014 we specialize in ocean and air freight, plus trucking across North America.",
-        f"{sender_first} here, reaching out from <strong>Flash Cargo Global</strong>. We\u2019re an ocean, air, and OTR freight forwarder with global reach.",
-        f"This is {sender_first} from <strong>Flash Cargo Global</strong>. We move cargo by ocean, air, and truck worldwide.",
-        f"Hi \u2014 I\u2019m {sender_first} at <strong>Flash Cargo Global</strong>. We\u2019re a freight forwarder covering ocean, air, and road shipments globally.",
+        f"{sender_first} here, Flash Cargo. We move containers through {_city} regularly and saw {_co} while sourcing a local partner.",
+        f"{sender_first} from Flash Cargo. We handle ocean freight out of {_city} every week. Found {_co} while looking for agents.",
+        f"{sender_first}, Flash Cargo Global. We’ve got cargo moving through {_city} and need a solid local agent.",
+        f"Quick intro. I’m {sender_first} at Flash Cargo. We route ocean freight from {_city} to the US weekly.",
+        f"{sender_first} with Flash Cargo. We ship out of {_city} regularly and your company came up in our agent search.",
+        f"Flash Cargo here, {sender_first}. We move FCL and LCL out of {_city} and need a partner on the ground.",
+        f"{sender_first} from Flash Cargo. We’ve been routing cargo through {_city} and want the right agent before our next shipment.",
+        f"{sender_first}, Flash Cargo Global. Looking for an agent in {_city}. Your company stood out.",
+        f"{sender_first} at Flash Cargo. We handle freight from {_city} to North America and need a local partner.",
+        f"Hey, {sender_first} from Flash Cargo. We move containers out of {_city} every week and came across {_co}.",
     ]
 
-    # ── Context paragraph variations ──────────────────────────────────────────
     _CONTEXTS = [
-        f"We came across your company while looking for partners in {location_str}. We have customers moving cargo from your region and want the right local agent on file before anything heads your way.",
-        f"Your company stood out as we searched for reliable agents in {location_str}. We regularly move freight from your area and need a trusted partner on the ground.",
-        f"We\u2019re building our agent network in {location_str} and your company came up. We have active cargo flows from your region and want to make sure we\u2019re working with the best local team.",
-        f"We\u2019ve been expanding in {location_str} and noticed your operation. We route cargo from your market regularly and are looking for the right local partner.",
-        f"While sourcing local partners in {location_str}, we found your company. We move freight from your region often and want a reliable agent to work with.",
-        f"We handle cargo moving out of {location_str} regularly and are looking for an agent who knows the local market inside out. Your company caught our attention.",
-        # 7 Habits: think win-win
-        f"We\u2019re looking for a true partner in {location_str} \u2014 not a vendor, but someone who grows when we grow. Your company fits that profile.",
-        # Think & Grow Rich: mastermind
-        f"We\u2019re assembling a network of top agents worldwide \u2014 and {location_str} is a key piece. Your company came up as a strong candidate.",
+        f"Quick question. What lanes do you cover out of {_city}?",
+        f"We’ve got active cargo from {_city} and want to make sure we’re working with the right agent.",
+        f"Need someone who knows {_city} inside out. You seem like a fit.",
+        f"We route freight from {_city} to the US regularly. Looking for a partner, not a vendor.",
+        f"Cargo from {_city} is a growing lane for us. Want the right agent on file.",
+        f"We’ve got shipments heading from {_city} and need a reliable local team.",
     ]
 
-    # ── CTA variations ────────────────────────────────────────────────────────
     _CTAS = [
-        "Two quick questions \u2014 one click below and you\u2019re done:",
-        "Just two things we\u2019d like to know \u2014 takes under a minute:",
-        "We\u2019d love to know two things \u2014 click below to answer in seconds:",
-        "Two quick questions for you \u2014 answer with one click:",
-        "Here\u2019s what we\u2019d like to know \u2014 takes 30 seconds:",
-        # Atomic Habits: make it easy
-        "No forms, no calls \u2014 just two clicks and you\u2019re done:",
-        "Easiest partnership response you\u2019ll ever make \u2014 two quick picks:",
+        "Two quick picks and you’re done:",
+        "Takes 30 seconds. Just pick your lanes and carriers:",
+        "One click, pick what applies:",
+        "Just select your routes below:",
+        "Here’s the ask, two clicks:",
     ]
 
-    # ── Button label variations ───────────────────────────────────────────────
     _BTN_LABELS = [
-        "Select My Coverage \u2192",
-        "Choose My Lanes & Carriers \u2192",
-        "Click to Respond \u2192",
-        "Answer in One Click \u2192",
-        "Pick My Routes \u2192",
-        "Get Started \u2192",
-        "Yes, I\u2019m Interested \u2192",
+        "Pick My Lanes",
+        "Select Routes",
+        "Choose Coverage",
+        "I’m In",
+        "Yes, Show Me",
     ]
 
-    # ── Footer variations ─────────────────────────────────────────────────────
     _FOOTERS = [
-        "Once we hear back we\u2019ll add you to our next rate request and only send cargo for the lanes and carriers you selected.",
-        "As soon as we get your response, we\u2019ll include you in upcoming rate rounds \u2014 only for the routes you chose.",
-        "Reply and we\u2019ll start routing relevant cargo inquiries your way \u2014 strictly for the lanes you pick.",
-        "After you respond, we\u2019ll match you with cargo on your selected lanes and carriers only.",
-        "Once confirmed, we\u2019ll send rate requests tailored to the exact lanes and carriers you selected.",
-        # Atomic Habits: make it satisfying
-        "You\u2019ll receive your first rate request within days of responding \u2014 real cargo, real volume.",
-        "Once you\u2019re in, cargo inquiries start flowing your way automatically. No extra steps.",
+        "Once you pick, we’ll send rate requests for those lanes only. No spam.",
+        "We’ll match you with cargo on your selected routes. Nothing else.",
+        "You’ll get rate requests within days. Real cargo, your lanes only.",
+        "Pick your routes and we start sending relevant inquiries your way.",
+        "After you respond, cargo inquiries flow your way. Only for what you selected.",
     ]
 
-    # ── Instruction line variations ───────────────────────────────────────────
     _INSTRUCTIONS = [
-        "Hit the button \u2014 click the lanes and carriers that apply, then confirm.<br>Takes under a minute, no login required.",
-        "Tap the button below, select what applies, and confirm.<br>Under 60 seconds, no account needed.",
-        "Click the button, pick your lanes and carriers, and you\u2019re done.<br>Quick and easy \u2014 no signup required.",
-        "Use the button to select your coverage \u2014 just pick and confirm.<br>Takes less than a minute.",
+        "Hit the button, pick what applies, confirm. Under a minute.",
+        "Click below, select your lanes and carriers, done. No login.",
+        "Tap the button, pick and confirm. Takes 30 seconds.",
     ]
 
-    # ── Pick variations ───────────────────────────────────────────────────────
+    # ── Pick variations ───
     opener_html  = _rng.choice(_OPENERS)
     context_html = _rng.choice(_CONTEXTS)
     cta_html     = _rng.choice(_CTAS)
@@ -251,7 +444,7 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
     footer_html  = _rng.choice(_FOOTERS)
     instr_html   = _rng.choice(_INSTRUCTIONS)
 
-    # ── Numbered lane rows for visual reference ───────────────────────────────
+    # ── Numbered lane rows ───
     carrier_letters = "ABCDEFGHIJKL"
     lane_rows_html = "".join(
         f'<tr><td style="font-family:Arial,sans-serif;font-size:13px;color:#1a73e8;font-weight:700;'
@@ -260,7 +453,6 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
         for i, lbl in enumerate(lane_labels)
     )
 
-    # ── Lettered carrier list (single column for readability) ──────────────────────
     carrier_rows_html = ""
     for i, c in enumerate(_CARRIER_OPTIONS):
         letter = carrier_letters[i]
@@ -271,7 +463,6 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
             f'padding:3px 0;">{c}</td></tr>'
         )
 
-    # ── Selection page URL (Azure Function) ──────────────────────────────────
     lanes_param = urllib.parse.quote(",".join(lane_labels), safe="")
     selection_url = (
         f"{TRACKING_BASE}/api/respond"
@@ -280,86 +471,97 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
         f"&lanes={lanes_param}"
     )
 
-    # ── Build ONE psych line — pick the single best element for this email ──
-    # INTRO STAGE ONLY: social proof + make-them-important.
-    # win_win_line, calibrated_q, labels, scarcity are all None from get_psych_elements.
-    _PSYCH_POOL = []
-    if psych.get("social_proof"):
-        _PSYCH_POOL.append(psych["social_proof"])
-    if psych.get("make_easy_line"):
-        _PSYCH_POOL.append(psych["make_easy_line"])
-    _IMPORTANT_LINES = [
-        f"Your expertise in {from_label} is exactly what sets great agents apart.",
-        f"We\u2019re selective about who we work with \u2014 your company stood out in {from_label}.",
-        f"Your local knowledge in {from_label} is something we can\u2019t replicate from the US side.",
+    _greeting_tpl = _LOCAL_GREETINGS.get(_country_lower)
+    if _greeting_tpl:
+        _greeting_line = _greeting_tpl.format(name=greeting_name)
+    else:
+        _GREETINGS = [
+            f"{greeting_name} —",
+            f"Hey {greeting_name},",
+            f"Hi {greeting_name},",
+            f"{greeting_name},",
+        ]
+        _greeting_line = _rng.choice(_GREETINGS)
+
+    _structure = _rng.randint(0, 3)
+
+    _SIGNOFFS = [
+        f"Cheers,<br>{sender_first}",
+        f"Thanks,<br>{sender_first}",
+        f"Talk soon,<br>{sender_first}",
+        f"Best,<br>{sender_first}",
+        f"{sender_first}",
     ]
-    _PSYCH_POOL.append(_rng.choice(_IMPORTANT_LINES))
+    signoff_html = _rng.choice(_SIGNOFFS)
 
-    psych_line = _rng.choice(_PSYCH_POOL) if _PSYCH_POOL else ""
+    _p = 'font-family:Arial,sans-serif;font-size:15px;color:#222;margin:0 0 14px;'
+    _ps = 'font-family:Arial,sans-serif;font-size:13px;color:#555;margin:0 0 10px;'
 
-    # Motto — always in the footer as a subtle cultural touch
-    motto_html = ""
-    if psych.get("motto_line"):
-        motto_html = f"""
-<p style="font-family:Arial,sans-serif;font-size:12px;color:#888;margin:16px 0 4px;font-style:italic;">
-{psych['motto_line']}
-</p>"""
-
-    # ── Assemble body — consistent structure, varied content ─────────────────
-    # Structure: greeting → opener → context → psych line → CTA → selection → footer
-    body_html = f"""
-<p style="font-family:Arial,sans-serif;font-size:15px;color:#222;margin:0 0 16px;">Hi {greeting_name},</p>
-
-<p style="font-family:Arial,sans-serif;font-size:15px;color:#222;margin:0 0 16px;">
-{opener_html}
-</p>
-
-<p style="font-family:Arial,sans-serif;font-size:15px;color:#222;margin:0 0 16px;">
-{context_html}
-</p>
-
-<p style="font-family:Arial,sans-serif;font-size:15px;color:#222;margin:0 0 16px;">
-{psych_line}
-</p>
-
-<p style="font-family:Arial,sans-serif;font-size:15px;color:#222;margin:0 0 12px;">
-{cta_html}
-</p>
-
+    selection_box = f"""
 <div style="background:#f7f9ff;border-left:3px solid #1a73e8;padding:14px 18px;margin:0 0 18px;border-radius:0 6px 6px 0;">
-
   <p style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#111;margin:0 0 8px;">
-    1 \u2014 Which destinations can you quote FROM {from_label}?
+    1. Which destinations can you quote FROM {from_label}?
   </p>
   <table style="border-collapse:collapse;margin:0 0 4px 4px;">
     {lane_rows_html}
   </table>
-
   <p style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;color:#111;margin:16px 0 8px;">
-    2 \u2014 Which shipping lines do you work with?
+    2. Which shipping lines do you work with?
   </p>
   <table style="border-collapse:collapse;margin:0 0 4px 4px;">
     {carrier_rows_html}
   </table>
+</div>"""
 
-</div>
-
-<p style="font-family:Arial,sans-serif;font-size:13px;color:#555;margin:0 0 14px;">
-{instr_html}
-</p>
-
-<div style="margin:0 0 20px;">
+    cta_block = f"""
+<p style="{_ps}">{instr_html}</p>
+<div style="margin:0 0 16px;">
 {_mailto_btn(btn_label, selection_url, color="#1a1a2e")}
-</div>
+</div>"""
 
-<p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin:0 0 6px;">
-{footer_html}
-</p>
+    footer_block = f"""
+<p style="font-family:Arial,sans-serif;font-size:12px;color:#999;margin:0 0 6px;">{footer_html}</p>
+<p style="font-family:Arial,sans-serif;font-size:14px;color:#222;margin:16px 0 4px;">{signoff_html}</p>
+{signature_for(sender_name_full)}"""
 
-{motto_html}
+    if _structure == 0:
+        body_html = f"""
+<p style="{_p}">{_greeting_line}</p>
+<p style="{_p}">{opener_html}</p>
+<p style="{_p}">{cta_html}</p>
+{selection_box}
+{cta_block}
+{footer_block}"""
 
-{signature_for(sender_name_full)}
-"""
+    elif _structure == 1:
+        body_html = f"""
+<p style="{_p}">{_greeting_line}</p>
+<p style="{_p}">{context_html}</p>
+<p style="{_p}">{opener_html}</p>
+<p style="{_p}">{cta_html}</p>
+{selection_box}
+{cta_block}
+{footer_block}"""
+
+    elif _structure == 2:
+        body_html = f"""
+<p style="{_p}">{opener_html}</p>
+<p style="{_p}">{context_html}</p>
+<p style="{_p}">{cta_html}</p>
+{selection_box}
+{cta_block}
+{footer_block}"""
+
+    else:
+        body_html = f"""
+<p style="{_p}">{_greeting_line}</p>
+<p style="{_p}">{opener_html}</p>
+<p style="{_p}">{cta_html}</p>
+{selection_box}
+{cta_block}
+<p style="{_ps}">{context_html}</p>
+{footer_block}"""
+
     return subject, body_html
 
 
@@ -367,13 +569,26 @@ def send_intro(contact: dict, test_mode: bool = False) -> bool:
     country     = (contact.get("country") or "").strip()
     contact_id  = contact.get("id")
     contact_name = (contact.get("contact_name") or "").strip()
-    contact_first = contact_name.split()[0] if contact_name else None
-    sender_name = _display_name_for_country(country, contact_id, contact_first_name=contact_first)
+    _hon = {"mr", "ms", "mrs", "dr", "prof"}
+    _parts = contact_name.split() if contact_name else []
+    while _parts and _parts[0].lower().rstrip(".") in _hon:
+        _parts.pop(0)
+    greeting_name = _parts[0] if _parts else None
+    sender_name = _display_name_for_country(country, contact_id, contact_first_name=greeting_name)
     email       = (contact.get("email") or "").strip()
 
     if not email:
         log.warning(f"send_intro: no email for contact id={contact_id}")
         return False
+
+    # ── Bounce check: skip if this email has bounced before ───────────────
+    try:
+        from bounce_monitor import is_bounced
+        if is_bounced(email):
+            log.info(f"send_intro: skipping bounced email {email} (contact id={contact_id})")
+            return False
+    except ImportError:
+        pass
 
     token = _generate_token()
 

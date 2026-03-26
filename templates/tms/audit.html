@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}Carrier Audit{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-receipt-cutoff me-2"></i>Freight Audit & Pay</h2>
+    <div class="text-muted small">Upload a carrier invoice PDF or enter it manually, auto-match it to a shipment, and move it through approval to payment.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms" class="btn btn-outline-secondary"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+    <a href="/tms/shipments" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Shipments</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-4">
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Total Invoices</div>
+        <div class="fs-3 fw-bold">{{ summary.total }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Pending Review</div>
+        <div class="fs-3 fw-bold text-warning">{{ summary.pending }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Flagged Variances</div>
+        <div class="fs-3 fw-bold text-danger">{{ summary.flagged }}</div>
+        <div class="small text-muted mt-2">Over {{ variance_threshold }}% from shipment rate</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Approved / Paid</div>
+        <div class="fs-3 fw-bold text-success">{{ summary.approved_count }}</div>
+        <div class="small text-muted mt-2">Invoices cleared for payment</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<ul class="nav nav-pills mb-4">
+  {% for st in ["", "Pending", "Approved", "Disputed", "Paid"] %}
+  <li class="nav-item">
+    <a class="nav-link {% if status_filter == st %}active{% endif %}" href="/tms/audit{% if st %}?status={{ st }}{% endif %}">
+      {{ st if st else "All" }}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="row g-4">
+  <div class="col-xl-4">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-cloud-upload me-2"></i>New Carrier Invoice</div>
+      <div class="card-body">
+        {% if form_error %}
+        <div class="alert alert-danger py-2">{{ form_error }}</div>
+        {% endif %}
+
+        {% for notice in pdf_notices %}
+        <div class="alert alert-info py-2">{{ notice }}</div>
+        {% endfor %}
+
+        <form method="POST" action="/tms/audit" enctype="multipart/form-data">
+          <input type="hidden" name="action" value="create">
+          <input type="hidden" name="status_filter" value="{{ status_filter }}">
+
+          <div class="mb-3">
+            <label class="form-label text-muted">Invoice PDF</label>
+            <input type="file" name="invoice_pdf" accept=".pdf,application/pdf" class="form-control bg-black text-white border-secondary">
+            <div class="small text-muted mt-2">PDF parsing is best-effort. Any missing fields can be typed below.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-muted">Carrier</label>
+            <input
+              type="text"
+              name="carrier_name"
+              class="form-control bg-black text-white border-secondary"
+              list="audit-carrier-options"
+              value="{{ form_values.carrier_name }}"
+              placeholder="Carrier name"
+              required>
+            <datalist id="audit-carrier-options">
+              {% for carrier in carriers %}
+              <option value="{{ carrier.name }}"></option>
+              {% endfor %}
+            </datalist>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-muted">Shipment Reference</label>
+            <input
+              type="text"
+              name="shipment_ref"
+              class="form-control bg-black text-white border-secondary"
+              list="audit-shipment-options"
+              value="{{ form_values.shipment_ref }}"
+              placeholder="TMS-DEMO-001"
+              required>
+            <datalist id="audit-shipment-options">
+              {% for shipment in shipment_refs %}
+              <option value="{{ shipment.shipment_ref }}"></option>
+              {% endfor %}
+            </datalist>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-muted">Invoice Number</label>
+            <input
+              type="text"
+              name="invoice_no"
+              class="form-control bg-black text-white border-secondary"
+              value="{{ form_values.invoice_no }}"
+              placeholder="INV-10045"
+              required>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-sm-7">
+              <label class="form-label text-muted">Amount</label>
+              <input
+                type="number"
+                name="amount"
+                step="0.01"
+                min="0.01"
+                class="form-control bg-black text-white border-secondary"
+                value="{{ form_values.amount }}"
+                placeholder="0.00"
+                required>
+            </div>
+            <div class="col-sm-5">
+              <label class="form-label text-muted">Currency</label>
+              <input
+                type="text"
+                name="currency"
+                maxlength="3"
+                class="form-control bg-black text-white border-secondary"
+                value="{{ form_values.currency }}"
+                placeholder="USD"
+                required>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label text-muted">Notes</label>
+            <textarea
+              name="notes"
+              rows="4"
+              class="form-control bg-black text-white border-secondary"
+              placeholder="Approval context, invoice issues, or matching notes">{{ form_values.notes }}</textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-save me-1"></i>Save Invoice
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-list-check me-2"></i>Carrier Invoice Queue</span>
+        <span class="small text-muted">Variance is measured against the shipment freight rate. Over {{ variance_threshold }}% is flagged.</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Invoice</th>
+              <th>Shipment</th>
+              <th>Amount</th>
+              <th>Contracted</th>
+              <th>Variance</th>
+              <th>Status</th>
+              <th>Workflow</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for invoice in invoices %}
+            <tr>
+              <td style="min-width: 180px;">
+                <div class="fw-bold">{{ invoice.invoice_no }}</div>
+                <div class="text-muted small">{{ invoice.carrier_name }}</div>
+                <div class="text-muted small">{{ invoice.created_at[:16] if invoice.created_at else "-" }}</div>
+              </td>
+              <td style="min-width: 180px;">
+                <div class="fw-semibold">
+                  {% if invoice.matched %}
+                  <a href="/tms/shipments/{{ invoice.shipment_ref }}" class="text-info text-decoration-none">{{ invoice.shipment_ref }}</a>
+                  {% else %}
+                  {{ invoice.shipment_ref }}
+                  {% endif %}
+                </div>
+                <div class="text-muted small">{{ invoice.route_label }}</div>
+                {% if invoice.matched %}
+                <div class="small text-success">Auto-matched</div>
+                {% else %}
+                <div class="small text-danger">Missing shipment</div>
+                {% endif %}
+              </td>
+              <td>
+                <div class="fw-bold">{{ invoice.amount_display }} {{ invoice.currency }}</div>
+              </td>
+              <td>
+                {% if invoice.contracted_rate_display != "-" %}
+                <div>{{ invoice.contracted_rate_display }} {{ invoice.currency }}</div>
+                {% else %}
+                <span class="text-muted">No shipment rate</span>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge bg-{{ invoice.variance_class }}">{{ invoice.variance_display }}</span>
+                {% if invoice.flagged %}
+                <div class="small text-danger mt-1">Flagged</div>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge bg-{{ invoice.status_class }}">{{ invoice.status }}</span>
+              </td>
+              <td style="min-width: 270px;">
+                <form method="POST" action="/tms/audit" class="d-grid gap-2">
+                  <input type="hidden" name="action" value="update_status">
+                  <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                  <input type="hidden" name="status_filter" value="{{ status_filter }}">
+                  {% if invoice.notes %}
+                  <div class="small text-muted" style="white-space: pre-wrap;">{{ invoice.notes }}</div>
+                  {% endif %}
+                  <textarea
+                    name="notes"
+                    rows="3"
+                    class="form-control form-control-sm bg-black text-white border-secondary"
+                    placeholder="Add workflow note"></textarea>
+                  <div class="d-flex flex-wrap gap-2">
+                    {% if invoice.can_approve %}
+                    <button type="submit" name="status" value="Approved" class="btn btn-sm btn-success">
+                      <i class="bi bi-check-lg me-1"></i>Approve
+                    </button>
+                    {% endif %}
+                    {% if invoice.can_dispute %}
+                    <button type="submit" name="status" value="Disputed" class="btn btn-sm btn-outline-danger">
+                      <i class="bi bi-x-lg me-1"></i>Reject
+                    </button>
+                    {% endif %}
+                    {% if invoice.can_pay %}
+                    <button type="submit" name="status" value="Paid" class="btn btn-sm btn-primary">
+                      <i class="bi bi-wallet2 me-1"></i>Mark Paid
+                    </button>
+                    {% endif %}
+                    {% if not invoice.can_approve and not invoice.can_dispute and not invoice.can_pay %}
+                    <span class="small text-muted align-self-center">Workflow complete.</span>
+                    {% endif %}
+                  </div>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-5">No carrier invoices found for this filter.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Shipments{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0"><i class="bi bi-box-seam me-2"></i>Shipments</h2>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/drivers" class="btn btn-outline-info"><i class="bi bi-person-badge me-1"></i>Drivers</a>
+    <a href="/tms/fleet" class="btn btn-outline-info"><i class="bi bi-truck-front me-1"></i>Fleet</a>
+    <a href="/tms/docks" class="btn btn-outline-info"><i class="bi bi-grid-3x3-gap me-1"></i>Docks</a>
+    <a href="/tms/edi" class="btn btn-outline-primary"><i class="bi bi-diagram-3 me-1"></i>EDI</a>
+    <a href="/tms/loads" class="btn btn-outline-light"><i class="bi bi-diagram-3 me-1"></i>Loads</a>
+    <a href="/tms/loadboard" class="btn btn-outline-warning"><i class="bi bi-broadcast-pin me-1"></i>Load Board</a>
+    <a href="/tms/tenders" class="btn btn-outline-warning"><i class="bi bi-diagram-3 me-1"></i>Tenders</a>
+    <a href="/tms/claims" class="btn btn-outline-danger"><i class="bi bi-exclamation-triangle me-1"></i>Claims</a>
+    <a href="/tms/rates" class="btn btn-outline-info"><i class="bi bi-cash-stack me-1"></i>Contract Rates</a>
+    <a href="/tms/rates/shop" class="btn btn-outline-info"><i class="bi bi-search me-1"></i>Rate Shop</a>
+    <a href="/tms/carriers" class="btn btn-outline-secondary"><i class="bi bi-building me-1"></i>Carriers</a>
+    <a href="/tms/documents" class="btn btn-outline-warning"><i class="bi bi-file-earmark-text me-1"></i>Documents</a>
+    <a href="/tms/audit" class="btn btn-outline-warning"><i class="bi bi-shield-check me-1"></i>Audit</a>
+    <a href="/tms/invoices" class="btn btn-outline-success"><i class="bi bi-receipt-cutoff me-1"></i>Invoices</a>
+    <a href="/tms/esg" class="btn btn-outline-success"><i class="bi bi-leaf me-1"></i>ESG</a>
+    <a href="/tms/shipments/new" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Shipment</a>
+  </div>
+</div>
+
+<ul class="nav nav-pills mb-3">
+  {% for st in ['','Draft','Active','Booked','In Transit','Delivered','Cancelled'] %}
+  <li class="nav-item">
+    <a class="nav-link {% if status_filter==st %}active{% endif %}" href="/tms/shipments{% if st %}?status={{ st }}{% endif %}">
+      {{ st if st else 'All' }}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="card bg-dark border-secondary">
+  <div class="table-responsive">
+    <table class="table table-dark table-hover mb-0">
+      <thead class="table-secondary text-dark">
+        <tr>
+          <th>Reference</th>
+          <th>Status</th>
+          <th>Shipper</th>
+          <th>Consignee</th>
+          <th>Route</th>
+          <th>Mode</th>
+          <th>Carrier</th>
+          <th>Driver</th>
+          <th>Vehicle</th>
+          <th>Load</th>
+          <th>ETD</th>
+          <th>ETA</th>
+          <th>Containers</th>
+          <th>Rate</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in shipments %}
+        <tr>
+          <td><a href="/tms/shipments/{{ s.shipment_ref }}" class="text-info fw-bold">{{ s.shipment_ref }}</a></td>
+          <td>
+            {% set sc = {'Draft':'secondary','Active':'success','Booked':'primary','In Transit':'warning','Delivered':'info','Cancelled':'danger'} %}
+            <span class="badge bg-{{ sc.get(s.status,'secondary') }}">{{ s.status }}</span>
+          </td>
+          <td>{{ s.shipper_name or '-' }}</td>
+          <td>{{ s.consignee_name or '-' }}</td>
+          <td>{{ s.origin_port or '-' }} &rarr; {{ s.destination_port or '-' }}</td>
+          <td>{{ s.mode or '-' }}</td>
+          <td>{{ s.carrier_name or '-' }}</td>
+          <td>{{ s.driver_name or '-' }}</td>
+          <td>{{ s.vehicle_truck_number or '-' }}</td>
+          <td>
+            {% if s.load_ref %}
+            <a href="/tms/loads/{{ s.load_ref }}" class="text-info text-decoration-none">{{ s.load_ref }}</a>
+            {% else %}
+            <span class="text-muted">Unassigned</span>
+            {% endif %}
+          </td>
+          <td>{{ s.etd or '-' }}</td>
+          <td>{{ s.eta or '-' }}</td>
+          <td>{{ s.containers or '-' }}</td>
+          <td>${{ "{:,.0f}".format(s.freight_rate or 0) }} {{ s.currency or 'USD' }}</td>
+          <td>
+            <div class="d-flex gap-1 flex-wrap">
+              <a href="/tms/shipments/{{ s.shipment_ref }}" class="btn btn-sm btn-outline-info">View</a>
+              <a href="/tms/docks?shipment_ref={{ s.shipment_ref }}" class="btn btn-sm btn-outline-warning">Dock</a>
+              <a href="/tms/invoices?shipment_ref={{ s.shipment_ref }}" class="btn btn-sm btn-outline-success">Invoice</a>
+              <a href="/tms/tenders" class="btn btn-sm btn-outline-warning">Tenders</a>
+              <a href="/tms/claims/new?shipment_ref={{ s.shipment_ref }}" class="btn btn-sm btn-outline-danger">Claim</a>
+              <a href="/tms/shipments/{{ s.shipment_ref }}/quotes" class="btn btn-sm btn-outline-primary">Quotes</a>
+              <a href="/tms/shipments/{{ s.shipment_ref }}/edit" class="btn btn-sm btn-outline-secondary">Edit</a>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="15" class="text-center text-muted py-4">No shipments found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

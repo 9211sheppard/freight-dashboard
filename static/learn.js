@@ -154,7 +154,7 @@ function showBookPicker() {
     </div>
 
     <div class="book-grid">
-      ${Object.values(BOOKS).map(book => {
+      ${Object.values(BOOKS).filter(book => !book.adminOnly || window.__userRole === "admin").map(book => {
         const bs   = (p.byBook || {})[book.id] || { answered: 0, correct: 0 };
         const bpct = bs.answered ? Math.round((bs.correct / bs.answered) * 100) : null;
         return `

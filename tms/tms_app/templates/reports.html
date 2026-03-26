@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Reports | TMS Sandbox{% endblock %}
+{% block content %}
+<section class="grid two-up">
+  <article class="panel">
+    <div class="panel-head">
+      <p class="eyebrow">Access Mix</p>
+      <h3>Current role counts</h3>
+    </div>
+    <ul class="summary-list">
+      {% for role, count in grouped.items() %}
+      <li><strong>{{ role_labels[role] }}</strong><span>{{ count }}</span></li>
+      {% endfor %}
+    </ul>
+  </article>
+  <article class="panel">
+    <div class="panel-head">
+      <p class="eyebrow">Attention</p>
+      <h3>Operational exceptions</h3>
+    </div>
+    <ul class="summary-list">
+      {% for load in loads if load.status in ("Customs Hold", "Awaiting Pickup") %}
+      <li><strong>{{ load.reference }}</strong><span>{{ load.status }}</span></li>
+      {% endfor %}
+    </ul>
+  </article>
+</section>
+{% endblock %}
+

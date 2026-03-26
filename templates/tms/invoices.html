@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}Customer Invoices{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-receipt-cutoff me-2"></i>Customer Invoices</h2>
+    <div class="text-muted small">{{ settings.get('company_name', 'My Freight Co') }} | multi-currency billing and accounting export</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/shipments" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Shipments</a>
+    <a href="/tms/invoices/export/quickbooks" class="btn btn-outline-success"><i class="bi bi-filetype-csv me-1"></i>QuickBooks CSV</a>
+    <a href="/tms/invoices/export/xero" class="btn btn-outline-info"><i class="bi bi-filetype-csv me-1"></i>Xero CSV</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small">TOTAL INVOICES</div>
+        <div class="fw-bold fs-3">{{ stats.total }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small">OPEN</div>
+        <div class="fw-bold fs-3 text-warning">{{ stats.open }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small">PAID</div>
+        <div class="fw-bold fs-3 text-success">{{ stats.paid }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small">OUTSTANDING</div>
+        <div class="fw-bold fs-3 text-danger">{{ "{:,.2f}".format(stats.outstanding_amount or 0) }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-4">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-plus-circle me-2"></i>{% if form_values.get('invoice_id') %}Edit Invoice{% else %}Generate Invoice{% endif %}</span>
+        {% if form_values.get('invoice_id') %}
+        <a href="/tms/invoices" class="btn btn-sm btn-outline-secondary">New</a>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if form_error %}
+        <div class="alert alert-danger py-2">{{ form_error }}</div>
+        {% endif %}
+
+        <form method="POST" action="/tms/invoices">
+          <input type="hidden" name="action" value="save">
+          <input type="hidden" name="invoice_id" value="{{ form_values.get('invoice_id', '') }}">
+
+          <div class="mb-3">
+            <label class="form-label">Shipment</label>
+            <select name="shipment_ref" class="form-select bg-black text-white border-secondary" required>
+              <option value="">Select shipment</option>
+              {% for shipment in shipments %}
+              {% set existing = invoice_by_shipment.get(shipment.shipment_ref) %}
+              <option value="{{ shipment.shipment_ref }}" {% if form_values.get('shipment_ref') == shipment.shipment_ref %}selected{% endif %}>
+                {{ shipment.shipment_ref }} | {{ shipment.shipper_name or shipment.consignee_name or '-' }} | {{ "{:,.2f}".format(shipment.freight_rate or 0) }} {{ shipment.currency or 'USD' }}{% if existing %} | {{ existing.invoice_number }}{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Customer Name</label>
+            <input type="text" name="customer_name" value="{{ form_values.get('customer_name', '') }}" class="form-control bg-black text-white border-secondary" required>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label">Amount</label>
+              <input type="number" step="0.01" min="0.01" name="amount" value="{{ form_values.get('amount', '') }}" class="form-control bg-black text-white border-secondary" required>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Currency</label>
+              <input type="text" name="currency" list="invoice-currencies" value="{{ form_values.get('currency', 'USD') }}" class="form-control bg-black text-white border-secondary" required>
+              <datalist id="invoice-currencies">
+                {% for currency in common_currencies %}
+                <option value="{{ currency }}"></option>
+                {% endfor %}
+              </datalist>
+            </div>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label">Exchange Rate</label>
+              <input type="number" step="0.0001" min="0.0001" name="exchange_rate" value="{{ form_values.get('exchange_rate', '1.0000') }}" class="form-control bg-black text-white border-secondary" required>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Due Date</label>
+              <input type="date" name="due_date" value="{{ form_values.get('due_date', '') }}" class="form-control bg-black text-white border-secondary" required>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select bg-black text-white border-secondary">
+              {% for status in ['Draft', 'Sent', 'Paid', 'Overdue'] %}
+              <option value="{{ status }}" {% if form_values.get('status', 'Draft') == status %}selected{% endif %}>{{ status }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-save me-1"></i>Save Invoice</button>
+            <a href="/tms/invoices" class="btn btn-outline-secondary">Reset</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-table me-2"></i>Invoice Register</span>
+        <span class="text-muted small">Exports include Sent, Paid, and Overdue invoices. Drafts stay internal.</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Invoice</th>
+              <th>Shipment</th>
+              <th>Customer</th>
+              <th>Route</th>
+              <th>Due</th>
+              <th>Amount</th>
+              <th>FX</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for invoice in invoices %}
+            <tr>
+              <td>
+                <div class="fw-bold">{{ invoice.invoice_number }}</div>
+                <div class="text-muted small">{{ invoice.created_at[:10] if invoice.created_at else '-' }}</div>
+              </td>
+              <td>
+                <a href="/tms/shipments/{{ invoice.shipment_ref }}" class="text-info text-decoration-none fw-semibold">{{ invoice.shipment_ref }}</a>
+                <div class="text-muted small">{{ invoice.cargo_description or 'Freight services' }}</div>
+              </td>
+              <td>{{ invoice.customer_name }}</td>
+              <td>{{ invoice.route_label }}</td>
+              <td>
+                <div>{{ invoice.due_date or '-' }}</div>
+                {% if invoice.paid_at %}
+                <div class="text-muted small">Paid {{ invoice.paid_at[:10] }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <div class="fw-semibold">{{ invoice.currency }} {{ invoice.amount_display }}</div>
+              </td>
+              <td>{{ invoice.exchange_rate_display }}</td>
+              <td><span class="badge bg-{{ invoice.status_class }}">{{ invoice.status }}</span></td>
+              <td style="min-width: 220px;">
+                <div class="d-flex gap-1 flex-wrap">
+                  <a href="/tms/invoices/{{ invoice.id }}/pdf" class="btn btn-sm btn-outline-danger" target="_blank">PDF</a>
+                  <a href="/tms/invoices?invoice_id={{ invoice.id }}" class="btn btn-sm btn-outline-info">Edit</a>
+
+                  {% if invoice.can_mark_sent %}
+                  <form method="POST" action="/tms/invoices" class="d-inline">
+                    <input type="hidden" name="action" value="set_status">
+                    <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                    <input type="hidden" name="status" value="Sent">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">Sent</button>
+                  </form>
+                  {% endif %}
+
+                  {% if invoice.can_mark_paid %}
+                  <form method="POST" action="/tms/invoices" class="d-inline">
+                    <input type="hidden" name="action" value="set_status">
+                    <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                    <input type="hidden" name="status" value="Paid">
+                    <button type="submit" class="btn btn-sm btn-outline-success">Paid</button>
+                  </form>
+                  {% endif %}
+
+                  {% if invoice.can_mark_draft %}
+                  <form method="POST" action="/tms/invoices" class="d-inline">
+                    <input type="hidden" name="action" value="set_status">
+                    <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                    <input type="hidden" name="status" value="Draft">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Draft</button>
+                  </form>
+                  {% endif %}
+
+                  <form method="POST" action="/tms/invoices" class="d-inline" onsubmit="return confirm('Delete this invoice?');">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-warning">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="9" class="text-center text-muted py-4">No customer invoices yet. Generate one from a shipment.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

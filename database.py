@@ -191,6 +191,66 @@ def init_tenants_db():
         )
     """)
 
+    # ── Referral tracking ─────────────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS referrals (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            referrer_tenant_id  INTEGER NOT NULL,
+            referrer_user_id    INTEGER NOT NULL,
+            referral_code       TEXT    UNIQUE NOT NULL,
+            referred_email      TEXT    DEFAULT '',
+            referred_tenant_id  INTEGER DEFAULT NULL,
+            status              TEXT    DEFAULT 'pending',
+            free_month_applied  INTEGER DEFAULT 0,
+            created_at          TEXT    DEFAULT '',
+            converted_at        TEXT    DEFAULT ''
+        )
+    """)
+
+    # ── Spin-to-win results ───────────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS spin_results (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id       INTEGER NOT NULL,
+            user_id         INTEGER NOT NULL,
+            prize_type      TEXT    NOT NULL,
+            prize_value     TEXT    NOT NULL,
+            discount_pct    INTEGER DEFAULT 0,
+            free_months     INTEGER DEFAULT 0,
+            applied         INTEGER DEFAULT 0,
+            created_at      TEXT    DEFAULT ''
+        )
+    """)
+
+    # ── Admin activity log ────────────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS admin_activity_log (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            action          TEXT    NOT NULL,
+            details         TEXT    DEFAULT '',
+            admin_user_id   INTEGER,
+            created_at      TEXT    DEFAULT ''
+        )
+    """)
+
+    # ── Pitch scores (adaptive presentation feedback) ─────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS pitch_scores (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            visitor_name    TEXT    DEFAULT '',
+            profession_key  TEXT    DEFAULT '',
+            profession_label TEXT   DEFAULT '',
+            score           INTEGER DEFAULT 5,
+            risk_answer     TEXT    DEFAULT '',
+            advice_answer   TEXT    DEFAULT '',
+            fund_answer     TEXT    DEFAULT '',
+            scoring_answers TEXT    DEFAULT '',
+            ip_address      TEXT    DEFAULT '',
+            user_agent      TEXT    DEFAULT '',
+            created_at      TEXT    DEFAULT ''
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -227,6 +287,12 @@ def init_db():
         ("website_url",     "TEXT    DEFAULT ''"),
         ("linkedin_url",    "TEXT    DEFAULT ''"),
         ("verify_notes",    "TEXT    DEFAULT ''"),
+        # Legal compliance fields
+        ("data_source",     "TEXT    DEFAULT ''"),      # where the contact was obtained (e.g., 'fiata_public', 'user_import', 'manual')
+        ("data_source_type","TEXT    DEFAULT 'unknown'"),# 'public_directory', 'user_import', 'manual_entry', 'partnership'
+        ("opt_out",         "INTEGER DEFAULT 0"),       # 1 = contact has opted out of communications
+        ("opt_out_date",    "TEXT    DEFAULT ''"),       # when they opted out
+        ("consent_basis",   "TEXT    DEFAULT ''"),       # GDPR lawful basis: 'legitimate_interest', 'consent', 'contract'
     ]
     for col, definition in migrations:
         if col not in existing:
@@ -730,13 +796,20 @@ def init_users_db():
         )
     """)
 
-    # ── Migrate users table: add login_count ──────────────────────────────
+    # ── Migrate users table: add login_count + security columns ─────────
     user_cols = _get_existing_columns(conn, "users")
     for col, defn in [
         ("tenant_id",             "INTEGER DEFAULT 1"),
         ("login_count",           "INTEGER DEFAULT 0"),
         ("onboarding_completed",  "INTEGER DEFAULT 0"),
         ("onboarding_step",       "TEXT DEFAULT NULL"),
+        ("failed_login_attempts", "INTEGER DEFAULT 0"),
+        ("locked_until",          "TEXT DEFAULT ''"),
+        ("mfa_secret",            "TEXT DEFAULT ''"),
+        ("mfa_enabled",           "INTEGER DEFAULT 0"),
+        ("mfa_backup_codes",      "TEXT DEFAULT ''"),
+        ("login_notifications_enabled", "INTEGER DEFAULT 1"),
+        ("oauth_provider",        "TEXT DEFAULT ''"),
     ]:
         if col not in user_cols:
             try:
@@ -777,6 +850,139 @@ def init_users_db():
             last_updated            TEXT    DEFAULT ''
         )
     """)
+
+    # ── Security: user permissions ────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_permissions (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER NOT NULL,
+            tenant_id   INTEGER NOT NULL,
+            feature     TEXT    NOT NULL,
+            can_read    INTEGER DEFAULT 0,
+            can_write   INTEGER DEFAULT 0,
+            can_delete  INTEGER DEFAULT 0,
+            can_export  INTEGER DEFAULT 0,
+            granted_by  INTEGER,
+            granted_at  TEXT    DEFAULT '',
+            UNIQUE(user_id, feature)
+        )
+    """)
+
+    # ── Security: permission templates ────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS permission_templates (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id       INTEGER NOT NULL,
+            template_name   TEXT    NOT NULL,
+            permissions     TEXT    NOT NULL,
+            created_by      INTEGER,
+            created_at      TEXT    DEFAULT ''
+        )
+    """)
+
+    # ── Security: audit log ───────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id   INTEGER,
+            user_id     INTEGER,
+            action      TEXT    NOT NULL,
+            resource    TEXT    DEFAULT '',
+            details     TEXT    DEFAULT '',
+            ip_address  TEXT    DEFAULT '',
+            user_agent  TEXT    DEFAULT '',
+            created_at  TEXT    DEFAULT ''
+        )
+    """)
+    # Indexes for audit queries
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_tenant ON audit_log(tenant_id, created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, action)")
+    except Exception:
+        pass
+
+    # ── Security: API keys ────────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id   INTEGER NOT NULL,
+            user_id     INTEGER NOT NULL,
+            key_hash    TEXT    NOT NULL,
+            key_prefix  TEXT    NOT NULL,
+            name        TEXT    DEFAULT '',
+            permissions TEXT    DEFAULT '{}',
+            last_used   TEXT    DEFAULT '',
+            expires_at  TEXT    DEFAULT '',
+            revoked     INTEGER DEFAULT 0,
+            created_at  TEXT    DEFAULT ''
+        )
+    """)
+
+    # ── Security: password history ────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS password_history (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER NOT NULL,
+            password_hash   TEXT    NOT NULL,
+            created_at      TEXT    DEFAULT ''
+        )
+    """)
+
+    # ── Security: IP allowlist ────────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS ip_allowlist (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            tenant_id   INTEGER NOT NULL,
+            ip_address  TEXT    NOT NULL,
+            label       TEXT    DEFAULT '',
+            created_by  INTEGER,
+            created_at  TEXT    DEFAULT ''
+        )
+    """)
+
+    # ── Security: trusted devices ─────────────────────────────────────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS trusted_devices (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER NOT NULL,
+            device_id       TEXT    NOT NULL UNIQUE,
+            fingerprint_hash TEXT   NOT NULL,
+            name            TEXT    DEFAULT '',
+            last_used       TEXT    DEFAULT '',
+            created_at      TEXT    DEFAULT '',
+            expires_at      TEXT    DEFAULT ''
+        )
+    """)
+
+    # ── Security: active sessions (single-session enforcement) ──────────
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS active_sessions (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER NOT NULL,
+            session_token   TEXT    NOT NULL UNIQUE,
+            ip_address      TEXT    DEFAULT '',
+            user_agent      TEXT    DEFAULT '',
+            created_at      TEXT    DEFAULT '',
+            last_seen       TEXT    DEFAULT ''
+        )
+    """)
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_active_sessions_user ON active_sessions(user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_active_sessions_token ON active_sessions(session_token)")
+    except Exception:
+        pass
+
+    # ── Migrate tenants table: add security columns ──────────────────────
+    try:
+        tenant_cols = _get_existing_columns(conn, "tenants")
+        if "ip_restriction_enabled" not in tenant_cols:
+            conn.execute("ALTER TABLE tenants ADD COLUMN ip_restriction_enabled INTEGER DEFAULT 0")
+        if "mfa_enforced" not in tenant_cols:
+            conn.execute("ALTER TABLE tenants ADD COLUMN mfa_enforced INTEGER DEFAULT 0")
+        if "single_session_enforced" not in tenant_cols:
+            conn.execute("ALTER TABLE tenants ADD COLUMN single_session_enforced INTEGER DEFAULT 1")
+    except Exception:
+        pass
 
     conn.commit()
     conn.close()

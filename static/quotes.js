@@ -689,9 +689,226 @@ const BOOKS = {
     ]
   },
 
+  // -- Admin-only books (email outreach craft) ---------------------
+  emailpersuasion: {
+    id: "emailpersuasion",
+    title: "Email Persuasion",
+    author: "Ian Brodie",
+    color: "#8e44ad",
+    icon: "✉️",
+    adminOnly: true,
+    quotes: [
+      "The goal of your email is to start a conversation, not close a sale.",
+      "People buy from people they feel they know, like, and trust.",
+      "Write like you talk. If you wouldn’t say it face to face, don’t write it.",
+      "Your email list is not an audience. It’s a room full of individual people.",
+      "Authenticity in email isn’t a tactic — it’s the absence of tactics.",
+      "The best emails feel like they were written just for you.",
+      "Don’t try to sound professional. Try to sound like yourself.",
+      "Value first, ask second. Every single time.",
+      "Your subscribers can smell a template from a mile away.",
+      "The unsubscribe button is your friend — it keeps only the people who care.",
+    ],
+    lessons: [
+      {
+        title: "Authentic Voice Over Templates",
+        body: "Ian Brodie argues that the biggest mistake in email outreach is sounding like everyone else. Templates strip personality. The emails that get replies sound like a real person typed them — imperfect, direct, specific.",
+        keyPoint: "Templates kill trust. Write like you talk — imperfect, direct, and personal.",
+        quiz: {
+          q: "According to Brodie, what is the biggest mistake in email outreach?",
+          options: [
+            "Not including enough calls to action",
+            "Sounding like everyone else by using templates",
+            "Sending emails at the wrong time of day",
+            "Not using enough bold formatting",
+          ],
+          answer: 1,
+          explanation: "Brodie’s core thesis is that templated emails kill authenticity."
+        }
+      },
+      {
+        title: "Value Before the Ask",
+        body: "Every email should give something before requesting something. This could be a useful insight, a relevant observation, or a genuine compliment. Reciprocity is earned, not demanded.",
+        keyPoint: "Give value in every email before you ask for anything.",
+        quiz: {
+          q: "What should every outreach email do before making a request?",
+          options: [
+            "Establish authority",
+            "Create urgency",
+            "Give genuine value — an insight, observation, or useful information",
+            "Reference a mutual connection",
+          ],
+          answer: 2,
+          explanation: "Reciprocity must be earned. Provide genuine value first."
+        }
+      },
+      {
+        title: "Building Know-Like-Trust Through Email",
+        body: "People buy from people they feel they know, like, and trust. Email is the fastest way to build all three — but only if you’re genuine.",
+        keyPoint: "One authentic detail builds more trust than ten polished paragraphs.",
+        quiz: {
+          q: "What builds know-like-trust fastest in email?",
+          options: [
+            "Professional formatting",
+            "Sharing real stories, admitting mistakes, and showing personality",
+            "Including testimonials",
+            "Using their name multiple times",
+          ],
+          answer: 1,
+          explanation: "Authenticity builds trust far faster than polished corporate content."
+        }
+      },
+    ]
+  },
+
+  coldemail: {
+    id: "coldemail",
+    title: "The Cold Email Manifesto",
+    author: "Alex Berman",
+    color: "#c0392b",
+    icon: "🎯",
+    adminOnly: true,
+    quotes: [
+      "Your subject line has one job: get the email opened. That’s it.",
+      "Nobody cares about your company. They care about their problems.",
+      "The best cold emails are under 100 words. Respect their time.",
+      "Personalization isn’t using their name. It’s proving you did your homework.",
+      "If your email sounds like it could be sent to anyone, it will be ignored by everyone.",
+      "Follow-up is where the money is. Most people give up after one email.",
+      "The goal of a cold email is a reply, not a sale.",
+      "Write your email, then delete the first paragraph. The real email starts at paragraph two.",
+      "Specificity is the antidote to spam filters — both digital and mental.",
+      "A cold email is a first handshake, not a marriage proposal.",
+    ],
+    lessons: [
+      {
+        title: "Subject Lines That Get Opened",
+        body: "Subject lines must be short, specific to the recipient, and create curiosity without clickbait. Reference something real — their city, company, industry.",
+        keyPoint: "Short, specific, curiosity-driven. Reference their city, company, or industry — never generic.",
+        quiz: {
+          q: "What makes a cold email subject line effective?",
+          options: [
+            "Including urgent or important",
+            "Making it long and descriptive",
+            "Short, specific, creating curiosity without clickbait",
+            "Using all caps",
+          ],
+          answer: 2,
+          explanation: "Subject lines must be short, specific, and spark genuine curiosity."
+        }
+      },
+      {
+        title: "The 100-Word Rule",
+        body: "The best cold emails are under 100 words. Every word must earn its place. One sentence about them, one about you, one about why, one clear ask. Delete everything else.",
+        keyPoint: "Under 100 words. One sentence each: about them, about you, why, and the ask.",
+        quiz: {
+          q: "Why keep cold emails under 100 words?",
+          options: [
+            "To avoid spam filters",
+            "Busy people won’t read long emails from strangers — every word must earn its place",
+            "Shorter emails are cheaper",
+            "To look like a text message",
+          ],
+          answer: 1,
+          explanation: "Busy professionals won’t invest time reading long emails from unknown senders."
+        }
+      },
+      {
+        title: "Sequences and Follow-Up",
+        body: "Most deals close on the follow-up. Each follow-up should add new value or a new angle — never just checking in. Say something new.",
+        keyPoint: "Follow-ups must add new value each time. Never just check in — say something new.",
+        quiz: {
+          q: "What should each follow-up contain?",
+          options: [
+            "A reminder you sent a previous email",
+            "The same message resent",
+            "New value — a fresh angle, data point, or direct question",
+            "A discount or special offer",
+          ],
+          answer: 2,
+          explanation: "Each follow-up must bring something new to the table."
+        }
+      },
+    ]
+  },
+
+  emailhuman: {
+    id: "emailhuman",
+    title: "Email Marketing That Doesn’t Suck",
+    author: "Bobby Klinck",
+    color: "#16a085",
+    icon: "🤝",
+    adminOnly: true,
+    quotes: [
+      "Write emails like you’re writing to one friend, not broadcasting to a list.",
+      "If your email could have been written by anyone, it will be read by no one.",
+      "The delete key is your reader’s best friend. Don’t give them a reason to use it.",
+      "Personality is not unprofessional. Boring is unprofessional.",
+      "Stop writing emails. Start writing conversations.",
+      "Your reader decides in 3 seconds: delete, skim, or read. Win those 3 seconds.",
+      "The emails that work don’t follow formulas. They follow instincts.",
+      "Nobody unsubscribes from emails they actually enjoy reading.",
+      "Be the email they open first, not the one they mark as read.",
+      "Authentic beats optimized. Every. Single. Time.",
+    ],
+    lessons: [
+      {
+        title: "Finding Your Authentic Voice",
+        body: "Your email voice should be your real voice, amplified. If you’re sarcastic in person, be sarcastic in email. The worst thing you can do is adopt a professional email voice that sounds like every other business.",
+        keyPoint: "Your email voice should be your real voice amplified — not a corporate mask.",
+        quiz: {
+          q: "What does Klinck say is the worst thing you can do in email?",
+          options: [
+            "Use too many emojis",
+            "Send emails too frequently",
+            "Adopt a generic professional email voice that sounds like everyone else",
+            "Write emails that are too short",
+          ],
+          answer: 2,
+          explanation: "Adopting a generic professional voice is the fastest way to get ignored."
+        }
+      },
+      {
+        title: "The 3-Second Test",
+        body: "Your reader decides in 3 seconds whether to delete, skim, or read your email. Those 3 seconds are won in the first line — not the subject line, the first line of the body.",
+        keyPoint: "Win the first 3 seconds with a specific, unexpected, or directly useful opening line.",
+        quiz: {
+          q: "Where is the 3-second decision won according to Klinck?",
+          options: [
+            "The subject line",
+            "The sender name",
+            "The first line of the email body",
+            "The call to action",
+          ],
+          answer: 2,
+          explanation: "The first line of the body is where the real 3-second decision happens."
+        }
+      },
+      {
+        title: "Conversations Not Campaigns",
+        body: "You’re not running a campaign, you’re having a conversation. Every email should feel like it deserves a reply. If it doesn’t invite a response, it’s a broadcast — and broadcasts get ignored.",
+        keyPoint: "Every email should feel like it deserves a reply. If it doesn’t, it’s a broadcast.",
+        quiz: {
+          q: "How should you think about each email you send?",
+          options: [
+            "As a marketing asset",
+            "As a conversation that deserves a reply, not a broadcast",
+            "As a step in an automated funnel",
+            "As a way to educate your audience",
+          ],
+          answer: 1,
+          explanation: "If your email doesn’t feel like it deserves a reply, you’re broadcasting."
+        }
+      },
+    ]
+  },
+
 };
 
-// Flat list of all quotes for the ticker
+// Admin-only book IDs for gated access
+const ADMIN_BOOK_IDS = Object.keys(BOOKS).filter(k => BOOKS[k].adminOnly);
+
+// Flat list of all quotes for the ticker (all books, including admin)
 const ALL_QUOTES = Object.values(BOOKS).flatMap(book =>
   book.quotes.map(q => ({ text: q, book: book.title, author: book.author, color: book.color }))
 );

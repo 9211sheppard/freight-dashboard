@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Load Board{% endblock %}
+{% block navbar %}
+  {% if public_board %}
+  <nav class="navbar navbar-dark px-4 py-3 border-bottom border-secondary">
+    <div class="d-flex justify-content-between align-items-center w-100 flex-wrap gap-2">
+      <div>
+        <div class="fw-bold">Carrier Load Board</div>
+        <div class="small text-muted">Public access for available loads and tender interest.</div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="/tms/loadboard" class="btn btn-sm btn-outline-secondary">Dispatcher View</a>
+        <a href="/tms/shipments/new" class="btn btn-sm btn-outline-primary">New Shipment</a>
+      </div>
+    </div>
+  </nav>
+  {% else %}
+  {{ super() }}
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-broadcast-pin me-2"></i>{% if public_board %}Public Load Board{% else %}Load Board Posting{% endif %}</h2>
+    <div class="text-muted small">
+      {% if public_board %}
+      Posted loads are visible without login. Carrier interest opens the tender response workflow.
+      {% else %}
+      Publish unassigned shipments, monitor carrier interest, and share the public board with carriers.
+      {% endif %}
+    </div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if public_board %}
+    <a href="/tms/rates/shop" class="btn btn-outline-warning"><i class="bi bi-search me-1"></i>Shop Rates</a>
+    {% else %}
+    <a href="{{ public_loadboard_url }}" class="btn btn-outline-info" target="_blank"><i class="bi bi-box-arrow-up-right me-1"></i>Open Public URL</a>
+    <a href="/tms/shipments" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Shipments</a>
+    {% endif %}
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="mb-4">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+{% if form_error %}
+<div class="alert alert-danger">{{ form_error }}</div>
+{% endif %}
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-body">
+    <form method="GET" action="{{ '/loadboard' if public_board else '/tms/loadboard' }}">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label text-muted">Origin State / Country</label>
+          <select name="origin_region" class="form-select bg-black text-white border-secondary">
+            <option value="">All origins</option>
+            {% for option in origin_region_options %}
+            <option value="{{ option }}" {% if loadboard_filters.origin_region == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label text-muted">Equipment Type</label>
+          <select name="equipment_type" class="form-select bg-black text-white border-secondary">
+            <option value="">All equipment</option>
+            {% for option in equipment_type_options %}
+            <option value="{{ option }}" {% if loadboard_filters.equipment_type == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label text-muted">ETD Date</label>
+          <input type="date" name="date" value="{{ loadboard_filters.date }}" class="form-control bg-black text-white border-secondary">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary w-100">Filter Loads</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card bg-dark border-secondary h-100 text-center p-3">
+      <div class="fs-3 fw-bold text-info">{{ loadboard_stats.available }}</div>
+      <div class="text-muted small">Available Loads</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card bg-dark border-secondary h-100 text-center p-3">
+      <div class="fs-3 fw-bold text-warning">{{ loadboard_stats.open_tenders }}</div>
+      <div class="text-muted small">Open Tenders</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card bg-dark border-secondary h-100 text-center p-3">
+      <div class="fs-3 fw-bold text-success">{{ loadboard_stats.interest }}</div>
+      <div class="text-muted small">Carrier Interests</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card bg-dark border-secondary h-100 text-center p-3">
+      <div class="fs-3 fw-bold text-secondary">{{ loadboard_stats.views }}</div>
+      <div class="text-muted small">Views</div>
+    </div>
+  </div>
+</div>
+
+{% if loadboard_rows %}
+<div class="row g-4">
+  {% for load in loadboard_rows %}
+  <div class="col-12">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="row g-4 align-items-start">
+          <div class="col-xl-7">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+              <div>
+                <div class="fw-bold fs-5">{{ load.shipment_ref }}</div>
+                <div class="text-muted small">{{ load.origin_port or '-' }} -> {{ load.destination_port or '-' }}</div>
+              </div>
+              <div class="d-flex gap-2 align-items-center flex-wrap">
+                <span class="badge bg-{{ load.post_status_class }}">{{ load.post_status }}</span>
+                <span class="badge bg-secondary">{{ load.open_tenders }} open tender{{ '' if load.open_tenders == 1 else 's' }}</span>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-sm-6 col-lg-4">
+                <div class="text-muted small">Equipment</div>
+                <div class="fw-semibold">{{ load.equipment_label }}</div>
+              </div>
+              <div class="col-sm-6 col-lg-4">
+                <div class="text-muted small">Weight</div>
+                <div class="fw-semibold">{{ load.weight_display }}</div>
+              </div>
+              <div class="col-sm-6 col-lg-4">
+                <div class="text-muted small">ETD</div>
+                <div class="fw-semibold">{{ load.date_value or '-' }}</div>
+              </div>
+              <div class="col-sm-6 col-lg-4">
+                <div class="text-muted small">Rate Offered</div>
+                <div class="fw-semibold text-success">{{ load.rate_offered_display }}</div>
+              </div>
+              <div class="col-sm-6 col-lg-4">
+                <div class="text-muted small">Posted</div>
+                <div class="fw-semibold">{{ load.posted_at_display }}</div>
+              </div>
+              <div class="col-sm-6 col-lg-4">
+                <div class="text-muted small">Expires</div>
+                <div class="fw-semibold">{{ load.expires_at_display }}</div>
+              </div>
+              <div class="col-sm-6 col-lg-4">
+                <div class="text-muted small">Origin Region</div>
+                <div class="fw-semibold">{{ load.origin_region or '-' }}</div>
+              </div>
+              <div class="col-sm-6 col-lg-4">
+                <div class="text-muted small">Interest Count</div>
+                <div class="fw-semibold">{{ load.interest_count }}</div>
+              </div>
+              <div class="col-sm-6 col-lg-4">
+                <div class="text-muted small">Views</div>
+                <div class="fw-semibold">{{ load.views }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-xl-5">
+            <div class="border border-secondary rounded p-3">
+              <div class="fw-semibold mb-1">Express Interest</div>
+              <div class="small text-muted mb-3">Submitting interest creates or reuses an open tender and redirects to the carrier response form.</div>
+              <form method="POST" action="/loadboard/interest">
+                <input type="hidden" name="shipment_ref" value="{{ load.shipment_ref }}">
+                <input type="hidden" name="next" value="{{ request.full_path }}">
+                <div class="mb-3">
+                  <label class="form-label text-muted">Carrier Name</label>
+                  <input type="text" name="carrier_name" class="form-control bg-black text-white border-secondary" required>
+                </div>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label text-muted">Email</label>
+                    <input type="email" name="contact_email" class="form-control bg-black text-white border-secondary">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label text-muted">Phone</label>
+                    <input type="text" name="contact_phone" class="form-control bg-black text-white border-secondary">
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label text-muted">Country</label>
+                  <input type="text" name="country" class="form-control bg-black text-white border-secondary">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Open Tender Response</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card bg-dark border-secondary">
+  <div class="card-body text-center text-muted py-5">
+    No available loads match the current filters.
+  </div>
+</div>
+{% endif %}
+{% endblock %}

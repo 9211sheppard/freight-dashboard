@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Tenders{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Spot Tender Board</h2>
+    <div class="text-muted small">Track open tenders, carrier responses, and awards.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/shipments" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Shipments</a>
+    <a href="/tms" class="btn btn-outline-secondary"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-4">
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Open Tenders</div>
+        <div class="fs-3 fw-bold">{{ tender_stats.open }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Awarded</div>
+        <div class="fs-3 fw-bold text-success">{{ tender_stats.awarded }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Expired</div>
+        <div class="fs-3 fw-bold text-danger">{{ tender_stats.expired }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Carrier Responses</div>
+        <div class="fs-3 fw-bold text-info">{{ tender_stats.responses }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-lightning-charge me-2"></i>Active Tenders</span>
+    <span class="text-muted small">Awarding a response updates the shipment carrier and freight rate.</span>
+  </div>
+  <div class="card-body">
+    {% if active_tenders %}
+      {% for tender in active_tenders %}
+      <div class="border border-secondary rounded p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+          <div>
+            <div class="fw-bold fs-5">
+              <a href="/tms/shipments/{{ tender.shipment_ref }}" class="text-info text-decoration-none">{{ tender.shipment_ref }}</a>
+            </div>
+            <div class="text-muted small">{{ tender.origin_port or '-' }} -> {{ tender.destination_port or '-' }}</div>
+            <div class="small text-muted mt-1">{{ tender.containers or 'Container type pending' }}</div>
+            {% if tender.notes %}
+            <div class="small mt-2">{{ tender.notes }}</div>
+            {% endif %}
+          </div>
+          <div class="text-end">
+            <div><span class="badge bg-{{ tender.status_class }}">{{ tender.status }}</span></div>
+            <div class="mt-2">{{ tender.deadline_display }}</div>
+            <span class="badge bg-{{ tender.deadline_class }} mt-1">{{ tender.deadline_label }}</span>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-dark table-hover align-middle mb-0">
+            <thead class="table-secondary text-dark">
+              <tr>
+                <th>Carrier</th>
+                <th>20ft</th>
+                <th>40ft</th>
+                <th>40HC</th>
+                <th>Applied Rate</th>
+                <th>Transit</th>
+                <th>Status</th>
+                <th>Response Link</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for response in tender.responses %}
+              <tr>
+                <td>
+                  <div class="fw-semibold">{{ response.carrier_name or 'Carrier' }}</div>
+                  <div class="small text-muted">{{ response.submitted_at_display }}</div>
+                </td>
+                <td>{% if response.rate_20ft is not none %}${{ "{:,.2f}".format(response.rate_20ft) }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                <td>{% if response.rate_40ft is not none %}${{ "{:,.2f}".format(response.rate_40ft) }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                <td>{% if response.rate_40hc is not none %}${{ "{:,.2f}".format(response.rate_40hc) }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                <td>
+                  {% if response.applied_rate is not none %}
+                  <div class="text-success fw-semibold">${{ "{:,.2f}".format(response.applied_rate) }}</div>
+                  <div class="small text-muted">{{ response.applied_rate_label }} rate</div>
+                  {% else %}
+                  <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
+                <td>{% if response.transit_days %}{{ response.transit_days }} days{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                <td><span class="badge bg-{{ response.response_status_class }}">{{ response.response_status }}</span></td>
+                <td style="min-width: 260px;">
+                  <a href="{{ response.response_link }}" class="text-info small" target="_blank">{{ response.response_link }}</a>
+                </td>
+                <td>
+                  {% if response.can_award %}
+                  <form method="POST" action="/tms/tenders/{{ tender.id }}/award">
+                    <input type="hidden" name="response_id" value="{{ response.id }}">
+                    <button type="submit" class="btn btn-sm btn-success">
+                      <i class="bi bi-trophy me-1"></i>Award
+                    </button>
+                  </form>
+                  {% else %}
+                  <span class="text-muted small">-</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="text-center text-muted py-5">
+      No active tenders yet. Start a tender from any shipment view.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary">
+  <div class="card-header"><i class="bi bi-archive me-2"></i>Closed Tenders</div>
+  <div class="card-body">
+    {% if closed_tenders %}
+      {% for tender in closed_tenders %}
+      <div class="border border-secondary rounded p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+          <div>
+            <div class="fw-bold">
+              <a href="/tms/shipments/{{ tender.shipment_ref }}" class="text-info text-decoration-none">{{ tender.shipment_ref }}</a>
+            </div>
+            <div class="text-muted small">{{ tender.origin_port or '-' }} -> {{ tender.destination_port or '-' }}</div>
+            {% if tender.awarded_response %}
+            <div class="small text-success mt-2">
+              Awarded to {{ tender.awarded_response.carrier_name or 'Carrier' }}
+              {% if tender.awarded_response.applied_rate is not none %}
+              at ${{ "{:,.2f}".format(tender.awarded_response.applied_rate) }}
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+          <div class="text-end">
+            <div><span class="badge bg-{{ tender.status_class }}">{{ tender.status }}</span></div>
+            <div class="small text-muted mt-2">{{ tender.deadline_display }}</div>
+          </div>
+        </div>
+
+        <div class="small text-muted">
+          {{ tender.submitted_count }} submitted | {{ tender.pending_count }} pending
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="text-center text-muted py-4">No closed tenders yet.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

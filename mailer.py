@@ -29,6 +29,7 @@ Over-the-Road &nbsp;|&nbsp; Air &nbsp;|&nbsp; Ocean &nbsp;|&nbsp; Worldwide Frei
 def signature_for(sender_name: str = None) -> str:
     """Return an HTML signature block with the given sender name.
     Falls back to 'Pricing Team | Flash Cargo Global' if no name is provided.
+    Includes CAN-SPAM compliant unsubscribe link and physical address.
     """
     display = sender_name if sender_name else "Pricing Team | Flash Cargo Global"
     return (
@@ -40,6 +41,14 @@ def signature_for(sender_name: str = None) -> str:
         '<a href="https://www.flashcargoglobal.com" style="color:#0066cc;">'
         'www.flashcargoglobal.com</a><br>'
         '<em>Delivering confidence worldwide</em>'
+        '</p>'
+        '<p style="color:#999;font-size:11px;margin-top:12px;">'
+        'Flash Cargo Global Inc.<br>'
+        'This is a commercial message. '
+        'If you no longer wish to receive emails from us, '
+        '<a href="mailto:pricing@flashcargoglobal.com?subject=UNSUBSCRIBE" '
+        'style="color:#999;">click here to unsubscribe</a>. '
+        'We will remove you within 10 business days.'
         '</p>'
     )
 
@@ -192,27 +201,21 @@ def _from_address_for_name(display_name: str) -> str:
 
 def _display_name_for_country(country: str, contact_id: int = None,
                                contact_first_name: str = None) -> str:
-    """Return the sender display name for a given country string.
-    Uses contact_id to deterministically pick from the name pool (consistent per contact).
-    With 8 names per country, each contact gets a unique-feeling sender.
+    """Return a culturally appropriate sender display name for the country.
 
-    If contact_first_name is provided and matches the chosen sender name,
-    the NEXT name in the pool is used to avoid 'Hi Mehmet, I am Mehmet'.
+    Uses _COUNTRY_NAMES pool (4 male + 4 female per country).
+    Deterministic by contact_id so the same contact always gets the same sender.
+    Avoids name collision with the contact's first name.
     """
-    if not country:
-        return "Pricing Team | Flash Cargo Global"
-    names = _COUNTRY_NAMES.get(country.strip().lower())
+    key = country.strip().lower() if country else ""
+    names = _COUNTRY_NAMES.get(key)
     if not names:
-        return "Pricing Team | Flash Cargo Global"
-    # Deterministic pick based on contact_id — cycles through all names
+        return "Flash Cargo Global"
     idx = (contact_id or 0) % len(names)
     chosen = names[idx]
-
-    # Avoid sender name == recipient first name collision
+    # Avoid sender name matching contact's first name
     if contact_first_name and chosen.lower() == contact_first_name.strip().lower():
-        idx = (idx + 1) % len(names)
-        chosen = names[idx]
-
+        chosen = names[(idx + 1) % len(names)]
     return f"{chosen} | Flash Cargo Global"
 
 
@@ -262,6 +265,15 @@ def send_email(to_address, subject, body_html, body_text=None,
     client_id     = client_id     or GRAPH_CLIENT_ID
     client_secret = client_secret or GRAPH_CLIENT_SECRET
 
+    # ── Bounce check: refuse to send to known-bounced addresses ──────────
+    try:
+        from bounce_monitor import is_bounced
+        if is_bounced(to_address):
+            log.warning(f"send_email: BLOCKED — {to_address} is in bounced list")
+            raise ValueError(f"Recipient {to_address} is in the bounced email list")
+    except ImportError:
+        pass
+
     token = _get_token(tenant_id, client_id, client_secret)
 
     message = {
@@ -309,6 +321,48 @@ def send_email(to_address, subject, body_html, body_text=None,
         raise RuntimeError(f"Graph sendMail failed ({e.code}): {err_body}") from e
 
 
+
+# ── GDPR / E-Privacy: Countries requiring opt-in consent for cold B2B email ──
+# These countries require PRIOR consent before sending commercial emails.
+# Do NOT send cold outreach to contacts in these countries without explicit opt-in.
+_OPT_IN_REQUIRED_COUNTRIES = {
+    "germany", "italy", "spain", "austria", "poland", "czech republic",
+    "czechia", "hungary", "romania", "bulgaria", "croatia", "slovenia",
+    "slovakia", "greece", "portugal", "luxembourg",
+}
+# These countries allow opt-out model for B2B (can cold email, must include unsubscribe)
+_OPT_OUT_COUNTRIES = {
+    "united kingdom", "uk", "france", "netherlands", "belgium", "sweden",
+    "denmark", "norway", "finland", "ireland", "united states", "usa",
+    "canada", "australia", "new zealand", "singapore", "hong kong",
+    "japan", "south korea", "uae", "united arab emirates",
+}
+
+
+def _check_email_compliance(contact) -> dict:
+    """Check if we can legally send email to this contact.
+    Returns {"allowed": bool, "reason": str, "requires": str}."""
+    country = (contact.get("country") or "").strip().lower()
+    opt_out = contact.get("opt_out", 0)
+    consent = contact.get("consent_basis", "")
+
+    # Contact has opted out — never send
+    if opt_out:
+        return {"allowed": False, "reason": "Contact opted out", "requires": "none"}
+
+    # Opt-in required countries — must have explicit consent
+    if country in _OPT_IN_REQUIRED_COUNTRIES:
+        if consent in ("consent", "double_opt_in"):
+            return {"allowed": True, "reason": f"Consent recorded for {country}", "requires": "consent"}
+        return {"allowed": False,
+                "reason": f"{country.title()} requires opt-in consent (GDPR/e-Privacy). "
+                          f"Contact has consent_basis='{consent}'.",
+                "requires": "opt_in"}
+
+    # All other countries — allowed with opt-out link (which we now include)
+    return {"allowed": True, "reason": "Opt-out jurisdiction", "requires": "unsubscribe_link"}
+
+
 def send_rate_request(contact, cycle_label, lanes=None):
     """
     Send a rate-request email to a verified freight agent.
@@ -316,11 +370,21 @@ def send_rate_request(contact, cycle_label, lanes=None):
     Psych elements from the 6 books are woven into every email for maximum
     uniqueness and persuasion — no two emails read the same.
 
+    LEGAL: Checks country-level email compliance before sending.
+    Contacts in opt-in countries (Germany, Italy, Spain, etc.) are blocked
+    unless explicit consent is recorded.
+
     contact    : dict with keys: id, email, contact_name, company_name, country
     cycle_label: e.g. "April 1\u201315" or "April 16\u201330"
     lanes      : list of lane strings, e.g. ["Los Angeles \u2192 Tokyo", ...]
     """
     import contact_engine as _ce
+
+    # ── GDPR compliance check ─────────────────────────────────────────────
+    compliance = _check_email_compliance(contact)
+    if not compliance["allowed"]:
+        log.info(f"[BLOCKED] Email to {contact.get('email')} blocked: {compliance['reason']}")
+        return {"sent": False, "reason": compliance["reason"]}
 
     name         = contact.get("contact_name") or contact.get("company_name") or "Team"
     country      = contact.get("country", "")

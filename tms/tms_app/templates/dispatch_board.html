@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Dispatch Board | TMS Sandbox{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <p class="eyebrow">Operations</p>
+    <h3>Dispatcher board</h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ref</th>
+          <th>Lane</th>
+          <th>Status</th>
+          <th>Action Lane</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for load in loads %}
+        <tr>
+          <td>{{ load.reference }}</td>
+          <td>{{ load.lane }}</td>
+          <td>{{ load.status }}</td>
+          <td>
+            {% if load.status == "Customs Hold" %}
+            Escalate broker packet
+            {% elif load.status == "Awaiting Pickup" %}
+            Confirm dock and driver
+            {% else %}
+            Monitor milestone scan
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+

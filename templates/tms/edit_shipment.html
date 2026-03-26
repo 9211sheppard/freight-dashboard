@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ shipment.shipment_ref }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0"><i class="bi bi-pencil me-2"></i>Edit {{ shipment.shipment_ref }}</h2>
+  <div class="d-flex gap-2">
+    <a href="/tms/drivers" class="btn btn-outline-info">Drivers</a>
+    <a href="/tms/fleet" class="btn btn-outline-info">Fleet</a>
+    <a href="/tms/shipments/{{ shipment.shipment_ref }}" class="btn btn-outline-secondary">Cancel</a>
+  </div>
+</div>
+
+<form method="POST" action="/tms/shipments/{{ shipment.shipment_ref }}/edit">
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-person-fill me-2"></i>Shipper</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label text-muted">Shipper Name</label>
+            <input type="text" name="shipper_name" value="{{ shipment.shipper_name or '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Shipper Address</label>
+            <input type="text" name="shipper_address" value="{{ shipment.shipper_address or '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div>
+            <label class="form-label text-muted">Customer Name</label>
+            <input type="text" name="customer_name" value="{{ shipment.customer_name or '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-person me-2"></i>Consignee</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label text-muted">Consignee Name</label>
+            <input type="text" name="consignee_name" value="{{ shipment.consignee_name or '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Consignee Address</label>
+            <input type="text" name="consignee_address" value="{{ shipment.consignee_address or '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div>
+            <label class="form-label text-muted">Status</label>
+            <select name="status" class="form-select bg-black text-white border-secondary">
+              {% for st in ['Draft','Active','Booked','In Transit','Delivered','Cancelled'] %}
+              <option value="{{ st }}" {% if shipment.status == st %}selected{% endif %}>{{ st }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-geo-alt me-2"></i>Route & Carrier</div>
+        <div class="card-body">
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label text-muted">Origin</label>
+              <input type="text" name="origin_port" value="{{ shipment.origin_port or '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">Destination</label>
+              <input type="text" name="destination_port" value="{{ shipment.destination_port or '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Mode</label>
+            <input type="text" name="mode" value="{{ shipment.mode or '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label text-muted">ETD</label>
+              <input type="date" name="etd" value="{{ shipment.etd or '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">ETA</label>
+              <input type="date" name="eta" value="{{ shipment.eta or '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div>
+            <label class="form-label text-muted">Carrier</label>
+            <select name="carrier_id" class="form-select bg-black text-white border-secondary">
+              <option value="">-- Select Carrier --</option>
+              {% for carrier in carriers %}
+              <option value="{{ carrier.id }}" {% if shipment.carrier_id|string == carrier.id|string %}selected{% endif %}>{{ carrier.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-person-workspace me-2"></i>Dispatch Assignment</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label text-muted">Driver</label>
+            <select name="driver_id" class="form-select bg-black text-white border-secondary">
+              <option value="">-- Unassigned --</option>
+              {% for driver in drivers %}
+              <option value="{{ driver.id }}" {% if shipment.driver_id|string == driver.id|string %}selected{% endif %}>
+                {{ driver.name }} · {{ driver.license_number }} · {{ driver.status }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Vehicle</label>
+            <select name="vehicle_id" class="form-select bg-black text-white border-secondary">
+              <option value="">-- Unassigned --</option>
+              {% for vehicle in vehicles %}
+              <option value="{{ vehicle.id }}" {% if shipment.vehicle_id|string == vehicle.id|string %}selected{% endif %}>
+                {{ vehicle.truck_number }} · {{ vehicle.vehicle_type }} · {{ vehicle.status }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="small text-muted">Assigned drivers can update trip status, location, issues, and duty logs from the mobile link.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-box me-2"></i>Cargo Details</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label text-muted">Cargo Description</label>
+            <input type="text" name="cargo_description" value="{{ shipment.cargo_description or '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Truck / Container Type</label>
+            <input type="text" name="containers" value="{{ shipment.containers or '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label text-muted">Weight (kg)</label>
+              <input type="number" name="weight_kg" value="{{ shipment.weight_kg or '' }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">Volume (CBM)</label>
+              <input type="number" name="volume_cbm" value="{{ shipment.volume_cbm or '' }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-currency-dollar me-2"></i>Financials</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label text-muted">Freight Rate</label>
+              <input type="number" name="freight_rate" value="{{ shipment.freight_rate or '' }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-muted">Currency</label>
+              <select name="currency" class="form-select bg-black text-white border-secondary">
+                {% for cur in ['USD','EUR','CNY','GBP'] %}
+                <option value="{{ cur }}" {% if shipment.currency == cur %}selected{% endif %}>{{ cur }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-muted">Incoterm</label>
+              <select name="incoterm" class="form-select bg-black text-white border-secondary">
+                {% for term in ['FOB','CIF','CFR','EXW','DAP','DDP','FCA','CPT','CIP'] %}
+                <option value="{{ term }}" {% if shipment.incoterm == term %}selected{% endif %}>{{ term }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label text-muted">Notes</label>
+            <input type="text" name="notes" value="{{ shipment.notes or '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="form-text text-muted mt-2">If a contract lane matches, saving re-rates the shipment automatically.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 text-end">
+      <button type="submit" class="btn btn-primary btn-lg px-5">
+        <i class="bi bi-check-lg me-1"></i>Save Changes
+      </button>
+    </div>
+  </div>
+</form>
+{% endblock %}

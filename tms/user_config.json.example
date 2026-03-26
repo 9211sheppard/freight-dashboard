@@ -1,0 +1,29 @@
+{
+  "tracking_base_url": "https://example.com/tms/email",
+  "providers": {
+    "gmail": {
+      "client_id": "your-client-id",
+      "client_secret": "your-client-secret",
+      "refresh_token": "your-refresh-token",
+      "from_email": "you@gmail.com",
+      "from_name": "Your Name"
+    },
+    "outlook": {
+      "client_id": "your-client-id",
+      "client_secret": "your-client-secret",
+      "refresh_token": "your-refresh-token",
+      "tenant": "common",
+      "from_email": "you@outlook.com",
+      "from_name": "Your Name"
+    },
+    "smtp": {
+      "host": "smtp.example.com",
+      "port": 587,
+      "username": "user@example.com",
+      "password": "app-password",
+      "from_email": "user@example.com",
+      "from_name": "Your Name",
+      "use_tls": true
+    }
+  }
+}

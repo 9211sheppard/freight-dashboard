@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() if csrf_token is defined else '' }}">
   <title>{% block title %}Dashboard{% endblock %}</title>
   <!-- Bootstrap 5 (local) -->
   <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
@@ -13,6 +14,10 @@
   {% if session.get('logged_in') %}
   <link rel="stylesheet" href="{{ url_for('static', filename='tour.css') }}?v={{ sv|default('1') }}">
   {% endif %}
+  {% if request.path.startswith('/tms') or request.path.startswith('/track') %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='tms.css') }}?v={{ sv|default('1') }}">
+  {% endif %}
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
 
@@ -45,6 +50,9 @@
       <i class="bi bi-arrow-clockwise" id="refreshIcon"></i> Refresh Data
     </button>
     {% if session.get('user_role') == 'admin' %}
+    <a href="/admin" class="btn btn-sm btn-outline-danger" title="Admin Panel — SaaS metrics, users, billing">
+      <i class="bi bi-shield-lock-fill me-1"></i><span class="d-none d-md-inline">Admin</span>
+    </a>
     <button class="btn btn-sm btn-outline-success" id="addUserBtn" title="Invite a new user">
       <i class="bi bi-person-plus-fill me-1"></i><span class="d-none d-md-inline">Add User</span>
     </button>
@@ -112,18 +120,88 @@
   <a href="/billing" class="tab-link {% if active_tab == 'billing' %}active{% endif %}">
     <i class="bi bi-credit-card"></i> Billing
   </a>
+  <a href="/tms" class="tab-link {% if active_tab == 'tms' %}active{% endif %}">
+    <i class="bi bi-truck"></i> TMS
+  </a>
 </div>
 {% endif %}
 
+<div id="main-content-wrap" class="{% if request.path.startswith('/tms') or request.path.startswith('/track') %}tms-page container-fluid py-4 px-4{% endif %}">
 {% block content %}{% endblock %}
+</div>
 
-<script src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+// Global CSRF token for all fetch calls
+(function(){
+  var ct = document.querySelector('meta[name="csrf-token"]');
+  var token = ct ? ct.getAttribute('content') : '';
+  var _f = window.fetch;
+  window.fetch = function(url, opts){
+    opts = opts || {};
+    var m = (opts.method || 'GET').toUpperCase();
+    if (['POST','PUT','PATCH','DELETE'].indexOf(m) >= 0) {
+      opts.headers = opts.headers || {};
+      if (!opts.headers['X-CSRF-Token']) opts.headers['X-CSRF-Token'] = token;
+    }
+    return _f.call(this, url, opts);
+  };
+})();
+</script>
 {% block scripts %}{% endblock %}
 {% if session.get('logged_in') %}
-<script src="{{ url_for('static', filename='quotes.js') }}?v={{ sv|default('1') }}"></script>
-<script src="{{ url_for('static', filename='learn.js') }}?v={{ sv|default('1') }}"></script>
-<script src="{{ url_for('static', filename='tour.js') }}?v={{ sv|default('1') }}"></script>
+<script nonce="{{ csp_nonce }}">window.__userRole = "{{ session.get('user_role', '') }}";</script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='quotes.js') }}?v={{ sv|default('1') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='learn.js') }}?v={{ sv|default('1') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='tour.js') }}?v={{ sv|default('1') }}"></script>
 <!-- No auto-reload: page only refreshes when user presses browser refresh -->
+
+<!-- Floating Help Bot Widget -->
+<div id="helpBot" style="position:fixed;bottom:20px;right:20px;z-index:9999;">
+  <div id="helpBotChat" style="display:none;width:360px;max-width:calc(100vw - 40px);background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);overflow:hidden;margin-bottom:12px;">
+    <div style="background:#0047AB;color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:600;font-size:14px;"><i class="bi bi-robot"></i> Help Assistant</span>
+      <button onclick="document.getElementById('helpBotChat').style.display='none'" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">&times;</button>
+    </div>
+    <div id="helpBotMessages" style="padding:14px;max-height:320px;overflow-y:auto;font-size:13px;">
+      <div style="background:#f0f4ff;padding:10px 14px;border-radius:12px;margin-bottom:8px;">
+        Hi! I can help with passwords, billing, rates, schedules, and more. What do you need?
+      </div>
+    </div>
+    <div style="padding:10px 14px;border-top:1px solid #eee;display:flex;gap:8px;">
+      <input id="helpBotInput" type="text" placeholder="Ask a question..."
+             style="flex:1;border:1px solid #ddd;border-radius:20px;padding:8px 14px;font-size:13px;outline:none;"
+             onkeydown="if(event.key==='Enter')window._askHelpBot()">
+      <button onclick="window._askHelpBot()" style="background:#0047AB;color:#fff;border:none;border-radius:20px;padding:8px 16px;font-size:13px;cursor:pointer;">Send</button>
+    </div>
+  </div>
+  <button onclick="document.getElementById('helpBotChat').style.display=document.getElementById('helpBotChat').style.display==='none'?'block':'none'"
+          style="width:56px;height:56px;border-radius:50%;background:#0047AB;color:#fff;border:none;box-shadow:0 4px 16px rgba(0,71,171,0.4);cursor:pointer;font-size:24px;display:flex;align-items:center;justify-content:center;margin-left:auto;">
+    <i class="bi bi-chat-dots-fill"></i>
+  </button>
+</div>
+<script>
+window._askHelpBot = function() {
+  var input = document.getElementById('helpBotInput');
+  var q = input.value.trim();
+  if (!q) return;
+  var msgs = document.getElementById('helpBotMessages');
+  msgs.innerHTML += '<div style="background:#e3f2fd;padding:10px 14px;border-radius:12px;margin-bottom:8px;text-align:right;">'+q.replace(/</g,'&lt;')+'</div>';
+  input.value = '';
+  fetch('/api/helpbot/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({question:q})})
+    .then(r=>r.json()).then(function(d) {
+      var html = '<div style="background:#f0f4ff;padding:10px 14px;border-radius:12px;margin-bottom:8px;">'+d.answer;
+      if (d.action && d.action.url) html += '<br><a href="'+d.action.url+'" style="color:#0047AB;font-weight:600;">'+d.action.label+'</a>';
+      if (d.suggestions) { html += '<div style="margin-top:8px;font-size:12px;color:#666;">Try asking:'; d.suggestions.forEach(function(s){html+=' <a href="#" onclick="document.getElementById(\'helpBotInput\').value=\''+s+'\';window._askHelpBot();return false;" style="color:#0047AB;">'+s+'</a> |';}); html += '</div>'; }
+      html += '</div>';
+      msgs.innerHTML += html;
+      msgs.scrollTop = msgs.scrollHeight;
+    }).catch(function(){
+      msgs.innerHTML += '<div style="background:#fff3cd;padding:10px 14px;border-radius:12px;margin-bottom:8px;">Sorry, something went wrong. Please try again.</div>';
+    });
+  msgs.scrollTop = msgs.scrollHeight;
+};
+</script>
 {% endif %}
 </body>
 </html>

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Login | TMS Sandbox{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <div class="panel-head">
+    <p class="eyebrow">Step 1</p>
+    <h3>Password checkpoint</h3>
+  </div>
+  <form method="post" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>
+      <span>Tenant ID</span>
+      <input type="text" name="tenant_id" value="{{ tenant_id or 'tenant-default' }}" autocomplete="organization" required>
+    </label>
+    <label>
+      <span>Email</span>
+      <input type="email" name="email" autocomplete="username" required>
+    </label>
+    <label>
+      <span>Password</span>
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit">Continue to MFA</button>
+  </form>
+  <a class="ghost-link" href="{{ url_for('sso_login', tenant_id=tenant_id or 'tenant-default') }}">Open SAML SSO stub</a>
+  <p class="hint">Use the seeded admin, dispatcher, or viewer account from your environment file.</p>
+</section>
+{% endblock %}

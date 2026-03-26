@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Rate Shopping{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-search me-2"></i>Digital Rate Shopping</h2>
+    <div class="text-muted small">Compare contract, market, and demo spot options before opening the shipment.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/rates" class="btn btn-outline-info"><i class="bi bi-cash-stack me-1"></i>Contract Rates</a>
+    <a href="/tms/shipments/new" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Shipment</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="mb-4">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+{% if form_error %}
+<div class="alert alert-danger">{{ form_error }}</div>
+{% endif %}
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-header"><i class="bi bi-sliders me-2"></i>Lane Inputs</div>
+  <div class="card-body">
+    <form method="GET" action="/tms/rates/shop">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label text-muted">Origin</label>
+          <input type="text" name="origin" value="{{ form_values.origin }}" class="form-control bg-black text-white border-secondary" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label text-muted">Destination</label>
+          <input type="text" name="destination" value="{{ form_values.destination }}" class="form-control bg-black text-white border-secondary" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label text-muted">Mode</label>
+          <input type="text" name="mode" value="{{ form_values.mode }}" class="form-control bg-black text-white border-secondary" placeholder="FTL, LTL, Ocean" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label text-muted">Date</label>
+          <input type="date" name="date" value="{{ form_values.date }}" class="form-control bg-black text-white border-secondary">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label text-muted">Weight (kg)</label>
+          <input type="number" name="weight" value="{{ form_values.weight }}" step="0.01" class="form-control bg-black text-white border-secondary">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label text-muted">Equipment Type</label>
+          <input type="text" name="equipment_type" value="{{ form_values.equipment_type }}" class="form-control bg-black text-white border-secondary" placeholder="53' Dry Van, 40HC, Reefer">
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search me-1"></i>Shop Rates</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if rate_benchmark %}
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Lane</div>
+        <div class="fw-bold">{{ rate_benchmark.origin }} -> {{ rate_benchmark.destination }}</div>
+        <div class="small text-muted mt-1">{{ rate_benchmark.mode or form_values.mode }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Historical Market</div>
+        {% if rate_benchmark.history %}
+        <div class="fw-bold">{{ "{:,.2f}".format(rate_benchmark.history.rate_average) }} {{ rate_benchmark.history.currency }}</div>
+        <div class="small text-muted mt-1">{{ rate_benchmark.history.sample_size }} shipment sample(s)</div>
+        {% else %}
+        <div class="fw-bold">No history yet</div>
+        <div class="small text-muted mt-1">Spot rates use the contract baseline.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Contract Match</div>
+        {% if rate_benchmark.contract_rate %}
+        <div class="fw-bold">{{ "{:,.2f}".format(rate_benchmark.contract_rate.matched_rate) }} {{ rate_benchmark.contract_rate.currency }}</div>
+        <div class="small text-muted mt-1">{{ rate_benchmark.contract_rate.matched_rate_label }} through {{ rate_benchmark.contract_rate.valid_to }}</div>
+        {% else %}
+        <div class="fw-bold">No active contract</div>
+        <div class="small text-muted mt-1">Historical market data drives the baseline.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-list-ol me-2"></i>Ranked Results</span>
+    <span class="text-muted small">Spot rows use deterministic demo variance within +/-15% of the lane baseline.</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead class="table-secondary text-dark">
+        <tr>
+          <th>#</th>
+          <th>Carrier</th>
+          <th>Rate</th>
+          <th>Transit</th>
+          <th>Mode</th>
+          <th>Source</th>
+          <th>Detail</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for result in rate_results %}
+        <tr>
+          <td class="fw-bold">{{ result.rank }}</td>
+          <td>{{ result.carrier }}</td>
+          <td class="text-success fw-semibold">{{ "{:,.2f}".format(result.rate) }} {{ result.currency }}</td>
+          <td>{{ result.transit_days }} day{{ '' if result.transit_days == 1 else 's' }}</td>
+          <td>{{ result.mode }}</td>
+          <td>
+            <span class="badge bg-{{ {'Contract':'info','Market':'secondary','Spot':'warning'}.get(result.source, 'secondary') }}">
+              {{ result.source }}
+            </span>
+          </td>
+          <td class="small text-muted">{{ result.detail }}</td>
+          <td class="text-end">
+            <a href="{{ result.prefill_url }}" class="btn btn-sm btn-outline-primary">Use This Rate</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-4">Run a lane search to see ranked results.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

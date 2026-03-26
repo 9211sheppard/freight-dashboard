@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}TMS Reports{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>Global Reports</h2>
+  <a href="/tms/" class="btn btn-outline-secondary btn-sm">← Dashboard</a>
+</div>
+
+<!-- KPI Row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-2 fw-bold text-primary">{{ stats.total_shipments }}</div>
+      <div class="text-muted small">Total Shipments</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-2 fw-bold text-success">{{ stats.delivered }}</div>
+      <div class="text-muted small">Delivered</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-2 fw-bold text-warning">{{ stats.in_transit }}</div>
+      <div class="text-muted small">In Transit</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-2 fw-bold text-info">{{ stats.active_lanes }}</div>
+      <div class="text-muted small">Active Lanes</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-2 fw-bold text-secondary">{{ stats.carriers_used }}</div>
+      <div class="text-muted small">Carriers Used</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-5 fw-bold text-success">
+        {% for r in revenue_by_currency %}
+        {{ r.currency }} {{ "{:,.0f}".format(r.total or 0) }}<br>
+        {% else %}$0{% endfor %}
+      </div>
+      <div class="text-muted small">Total Revenue</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- Revenue by Currency -->
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-currency-exchange me-2"></i>Revenue by Currency</div>
+      <div class="table-responsive">
+        <table class="table table-dark table-sm mb-0">
+          <thead class="table-secondary text-dark">
+            <tr><th>Currency</th><th>Shipments</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            {% for r in revenue_by_currency %}
+            <tr>
+              <td><span class="badge bg-primary">{{ r.currency }}</span></td>
+              <td>{{ r.count }}</td>
+              <td class="text-success fw-bold">{{ "{:,.2f}".format(r.total or 0) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="text-muted text-center">No data</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Breakdown -->
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Status Breakdown</div>
+      <div class="table-responsive">
+        <table class="table table-dark table-sm mb-0">
+          <thead class="table-secondary text-dark">
+            <tr><th>Status</th><th>Count</th><th>Revenue</th></tr>
+          </thead>
+          <tbody>
+            {% set sc = {'Draft':'secondary','Active':'success','Booked':'primary','In Transit':'warning','Delivered':'info','Cancelled':'danger'} %}
+            {% for r in status_breakdown %}
+            <tr>
+              <td><span class="badge bg-{{ sc.get(r.status,'secondary') }}">{{ r.status }}</span></td>
+              <td>{{ r.count }}</td>
+              <td class="text-muted">{{ "{:,.0f}".format(r.revenue or 0) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monthly Volume -->
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-calendar3 me-2"></i>Monthly Volume (6 months)</div>
+      <div class="table-responsive">
+        <table class="table table-dark table-sm mb-0">
+          <thead class="table-secondary text-dark">
+            <tr><th>Month</th><th>Shipments</th><th>Revenue</th></tr>
+          </thead>
+          <tbody>
+            {% for r in monthly %}
+            <tr>
+              <td>{{ r.month }}</td>
+              <td>{{ r.shipments }}</td>
+              <td class="text-success">{{ "{:,.0f}".format(r.revenue or 0) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="text-muted text-center">No data yet</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Global Lanes -->
+  <div class="col-12">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-globe2 me-2"></i>Top Global Lanes</div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+          <thead class="table-secondary text-dark">
+            <tr><th>Origin</th><th></th><th>Destination</th><th>Shipments</th><th>Avg Rate</th><th>Total Revenue</th></tr>
+          </thead>
+          <tbody>
+            {% for r in top_lanes %}
+            <tr>
+              <td class="fw-bold">{{ r.origin_port }}</td>
+              <td class="text-muted">→</td>
+              <td class="fw-bold">{{ r.destination_port }}</td>
+              <td><span class="badge bg-primary">{{ r.shipments }}</span></td>
+              <td>{{ r.currency or 'USD' }} {{ "{:,.0f}".format(r.avg_rate or 0) }}</td>
+              <td class="text-success fw-bold">{{ r.currency or 'USD' }} {{ "{:,.0f}".format(r.revenue or 0) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-3">No lane data yet. Create shipments to see lane analytics.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Carrier Performance -->
+  <div class="col-12">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-truck me-2"></i>Carrier Performance</div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+          <thead class="table-secondary text-dark">
+            <tr><th>Carrier</th><th>Total Shipments</th><th>Delivered</th><th>In Transit</th><th>On-Time Rate</th><th>Revenue</th></tr>
+          </thead>
+          <tbody>
+            {% for r in carrier_stats %}
+            {% set on_time = ((r.delivered / r.total * 100) | int) if r.total > 0 else 0 %}
+            <tr>
+              <td class="fw-bold">{{ r.carrier_name }}</td>
+              <td>{{ r.total }}</td>
+              <td><span class="text-success">{{ r.delivered }}</span></td>
+              <td><span class="text-warning">{{ r.in_transit }}</span></td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="progress flex-grow-1" style="height:6px">
+                    <div class="progress-bar bg-{% if on_time >= 80 %}success{% elif on_time >= 60 %}warning{% else %}danger{% endif %}"
+                         style="width:{{ on_time }}%"></div>
+                  </div>
+                  <small>{{ on_time }}%</small>
+                </div>
+              </td>
+              <td class="text-success">{{ "{:,.0f}".format(r.revenue or 0) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-3">No carrier data yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

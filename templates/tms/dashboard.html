@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}TMS Dashboard{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-truck me-2"></i>TMS Dashboard</h2>
+    <small class="text-muted">
+      {{ settings.get('company_name','My Freight Co') }}
+      {% if current_tenant %}
+      <span class="ms-2 badge bg-secondary text-uppercase">{{ current_tenant.plan }}</span>
+      <span class="ms-2">Tenant: {{ current_tenant.company_name }}</span>
+      {% endif %}
+    </small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/tms/admin/tenants" class="btn btn-outline-light btn-sm"><i class="bi bi-buildings me-1"></i>Tenants</a>
+    <a href="/tms/admin/audit" class="btn btn-outline-danger btn-sm"><i class="bi bi-clock-history me-1"></i>Audit Log</a>
+    <a href="/tms/drivers" class="btn btn-outline-info btn-sm"><i class="bi bi-person-badge me-1"></i>Drivers</a>
+    <a href="/tms/fleet" class="btn btn-outline-info btn-sm"><i class="bi bi-truck-front me-1"></i>Fleet</a>
+    <a href="/tms/docks" class="btn btn-outline-info btn-sm"><i class="bi bi-grid-3x3-gap me-1"></i>Docks</a>
+    <a href="/tms/docks/calendar" class="btn btn-outline-info btn-sm"><i class="bi bi-calendar-week me-1"></i>Dock Calendar</a>
+    <a href="/tms/edi" class="btn btn-outline-primary btn-sm"><i class="bi bi-diagram-3 me-1"></i>EDI</a>
+    <a href="/tms/api-keys" class="btn btn-outline-warning btn-sm"><i class="bi bi-key me-1"></i>API Keys</a>
+    <a href="/tms/api-docs" class="btn btn-outline-info btn-sm"><i class="bi bi-journal-code me-1"></i>API Docs</a>
+    <a href="/tms/loads" class="btn btn-outline-light btn-sm"><i class="bi bi-diagram-3 me-1"></i>Loads</a>
+    <a href="/tms/tenders" class="btn btn-outline-warning btn-sm"><i class="bi bi-diagram-3 me-1"></i>Tenders</a>
+    <a href="/tms/claims" class="btn btn-outline-danger btn-sm"><i class="bi bi-exclamation-triangle me-1"></i>Claims</a>
+    <a href="/tms/rates" class="btn btn-outline-info btn-sm"><i class="bi bi-cash-stack me-1"></i>Contract Rates</a>
+    <a href="/tms/carriers" class="btn btn-outline-secondary btn-sm"><i class="bi bi-truck-front me-1"></i>Carriers</a>
+    <a href="/tms/intake" class="btn btn-outline-warning btn-sm"><i class="bi bi-envelope-open me-1"></i>Order Intake</a>
+    <a href="/tms/documents" class="btn btn-outline-warning btn-sm"><i class="bi bi-file-earmark-text me-1"></i>Documents</a>
+    <a href="/tms/audit" class="btn btn-outline-warning btn-sm"><i class="bi bi-shield-check me-1"></i>Freight Audit</a>
+    <a href="/tms/invoices" class="btn btn-outline-success btn-sm"><i class="bi bi-receipt-cutoff me-1"></i>Invoices</a>
+    <a href="/tms/reports" class="btn btn-outline-info btn-sm"><i class="bi bi-bar-chart-line me-1"></i>Reports</a>
+    <a href="/tms/esg" class="btn btn-outline-success btn-sm"><i class="bi bi-leaf me-1"></i>ESG</a>
+    <a href="/tms/control-tower" class="btn btn-outline-danger btn-sm"><i class="bi bi-broadcast-pin me-1"></i>Control Tower</a>
+    <a href="/tms/dispatch" class="btn btn-outline-warning btn-sm"><i class="bi bi-kanban me-1"></i>Dispatch</a>
+    <a href="/tms/loadboard" class="btn btn-outline-info btn-sm"><i class="bi bi-grid-3x3-gap me-1"></i>Load Board</a>
+    <a href="/tms/rates/shop" class="btn btn-outline-primary btn-sm"><i class="bi bi-search me-1"></i>Rate Shop</a>
+    <a href="/tms/network-optimization" class="btn btn-outline-info btn-sm"><i class="bi bi-diagram-3 me-1"></i>Network Opt</a>
+    <a href="/tms/yard" class="btn btn-outline-warning btn-sm"><i class="bi bi-grid me-1"></i>Yard</a>
+    <a href="/tms/trade" class="btn btn-outline-primary btn-sm"><i class="bi bi-globe2 me-1"></i>Trade</a>
+    <a href="/tms/compliance" class="btn btn-outline-warning btn-sm"><i class="bi bi-shield-lock me-1"></i>Compliance</a>
+    <a href="/tms/analytics" class="btn btn-outline-success btn-sm"><i class="bi bi-graph-up me-1"></i>Analytics</a>
+    <a href="/tms/integrations" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plug me-1"></i>Integrations</a>
+    <a href="/tms/shipments/new" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Shipment</a>
+  </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-1 fw-bold text-primary">{{ stats.total }}</div>
+      <div class="text-muted small">Total Shipments</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-1 fw-bold text-success">{{ stats.active }}</div>
+      <div class="text-muted small">Active</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-1 fw-bold text-warning">{{ stats.in_transit }}</div>
+      <div class="text-muted small">In Transit</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-1 fw-bold text-info">{{ stats.loads }}</div>
+      <div class="text-muted small">Loads</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-1 fw-bold text-info">{{ stats.drivers }}</div>
+      <div class="text-muted small">Drivers</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 col-xl-2">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-1 fw-bold text-info">{{ stats.fleet }}</div>
+      <div class="text-muted small">Fleet</div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-1 fw-bold text-info">${{ "{:,.0f}".format(stats.revenue) }}</div>
+      <div class="text-muted small">Total Revenue</div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Shipments -->
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-list-ul me-2"></i>Recent Shipments</span>
+    <a href="/tms/shipments" class="btn btn-sm btn-outline-secondary">View All</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover mb-0">
+      <thead class="table-secondary text-dark">
+        <tr>
+          <th>Reference</th>
+          <th>Status</th>
+          <th>Shipper</th>
+          <th>Consignee</th>
+          <th>Origin</th>
+          <th>Destination</th>
+          <th>Driver</th>
+          <th>Vehicle</th>
+          <th>ETD</th>
+          <th>ETA</th>
+          <th>Rate</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in shipments[:10] %}
+        <tr>
+          <td><a href="/tms/shipments/{{ s.shipment_ref }}" class="text-info fw-bold">{{ s.shipment_ref }}</a></td>
+          <td>
+            {% set sc = {'Draft':'secondary','Active':'success','Booked':'primary','In Transit':'warning','Delivered':'info','Cancelled':'danger'} %}
+            <span class="badge bg-{{ sc.get(s.status,'secondary') }}">{{ s.status }}</span>
+          </td>
+          <td>{{ s.shipper_name or '-' }}</td>
+          <td>{{ s.consignee_name or '-' }}</td>
+          <td>{{ s.origin_port or '-' }}</td>
+          <td>{{ s.destination_port or '-' }}</td>
+          <td>{{ s.driver_name or '-' }}</td>
+          <td>{{ s.vehicle_truck_number or '-' }}</td>
+          <td>{{ s.etd or '-' }}</td>
+          <td>{{ s.eta or '-' }}</td>
+          <td>${{ "{:,.0f}".format(s.freight_rate or 0) }}</td>
+          <td><a href="/tms/shipments/{{ s.shipment_ref }}" class="btn btn-sm btn-outline-info">View</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="12" class="text-center text-muted py-4">No shipments yet. <a href="/tms/shipments/new">Create one</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

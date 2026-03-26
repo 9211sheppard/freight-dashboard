@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Contract Rates{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Contract Rates</h2>
+    <div class="text-muted small">Manage uploaded tariffs and auto-rating lanes for new shipments.</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/tms/rates/shop" class="btn btn-outline-warning"><i class="bi bi-search me-1"></i>Shop Rates</a>
+    <a href="/tms/shipments" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Shipments</a>
+    <a href="/tms/shipments/new" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New Shipment</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="mb-4">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} mb-2" role="alert">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+{% if form_error %}
+<div class="alert alert-danger" role="alert">{{ form_error }}</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-secondary text-center p-3 h-100">
+      <div class="fs-2 fw-bold text-info">{{ stats.total }}</div>
+      <div class="text-muted small">Total Contracts</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-secondary text-center p-3 h-100">
+      <div class="fs-2 fw-bold text-success">{{ stats.active }}</div>
+      <div class="text-muted small">Active Now</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-secondary text-center p-3 h-100">
+      <div class="fs-2 fw-bold text-primary">{{ stats.future }}</div>
+      <div class="text-muted small">Future</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-secondary text-center p-3 h-100">
+      <div class="fs-2 fw-bold text-secondary">{{ stats.expired }}</div>
+      <div class="text-muted small">Expired</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-4">
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-header"><i class="bi bi-upload me-2"></i>Upload Tariff CSV</div>
+      <div class="card-body">
+        <div class="small text-muted mb-3">
+          Required columns: <code>origin</code>, <code>destination</code>, <code>mode</code>, <code>rate_20ft</code>, <code>rate_40ft</code>,
+          <code>rate_40hc</code>, <code>currency</code>, <code>valid_from</code>, <code>valid_to</code>.
+        </div>
+        <form method="POST" action="/tms/rates/upload" enctype="multipart/form-data">
+          <div class="mb-3">
+            <input type="file" name="tariff_file" class="form-control bg-black text-white border-secondary" accept=".csv" required>
+          </div>
+          <button type="submit" class="btn btn-outline-info w-100">
+            <i class="bi bi-cloud-upload me-1"></i>Upload Tariff
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>
+          <i class="bi bi-pencil-square me-2"></i>
+          {% if form_mode == 'edit' %}Edit Contract{% else %}Add Contract{% endif %}
+        </span>
+        {% if form_mode == 'edit' %}
+        <a href="/tms/rates" class="btn btn-sm btn-outline-secondary">Clear</a>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <form method="POST" action="/tms/rates">
+          <input type="hidden" name="rate_id" value="{{ form_values.id }}">
+          <div class="mb-3">
+            <label class="form-label text-muted">Origin</label>
+            <input type="text" name="origin" value="{{ form_values.origin }}" class="form-control bg-black text-white border-secondary" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Destination</label>
+            <input type="text" name="destination" value="{{ form_values.destination }}" class="form-control bg-black text-white border-secondary" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Mode</label>
+            <input type="text" name="mode" value="{{ form_values.mode }}" class="form-control bg-black text-white border-secondary" placeholder="Ocean, Air, FTL, LTL" required>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-4">
+              <label class="form-label text-muted">20ft</label>
+              <input type="number" name="rate_20ft" value="{{ form_values.rate_20ft }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-4">
+              <label class="form-label text-muted">40ft</label>
+              <input type="number" name="rate_40ft" value="{{ form_values.rate_40ft }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-4">
+              <label class="form-label text-muted">40HC</label>
+              <input type="number" name="rate_40hc" value="{{ form_values.rate_40hc }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-4">
+              <label class="form-label text-muted">Currency</label>
+              <input type="text" name="currency" value="{{ form_values.currency }}" class="form-control bg-black text-white border-secondary" maxlength="3" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label text-muted">Valid From</label>
+              <input type="date" name="valid_from" value="{{ form_values.valid_from }}" class="form-control bg-black text-white border-secondary" required>
+            </div>
+            <div class="col-4">
+              <label class="form-label text-muted">Valid To</label>
+              <input type="date" name="valid_to" value="{{ form_values.valid_to }}" class="form-control bg-black text-white border-secondary" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-check-lg me-1"></i>{% if form_mode == 'edit' %}Update Contract{% else %}Save Contract{% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center gap-3 flex-wrap">
+        <span><i class="bi bi-table me-2"></i>Contracted Lanes</span>
+        <form method="GET" action="/tms/rates" class="d-flex gap-2">
+          <input type="text" name="q" value="{{ search_query }}" class="form-control bg-black text-white border-secondary" placeholder="Search lane or mode">
+          <button type="submit" class="btn btn-outline-secondary">Search</button>
+        </form>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0 align-middle">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Lane</th>
+              <th>Mode</th>
+              <th>20ft</th>
+              <th>40ft</th>
+              <th>40HC</th>
+              <th>Currency</th>
+              <th>Validity</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rate in rates %}
+            <tr{% if selected_rate and selected_rate.id == rate.id %} class="table-active"{% endif %}>
+              <td>
+                <div class="fw-bold">{{ rate.origin }}</div>
+                <div class="small text-muted">{{ rate.destination }}</div>
+              </td>
+              <td>{{ rate.mode }}</td>
+              <td>{{ "{:,.2f}".format(rate.rate_20ft) if rate.rate_20ft is not none else '-' }}</td>
+              <td>{{ "{:,.2f}".format(rate.rate_40ft) if rate.rate_40ft is not none else '-' }}</td>
+              <td>{{ "{:,.2f}".format(rate.rate_40hc) if rate.rate_40hc is not none else '-' }}</td>
+              <td>{{ rate.currency }}</td>
+              <td>
+                <div>{{ rate.valid_from }}</div>
+                <div class="small text-muted">to {{ rate.valid_to }}</div>
+              </td>
+              <td><span class="badge bg-{{ rate.status_class }}">{{ rate.status_label }}</span></td>
+              <td>
+                <div class="d-flex gap-2">
+                  <a href="/tms/rates?rate_id={{ rate.id }}" class="btn btn-sm btn-outline-info">Edit</a>
+                  <form method="POST" action="/tms/rates/{{ rate.id }}/delete" onsubmit="return confirm('Delete this contract rate?')">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="9" class="text-center text-muted py-4">No contract rates loaded yet.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

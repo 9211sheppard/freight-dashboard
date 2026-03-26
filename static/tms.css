@@ -1,0 +1,127 @@
+/* TMS CSS — overrides global dark-text for dark-background TMS pages */
+
+/* Force light text everywhere inside TMS */
+body .card-header,
+body .card-title,
+body .card-body,
+body .form-label,
+body .modal-title,
+body .modal-body,
+body .table,
+body .dropdown-item,
+body h1, body h2, body h3, body h4, body h5, body h6,
+body .fw-bold, body .fw-semibold,
+body p, body span, body div, body li, body td, body th {
+    color: inherit;
+}
+
+/* TMS wrapper — set baseline text color to light */
+.tms-page {
+    color: #e2e8f0;
+}
+
+.tms-page .card-header {
+    color: #f1f5f9 !important;
+    background-color: rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-weight: 600;
+}
+
+.tms-page .card-body {
+    color: #e2e8f0 !important;
+}
+
+.tms-page .form-label {
+    color: #94a3b8 !important;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.tms-page .text-muted {
+    color: #94a3b8 !important;
+}
+
+.tms-page h1, .tms-page h2, .tms-page h3,
+.tms-page h4, .tms-page h5, .tms-page h6 {
+    color: #f1f5f9 !important;
+}
+
+.tms-page .fw-bold, .tms-page .fw-semibold {
+    color: #f1f5f9 !important;
+}
+
+.tms-page p, .tms-page span:not(.badge) {
+    color: inherit;
+}
+
+.tms-page .table td, .tms-page .table th {
+    color: #e2e8f0 !important;
+}
+
+.tms-page .table thead th {
+    color: #1e293b !important; /* dark text on light thead */
+}
+
+.tms-page .table-dark td,
+.tms-page .table-dark th {
+    color: #e2e8f0 !important;
+}
+
+.tms-page .dropdown-item {
+    color: #e2e8f0 !important;
+}
+
+.tms-page .dropdown-item:hover {
+    background-color: rgba(255,255,255,0.1);
+    color: #fff !important;
+}
+
+.tms-page .modal-title {
+    color: #f1f5f9 !important;
+}
+
+.tms-page .modal-body {
+    color: #e2e8f0 !important;
+}
+
+.tms-page .nav-link {
+    color: #94a3b8 !important;
+}
+
+.tms-page .nav-link.active {
+    color: #fff !important;
+}
+
+.tms-page .list-group-item {
+    color: #e2e8f0 !important;
+}
+
+/* Input fields */
+.tms-page .form-control,
+.tms-page .form-select {
+    color: #f1f5f9 !important;
+}
+
+.tms-page .form-control::placeholder {
+    color: #475569 !important;
+}
+
+/* Small / secondary text */
+.tms-page small, .tms-page .small {
+    color: #94a3b8 !important;
+}
+
+/* Alert overrides */
+.tms-page .alert-success { color: #0f5132 !important; }
+.tms-page .alert-danger  { color: #842029 !important; }
+.tms-page .alert-warning { color: #664d03 !important; }
+.tms-page .alert-info    { color: #055160 !important; }
+
+/* Progress bar label */
+.tms-page .progress-label { color: #94a3b8 !important; }
+
+/* Stat numbers on KPI cards */
+.tms-page .fs-2, .tms-page .fs-3, .tms-page .fs-4, .tms-page .fs-5 {
+    color: inherit !important;
+}
