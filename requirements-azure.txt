@@ -1,0 +1,15 @@
+flask>=3.0.0
+bcrypt>=4.0.0
+dnspython>=2.4.0
+gunicorn>=21.2.0
+beautifulsoup4
+requests>=2.31.0
+psycopg2-binary>=2.9.0
+sentry-sdk[flask]>=1.40.0
+stripe>=7.0.0
+deep-translator>=1.11.0
+Pillow>=10.0.0
+pyotp>=2.9.0
+qrcode>=7.4.0
+cryptography>=41.0.0
+lxml>=4.9.0

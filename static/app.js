@@ -3,10 +3,13 @@
 
 // ── State ─────────────────────────────────────────────────────────────────
 const state = {
-  sort:    'company_name',
-  dir:     'asc',
-  network: '',
-  verify:  '',
+  sort:     'company_name',
+  dir:      'asc',
+  network:  '',
+  verify:   '',
+  page:     1,
+  perPage:  50,
+  totalPages: 1,
 };
 
 // ── DOM refs ──────────────────────────────────────────────────────────────
@@ -53,6 +56,8 @@ function buildParams() {
   if (filterPhone.checked)  p.set('has_phone', '1');
   p.set('sort', state.sort);
   p.set('dir',  state.dir);
+  p.set('page', state.page);
+  p.set('per_page', state.perPage);
   return p;
 }
 
@@ -157,11 +162,90 @@ function renderTable(data) {
   });
 
   const n = data.count;
-  resultCount.innerHTML = `<span class="fw-semibold">${n.toLocaleString()}</span> result${n !== 1 ? 's' : ''}`;
+  const showing = data.results.length;
+  const pageInfo = data.total_pages > 1
+    ? ` · page ${data.page} of ${data.total_pages}`
+    : '';
+  resultCount.innerHTML = `<span class="fw-semibold">${n.toLocaleString()}</span> result${n !== 1 ? 's' : ''}${pageInfo}`;
+
+  // Update pagination state
+  state.page = data.page;
+  state.totalPages = data.total_pages;
+  renderPagination();
+}
+
+// ── Pagination controls ──────────────────────────────────────────────────
+function renderPagination() {
+  let wrap = document.getElementById('paginationWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'paginationWrap';
+    wrap.className = 'd-flex justify-content-center align-items-center gap-2 mt-3 mb-2';
+    const tableCard = document.getElementById('resultsTable')?.closest('.card');
+    if (tableCard) tableCard.parentNode.insertBefore(wrap, tableCard.nextSibling);
+    else return;
+  }
+
+  if (state.totalPages <= 1) { wrap.innerHTML = ''; return; }
+
+  const p = state.page;
+  const tp = state.totalPages;
+  let btns = '';
+
+  btns += `<button class="btn btn-sm btn-outline-primary" ${p <= 1 ? 'disabled' : ''} data-pg="${p - 1}"><i class="bi bi-chevron-left"></i></button>`;
+
+  // Show up to 5 page buttons around current page
+  const start = Math.max(1, p - 2);
+  const end = Math.min(tp, p + 2);
+  if (start > 1) btns += `<button class="btn btn-sm btn-outline-secondary" data-pg="1">1</button>`;
+  if (start > 2) btns += `<span class="text-muted px-1">…</span>`;
+  for (let i = start; i <= end; i++) {
+    btns += `<button class="btn btn-sm ${i === p ? 'btn-primary' : 'btn-outline-secondary'}" data-pg="${i}">${i}</button>`;
+  }
+  if (end < tp - 1) btns += `<span class="text-muted px-1">…</span>`;
+  if (end < tp) btns += `<button class="btn btn-sm btn-outline-secondary" data-pg="${tp}">${tp}</button>`;
+
+  btns += `<button class="btn btn-sm btn-outline-primary" ${p >= tp ? 'disabled' : ''} data-pg="${p + 1}"><i class="bi bi-chevron-right"></i></button>`;
+
+  wrap.innerHTML = btns;
+  wrap.querySelectorAll('button[data-pg]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.page = parseInt(btn.dataset.pg, 10);
+      fetchResults();
+      // Scroll to top of table
+      document.getElementById('resultsTable')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+// ── Search prompt (no results loaded until user searches) ────────────────
+function hasActiveFilters() {
+  return searchCountry.value.trim() || searchCompany.value.trim() ||
+         searchName.value.trim() || state.network || state.verify ||
+         filterEmail.checked || filterPhone.checked;
+}
+
+function showSearchPrompt() {
+  resultsBody.innerHTML = `
+    <tr><td colspan="5">
+      <div class="empty-state">
+        <i class="bi bi-search"></i>
+        Start typing a country, company, or name to search contacts.
+      </div>
+    </td></tr>`;
+  resultCount.innerHTML = '<span class="text-muted">Search to see results</span>';
+  // Clear pagination
+  const wrap = document.getElementById('paginationWrap');
+  if (wrap) wrap.innerHTML = '';
 }
 
 // ── Fetch & display results ───────────────────────────────────────────────
 async function fetchResults() {
+  // Don't fetch if no filters are active — show prompt instead
+  if (!hasActiveFilters()) {
+    showSearchPrompt();
+    return;
+  }
   document.body.classList.add('loading');
   try {
     const res  = await fetch('/api/search?' + buildParams());
@@ -234,10 +318,12 @@ document.querySelectorAll('.sortable-col').forEach(th => {
 // ── Sort dropdowns ────────────────────────────────────────────────────────
 sortByEl.addEventListener('change', () => {
   state.sort = sortByEl.value;
+  state.page = 1;
   fetchResults();
 });
 sortDirEl.addEventListener('change', () => {
   state.dir = sortDirEl.value;
+  state.page = 1;
   fetchResults();
 });
 
@@ -247,6 +333,7 @@ document.querySelectorAll('#networkFilter button').forEach(btn => {
     document.querySelectorAll('#networkFilter button').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.network = btn.dataset.network;
+    state.page = 1;
     fetchResults();
   });
 });
@@ -257,6 +344,7 @@ document.querySelectorAll('#verifyFilter button').forEach(btn => {
     document.querySelectorAll('#verifyFilter button').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.verify = btn.dataset.verify;
+    state.page = 1;
     fetchResults();
   });
 });
@@ -279,11 +367,12 @@ async function fetchVerifyStats() {
 }
 
 // ── Search inputs (debounced) ─────────────────────────────────────────────
-searchCountry.addEventListener('input', () => debounce(fetchResults));
-searchCompany.addEventListener('input', () => debounce(fetchResults));
-searchName.addEventListener('input',    () => debounce(fetchResults));
-filterEmail.addEventListener('change', fetchResults);
-filterPhone.addEventListener('change', fetchResults);
+function resetPageAndFetch() { state.page = 1; fetchResults(); }
+searchCountry.addEventListener('input', () => debounce(resetPageAndFetch));
+searchCompany.addEventListener('input', () => debounce(resetPageAndFetch));
+searchName.addEventListener('input',    () => debounce(resetPageAndFetch));
+filterEmail.addEventListener('change', resetPageAndFetch);
+filterPhone.addEventListener('change', resetPageAndFetch);
 
 // ── Clear buttons ─────────────────────────────────────────────────────────
 clearCountry.addEventListener('click', () => {
@@ -310,6 +399,7 @@ clearAll.addEventListener('click', () => {
   state.dir            = 'asc';
   state.network        = '';
   state.verify         = '';
+  state.page           = 1;
   document.querySelectorAll('#networkFilter button').forEach((b, i) => {
     b.classList.toggle('active', i === 0);
   });
@@ -610,7 +700,7 @@ setInterval(fetchSyncStatus, 30_000);
 // ── Init ──────────────────────────────────────────────────────────────────
 loadEmailClients();
 fetchStats();
-fetchResults();
+showSearchPrompt();   // Don't load all 114k contacts — wait for a search
 fetchSyncStatus();
 fetchVerifyStats();
 setInterval(fetchVerifyStats, 60_000);  // refresh verify stats every minute

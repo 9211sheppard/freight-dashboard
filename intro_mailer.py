@@ -1,7 +1,7 @@
 """
-intro_mailer.py — First-contact intro email for freight agent outreach
+intro_mailer.py,First-contact intro email for freight agent outreach
 Primed for trust, personalized by country, one-click lane/carrier selection.
-Every email is psychologically unique — book techniques woven into every element.
+Every email is psychologically unique,book techniques woven into every element.
 """
 
 import json
@@ -78,32 +78,32 @@ _COUNTRY_SUBJECTS = {
     # ── Turkish ────────────────────────────────────────────────────────────
     "turkey": [
         "{greeting_name}, {_co} hakkında bir sorumuz var",
-        "{sender_first} for {greeting_name} | {_loc} navlun",
-        "{_co} — {_loc} kargo ortaklığı",
+        "{sender_first} for {greeting_name}, {_loc} navlun",
+        "{_co},{_loc} kargo ortaklığı",
         "{greeting_name}, {_loc} hatlarınız hakkında",
         "{sender_first}, {_co} ile çalışmak istiyoruz",
     ],
     # ── German ─────────────────────────────────────────────────────────────
     "germany": [
-        "{greeting_name}, Anfrage zu {_co} — Seefracht ab {_loc}",
-        "{sender_first} for {greeting_name} | Fracht ab {_loc}",
-        "{_co} — Partnerschaft für {_loc} Seefracht",
+        "{greeting_name}, Anfrage zu {_co},Seefracht ab {_loc}",
+        "{sender_first} for {greeting_name}, Fracht ab {_loc}",
+        "{_co},Partnerschaft für {_loc} Seefracht",
         "{greeting_name}, wir suchen einen Partner in {_loc}",
         "{sender_first} von Flash Cargo für {greeting_name} bei {_co}",
     ],
     # ── French ─────────────────────────────────────────────────────────────
     "france": [
         "{greeting_name}, question au sujet de {_co}",
-        "{sender_first} for {greeting_name} | fret depuis {_loc}",
-        "{_co} — partenariat fret depuis {_loc}",
+        "{sender_first} for {greeting_name}, fret depuis {_loc}",
+        "{_co},partenariat fret depuis {_loc}",
         "{greeting_name}, vos lignes au départ de {_loc}",
         "{sender_first} de Flash Cargo pour {greeting_name} chez {_co}",
     ],
     # ── Brazilian Portuguese ───────────────────────────────────────────────
     "brazil": [
         "{greeting_name}, pergunta sobre a {_co}",
-        "{sender_first} for {greeting_name} | frete de {_loc}",
-        "{_co} — parceria de carga desde {_loc}",
+        "{sender_first} for {greeting_name}, frete de {_loc}",
+        "{_co},parceria de carga desde {_loc}",
         "{greeting_name}, sobre suas rotas de {_loc}",
         "{sender_first} da Flash Cargo para {greeting_name} na {_co}",
     ],
@@ -111,14 +111,14 @@ _COUNTRY_SUBJECTS = {
     "japan": [
         "{greeting_name}様、{_co}について",
         "{sender_first} for {greeting_name}様 | {_loc}発の貨物",
-        "{_co} — {_loc}からの海上輸送パートナーシップ",
+        "{_co},{_loc}からの海上輸送パートナーシップ",
         "{greeting_name}様、{_loc}の輸送ルートについて",
     ],
     # ── Chinese (Simplified) ──────────────────────────────────────────────
     "china": [
         "{greeting_name}，关于{_co}的合作咨询",
-        "{sender_first} for {greeting_name} | {_loc}货运",
-        "{_co} — {_loc}货运合作",
+        "{sender_first} for {greeting_name}, {_loc}货运",
+        "{_co},{_loc}货运合作",
         "{greeting_name}，{_loc}航线咨询",
         "{sender_first}（Flash Cargo）致{greeting_name}（{_co}）",
     ],
@@ -126,102 +126,102 @@ _COUNTRY_SUBJECTS = {
     "south korea": [
         "{greeting_name}님, {_co} 관련 문의드립니다",
         "{sender_first} for {greeting_name}님 | {_loc} 화물",
-        "{_co} — {_loc} 해상 운송 파트너십",
+        "{_co},{_loc} 해상 운송 파트너십",
         "{greeting_name}님, {_loc} 노선에 대해",
     ],
     # ── Hindi ──────────────────────────────────────────────────────────────
     "india": [
         "{greeting_name}, {_co} के बारे में एक प्रश्न",
-        "{sender_first} for {greeting_name} | {_loc} माल ढुलाई",
-        "{_co} — {_loc} कार्गो साझेदारी",
+        "{sender_first} for {greeting_name}, {_loc} माल ढुलाई",
+        "{_co},{_loc} कार्गो साझेदारी",
         "{greeting_name}, {_loc} से आपके मार्गों के बारे में",
     ],
     # ── Spanish (Spain) ───────────────────────────────────────────────────
     "spain": [
         "{greeting_name}, consulta sobre {_co}",
-        "{sender_first} for {greeting_name} | carga desde {_loc}",
-        "{_co} — colaboración de carga desde {_loc}",
+        "{sender_first} for {greeting_name}, carga desde {_loc}",
+        "{_co},colaboración de carga desde {_loc}",
         "{greeting_name}, sobre sus rutas desde {_loc}",
         "{sender_first} de Flash Cargo para {greeting_name} en {_co}",
     ],
     # ── Italian ────────────────────────────────────────────────────────────
     "italy": [
         "{greeting_name}, domanda su {_co}",
-        "{sender_first} for {greeting_name} | trasporto da {_loc}",
-        "{_co} — collaborazione cargo da {_loc}",
+        "{sender_first} for {greeting_name}, trasporto da {_loc}",
+        "{_co},collaborazione cargo da {_loc}",
         "{greeting_name}, sulle vostre rotte da {_loc}",
         "{sender_first} di Flash Cargo per {greeting_name} presso {_co}",
     ],
     # ── Portuguese (Portugal) ─────────────────────────────────────────────
     "portugal": [
         "{greeting_name}, questão sobre a {_co}",
-        "{sender_first} for {greeting_name} | carga desde {_loc}",
-        "{_co} — parceria de carga desde {_loc}",
+        "{sender_first} for {greeting_name}, carga desde {_loc}",
+        "{_co},parceria de carga desde {_loc}",
         "{greeting_name}, sobre as vossas rotas de {_loc}",
         "{sender_first} da Flash Cargo para {greeting_name} na {_co}",
     ],
     # ── Russian ────────────────────────────────────────────────────────────
     "russia": [
         "{greeting_name}, вопрос о {_co}",
-        "{sender_first} for {greeting_name} | грузоперевозки из {_loc}",
-        "{_co} — партнёрство по грузам из {_loc}",
+        "{sender_first} for {greeting_name}, грузоперевозки из {_loc}",
+        "{_co},партнёрство по грузам из {_loc}",
         "{greeting_name}, о ваших маршрутах из {_loc}",
     ],
     # ── Mexican Spanish ───────────────────────────────────────────────────
     "mexico": [
         "{greeting_name}, consulta sobre {_co}",
-        "{sender_first} for {greeting_name} | carga desde {_loc}",
-        "{_co} — alianza de carga desde {_loc}",
+        "{sender_first} for {greeting_name}, carga desde {_loc}",
+        "{_co},alianza de carga desde {_loc}",
         "{greeting_name}, sobre sus rutas desde {_loc}",
         "{sender_first} de Flash Cargo para {greeting_name} en {_co}",
     ],
     # ── Colombian Spanish ─────────────────────────────────────────────────
     "colombia": [
         "{greeting_name}, consulta sobre {_co}",
-        "{sender_first} for {greeting_name} | carga desde {_loc}",
-        "{_co} — alianza de carga desde {_loc}",
+        "{sender_first} for {greeting_name}, carga desde {_loc}",
+        "{_co},alianza de carga desde {_loc}",
         "{greeting_name}, sobre sus rutas desde {_loc}",
     ],
     # ── Argentine Spanish ─────────────────────────────────────────────────
     "argentina": [
         "{greeting_name}, consulta sobre {_co}",
-        "{sender_first} for {greeting_name} | carga desde {_loc}",
-        "{_co} — alianza de carga desde {_loc}",
+        "{sender_first} for {greeting_name}, carga desde {_loc}",
+        "{_co},alianza de carga desde {_loc}",
         "{greeting_name}, sobre sus rutas desde {_loc}",
     ],
     # ── Chilean Spanish ───────────────────────────────────────────────────
     "chile": [
         "{greeting_name}, consulta sobre {_co}",
-        "{sender_first} for {greeting_name} | carga desde {_loc}",
-        "{_co} — alianza de carga desde {_loc}",
+        "{sender_first} for {greeting_name}, carga desde {_loc}",
+        "{_co},alianza de carga desde {_loc}",
         "{greeting_name}, sobre sus rutas desde {_loc}",
     ],
     # ── Peruvian Spanish ──────────────────────────────────────────────────
     "peru": [
         "{greeting_name}, consulta sobre {_co}",
-        "{sender_first} for {greeting_name} | carga desde {_loc}",
-        "{_co} — alianza de carga desde {_loc}",
+        "{sender_first} for {greeting_name}, carga desde {_loc}",
+        "{_co},alianza de carga desde {_loc}",
         "{greeting_name}, sobre sus rutas desde {_loc}",
     ],
-    # ── Arabic (Saudi Arabia) — RTL-safe subject ──────────────────────────
+    # ── Arabic (Saudi Arabia),RTL-safe subject ──────────────────────────
     "saudi arabia": [
         "{greeting_name}، استفسار عن {_co}",
-        "{sender_first} for {greeting_name} | شحن من {_loc}",
-        "{_co} — شراكة شحن من {_loc}",
+        "{sender_first} for {greeting_name}, شحن من {_loc}",
+        "{_co},شراكة شحن من {_loc}",
         "{greeting_name}، بخصوص خطوطكم من {_loc}",
     ],
     # ── Arabic (UAE) ──────────────────────────────────────────────────────
     "uae": [
         "{greeting_name}، استفسار عن {_co}",
-        "{sender_first} for {greeting_name} | شحن من {_loc}",
-        "{_co} — شراكة شحن من {_loc}",
+        "{sender_first} for {greeting_name}, شحن من {_loc}",
+        "{_co},شراكة شحن من {_loc}",
         "{greeting_name}، بخصوص خطوطكم من {_loc}",
     ],
     # ── Indonesian ─────────────────────────────────────────────────────────
     "indonesia": [
         "{greeting_name}, pertanyaan tentang {_co}",
-        "{sender_first} for {greeting_name} | kargo dari {_loc}",
-        "{_co} — kemitraan kargo dari {_loc}",
+        "{sender_first} for {greeting_name}, kargo dari {_loc}",
+        "{_co},kemitraan kargo dari {_loc}",
         "{greeting_name}, tentang rute Anda dari {_loc}",
         "{sender_first} dari Flash Cargo untuk {greeting_name} di {_co}",
     ],
@@ -272,7 +272,7 @@ def _dedupe_lane_labels(regions: list) -> list:
 
 
 def _mailto_btn(label: str, mailto_url: str, color: str = "#1a73e8") -> str:
-    """Styled button that opens a pre-filled reply — no browser, no popup."""
+    """Styled button that opens a pre-filled reply,no browser, no popup."""
     return (
         f'<a href="{mailto_url}" '
         f'style="display:inline-block;background:{color};color:#ffffff;'
@@ -289,16 +289,16 @@ def _generate_token() -> str:
 
 def build_intro_email(contact: dict, token: str = "") -> tuple:
     """
-    Build the intro email — numbered lanes, lettered carriers, human tone.
+    Build the intro email,numbered lanes, lettered carriers, human tone.
     Each email is UNIQUE: subject, opener, context, CTA, footer, and psych
     elements all vary per contact using a deterministic seed.
 
     INTRO-SAFE psych elements only (stage-enforced):
-    - Social proof (Influence — Cialdini)
+    - Social proof (Influence,Cialdini)
     - Make-it-easy language (Atomic Habits)
     - Make-them-important line (How to Win Friends)
     - Cultural motto (country trust signal)
-    - Opening hook (neutral/flattery only — no accusation audit)
+    - Opening hook (neutral/flattery only,no accusation audit)
     BANNED at intro stage: calibrated questions, labels, scarcity, win-win.
 
     Returns (subject, body_html).
@@ -369,20 +369,21 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
         _use_english_subject = True
 
     _SUBJECTS = [
-        f"{greeting_name}, {_loc} freight",
-        f"{_co}, quick question",
-        f"{greeting_name}, {_loc} lanes",
-        f"Freight from {_loc}",
-        f"{greeting_name} at {_co}",
-        f"{_loc} cargo, {_co}",
-        f"{greeting_name}, {_loc} agent?",
-        f"Re: {_co}",
+        f"Looking for partners in {country}",
+        f"Freight from {country}",
+        f"{country} cargo",
+        f"Quick question, {greeting_name}",
+        f"Ocean freight, {country}",
+        f"Partners in {country}",
+        f"Cargo from {country}",
+        f"{country} lanes",
     ]
     if _use_english_subject:
         subject = _rng.choice(_SUBJECTS)
 
     # ── Opener variations (short, direct, like a busy freight pro) ───
-    _city = city or country or "your area"
+    # Use country always — city can be a suburb nobody knows
+    _city = country or "your area"
     _co = company_name or "your company"
     _OPENERS = [
         f"{sender_first} here, Flash Cargo. We move containers through {_city} regularly and saw {_co} while sourcing a local partner.",
@@ -394,7 +395,7 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
         f"{sender_first} from Flash Cargo. We’ve been routing cargo through {_city} and want the right agent before our next shipment.",
         f"{sender_first}, Flash Cargo Global. Looking for an agent in {_city}. Your company stood out.",
         f"{sender_first} at Flash Cargo. We handle freight from {_city} to North America and need a local partner.",
-        f"Hey, {sender_first} from Flash Cargo. We move containers out of {_city} every week and came across {_co}.",
+        f"{sender_first} from Flash Cargo. We move containers out of {_city} every week and came across {_co}.",
     ]
 
     _CONTEXTS = [
@@ -476,10 +477,10 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
         _greeting_line = _greeting_tpl.format(name=greeting_name)
     else:
         _GREETINGS = [
-            f"{greeting_name} —",
-            f"Hey {greeting_name},",
             f"Hi {greeting_name},",
-            f"{greeting_name},",
+            f"Hi {greeting_name},",
+            f"Hi {greeting_name},",
+            f"Hi {greeting_name},",
         ]
         _greeting_line = _rng.choice(_GREETINGS)
 
@@ -545,6 +546,7 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
 
     elif _structure == 2:
         body_html = f"""
+<p style="{_p}">{_greeting_line}</p>
 <p style="{_p}">{opener_html}</p>
 <p style="{_p}">{context_html}</p>
 <p style="{_p}">{cta_html}</p>
@@ -561,6 +563,29 @@ def build_intro_email(contact: dict, token: str = "") -> tuple:
 {cta_block}
 <p style="{_ps}">{context_html}</p>
 {footer_block}"""
+
+    # ── Pre-send sanity check ─────────────────────────────────────────
+    _bad = False
+    # 1. Subject under 50 chars
+    if len(subject) > 50:
+        subject = _rng.choice([f"Freight from {country}", f"Partners in {country}", f"Quick question, {greeting_name}", f"{country} cargo"])
+    # 2. No pipes, arrows, em-dashes in subject
+    for ch in ["|", "→", "—", "–"]:
+        if ch in subject:
+            subject = subject.replace(ch, ",")
+    # 3. Body must start with "Hi " or local greeting
+    import re as _re
+    _body_text = _re.sub(r'<[^>]+>', '', body_html).strip()
+    _first_word = _body_text[:20].strip()
+    _ok_starts = ["Hi ", "Hey ", "Hello ", "Halo ", "Bonjour ", "Merhaba ", "Hallo ",
+                   "Olá ", "नमस्ते", "こんにちは", "您好", "Привет", "Estimado", "Gentile",
+                   "Уважаем", "مرحبا", "Hola "]
+    _has_greeting = any(_first_word.startswith(g) for g in _ok_starts) or "님" in _first_word[:30] or "様" in _first_word[:30]
+    if not _has_greeting:
+        # Prepend greeting
+        body_html = f'<p style="{_p}">Hi {greeting_name},</p>\n' + body_html
+    # 4. No tone mixing — remove "Hey" from body if greeting is "Hi"
+    # (handled by making all greetings "Hi" in the pool above)
 
     return subject, body_html
 

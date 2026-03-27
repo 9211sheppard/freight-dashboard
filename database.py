@@ -298,6 +298,22 @@ def init_db():
         if col not in existing:
             conn.execute(f"ALTER TABLE contacts ADD COLUMN {col} {definition}")
 
+    # ── Indexes for fast search & filtering ─────────────────────────────────
+    indexes = [
+        ("idx_contacts_country",         "contacts(country)"),
+        ("idx_contacts_company_name",    "contacts(company_name)"),
+        ("idx_contacts_contact_name",    "contacts(contact_name)"),
+        ("idx_contacts_network",         "contacts(network)"),
+        ("idx_contacts_verified_status", "contacts(verified_status)"),
+        ("idx_contacts_email",           "contacts(email)"),
+        ("idx_contacts_tenant",          "contacts(tenant_id)"),
+    ]
+    for idx_name, idx_def in indexes:
+        try:
+            conn.execute(f"CREATE INDEX IF NOT EXISTS {idx_name} ON {idx_def}")
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 

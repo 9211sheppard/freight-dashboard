@@ -73,7 +73,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 let _all = [], _filter = 'all';
 
 function statusBadge(row) {
@@ -170,11 +170,22 @@ function pollInbox() {
 }
 
 function load() {
-  fetch('/api/outreach/replies').then(r => r.json()).then(data => {
-    _all = data;
-    renderTable();
-    loadStats();
-  });
+  fetch('/api/outreach/replies')
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      if (!Array.isArray(data)) { _all = []; }
+      else { _all = data; }
+      renderTable();
+      loadStats();
+    })
+    .catch(err => {
+      console.error('Outreach load error:', err);
+      document.getElementById('outreachBody').innerHTML =
+        '<tr><td colspan="7" class="text-center text-danger py-4">Failed to load outreach data. Please refresh or log in again.</td></tr>';
+    });
 }
 
 load();

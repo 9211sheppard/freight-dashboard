@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}MFA Required — Freight Intelligence Dashboard{% endblock %}
+
+{% block navbar %}{% endblock %}
+
+{% block content %}
+<div class="login-wrapper d-flex align-items-center justify-content-center min-vh-100">
+  <div class="login-card card shadow-sm p-4" style="max-width:480px;">
+    <div class="text-center mb-4">
+      <div class="login-icon mb-3">
+        <i class="bi bi-shield-exclamation" style="font-size:2.5rem;color:#dc3545;"></i>
+      </div>
+      <h4 class="fw-bold mb-2">Two-Factor Authentication Required</h4>
+      <p class="text-muted small">Your administrator requires all users to set up MFA before accessing the dashboard.</p>
+    </div>
+
+    <div class="alert alert-warning py-2 mb-3">
+      <i class="bi bi-info-circle me-1"></i>
+      You'll need an authenticator app like Google Authenticator, Authy, or Microsoft Authenticator.
+    </div>
+
+    <div id="mfaSetupArea">
+      <button id="startMfaSetup" class="btn btn-primary w-100 fw-semibold mb-3" onclick="startSetup()">
+        <i class="bi bi-qr-code me-1"></i> Set Up MFA Now
+      </button>
+    </div>
+
+    <div id="mfaQrArea" class="d-none text-center">
+      <p class="small text-muted mb-2">Scan this QR code with your authenticator app:</p>
+      <div id="qrCode" class="mb-3"></div>
+      <p class="small text-muted mb-2">Or enter this code manually:</p>
+      <code id="mfaSecret" class="d-block bg-dark text-white p-2 rounded mb-3" style="font-size:0.9rem;letter-spacing:2px;"></code>
+
+      <div class="mb-3">
+        <label class="form-label fw-medium">Enter the 6-digit code from your app:</label>
+        <input type="text" id="verifyCode" class="form-control text-center fs-4"
+               maxlength="8" inputmode="numeric" pattern="[0-9 ]*" placeholder="000 000">
+      </div>
+      <button id="verifyBtn" class="btn btn-success w-100 fw-semibold" onclick="verifyCode()">
+        <i class="bi bi-check-circle me-1"></i> Verify & Enable MFA
+      </button>
+      <div id="mfaMsg" class="mt-2 small"></div>
+
+      <div id="backupCodesArea" class="d-none mt-3">
+        <div class="alert alert-info">
+          <strong>Backup Codes</strong> — save these somewhere safe. Each can be used once if you lose your authenticator.
+        </div>
+        <div id="backupCodes" class="bg-dark text-white p-3 rounded mb-3" style="font-family:monospace;"></div>
+        <a href="/dashboard" class="btn btn-primary w-100">
+          <i class="bi bi-arrow-right-circle me-1"></i> Continue to Dashboard
+        </a>
+      </div>
+    </div>
+
+    <hr class="my-3">
+    <p class="text-center text-muted small mb-0">
+      <a href="/logout" class="text-muted">Log out</a>
+    </p>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+function startSetup() {
+  document.getElementById('startMfaSetup').disabled = true;
+  document.getElementById('startMfaSetup').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Loading...';
+  fetch('/api/auth/mfa/setup')
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        document.getElementById('mfaSetupArea').classList.add('d-none');
+        document.getElementById('mfaQrArea').classList.remove('d-none');
+        document.getElementById('qrCode').innerHTML = '<img src="' + data.qr_code + '" alt="QR Code" style="width:200px;height:200px;">';
+        document.getElementById('mfaSecret').textContent = data.secret;
+        window._backupCodes = data.backup_codes;
+      } else {
+        document.getElementById('mfaMsg').innerHTML = '<span class="text-danger">' + (data.error || 'Setup failed.') + '</span>';
+        document.getElementById('startMfaSetup').disabled = false;
+        document.getElementById('startMfaSetup').innerHTML = '<i class="bi bi-qr-code me-1"></i> Set Up MFA Now';
+      }
+    });
+}
+
+function verifyCode() {
+  var code = document.getElementById('verifyCode').value.trim();
+  if (!code) return;
+  document.getElementById('verifyBtn').disabled = true;
+  fetch('/api/auth/mfa/enable', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({code: code})
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        document.getElementById('verifyBtn').classList.add('d-none');
+        document.getElementById('verifyCode').classList.add('d-none');
+        document.getElementById('mfaMsg').innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>MFA enabled successfully!</span>';
+        document.getElementById('backupCodesArea').classList.remove('d-none');
+        if (window._backupCodes) {
+          document.getElementById('backupCodes').textContent = window._backupCodes.join('\n');
+        }
+      } else {
+        document.getElementById('mfaMsg').innerHTML = '<span class="text-danger">' + (data.error || 'Invalid code.') + '</span>';
+        document.getElementById('verifyBtn').disabled = false;
+      }
+    });
+}
+</script>
+{% endblock %}
