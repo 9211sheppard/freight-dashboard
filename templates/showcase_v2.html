@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Freight Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/static/showcase_v2.css">
 </head>
@@ -376,17 +379,24 @@ document.querySelectorAll('button,.glass-card,.comp-item,.pledge-btn,a').forEach
 });
 
 // ── Loading Screen ──
+// Loader — auto-dismiss after 2.5s no matter what
 const loaderSteps = ['Initializing','Loading assets','Building interface','Rendering data','Ready'];
 let step = 0;
-const loaderInterval = setInterval(() => {
-  step++;
-  document.getElementById('loaderFill').style.width = (step/loaderSteps.length*100)+'%';
-  document.getElementById('loaderText').textContent = loaderSteps[Math.min(step,loaderSteps.length-1)];
-  if(step >= loaderSteps.length) {
-    clearInterval(loaderInterval);
-    setTimeout(() => document.getElementById('loader').classList.add('done'), 300);
-  }
-}, 400);
+try {
+  const loaderInterval = setInterval(() => {
+    step++;
+    const fill = document.getElementById('loaderFill');
+    const text = document.getElementById('loaderText');
+    if(fill) fill.style.width = (step/loaderSteps.length*100)+'%';
+    if(text) text.textContent = loaderSteps[Math.min(step,loaderSteps.length-1)];
+    if(step >= loaderSteps.length) {
+      clearInterval(loaderInterval);
+      setTimeout(() => { const l=document.getElementById('loader'); if(l) l.classList.add('done'); }, 300);
+    }
+  }, 400);
+} catch(e) {}
+// Failsafe — always dismiss loader
+setTimeout(() => { const l=document.getElementById('loader'); if(l) l.classList.add('done'); }, 2500);
 
 // ── Scroll Reveal ──
 const observer = new IntersectionObserver((entries) => {
