@@ -178,20 +178,12 @@
     </div>
 
     <div class="reveal reveal-delay-3" style="margin-top:48px;">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;letter-spacing:3px;color:var(--gold);margin-bottom:16px;">AGENT NETWORKS DISRUPTED</div>
-      <p style="color:var(--text-dim);font-size:0.9rem;margin-bottom:16px;">Each network charges $500–$6,000/yr for a walled-garden directory. A forwarder in 3–5 networks spends $15,000–$55,000/yr + conference travel.</p>
-      <div class="comp-wall">
-        <div class="net-item"><span>WCA World</span><span class="members">12,500 offices</span><span class="fee">$2,000–$5,000/yr</span></div>
-        <div class="net-item"><span>Pangea / Conqueror</span><span class="members">245 cities</span><span class="fee">$1,500–$3,000/yr</span></div>
-        <div class="net-item"><span>The Cooperative</span><span class="members">375 members</span><span class="fee">$1,580/city/yr</span></div>
-        <div class="net-item"><span>PCN</span><span class="members">350 companies</span><span class="fee">$1,400/yr</span></div>
-        <div class="net-item"><span>DF Alliance (DP World)</span><span class="members">8,000 members</span><span class="fee">$3,588/yr</span></div>
-        <div class="net-item"><span>JCTrans</span><span class="members">420,000 users</span><span class="fee">$1,000–$3,000/yr</span></div>
-        <div class="net-item"><span>Globalia</span><span class="members">210 members</span><span class="fee">~$500+/yr</span></div>
-        <div class="net-item"><span>X2 Logistics</span><span class="members">1,000+ members</span><span class="fee">Varies</span></div>
-        <div class="net-item"><span>Atlas Network</span><span class="members">220 offices</span><span class="fee">Not public</span></div>
-        <div class="net-item"><span>UFO</span><span class="members">121 members</span><span class="fee">Not public</span></div>
-        <div class="comp-item us" style="margin-top:8px;"><div><div class="name">Our platform replaces all of these</div></div><div class="price">$49.99/mo</div></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;letter-spacing:3px;color:var(--gold);margin-bottom:16px;">THE BIGGER VISION</div>
+      <div class="glass-card" style="border-color:rgba(240,192,64,0.2);">
+        <h3 style="color:var(--gold);margin-bottom:12px;">One Platform. Everyone Connected.</h3>
+        <p style="color:var(--text-dim);line-height:1.7;margin-bottom:16px;">Today, freight forwarders pay $500–$6,000/yr each to join walled-garden networks just to find partners. They join 3–5 networks, attend conferences, and still can't see the full picture.</p>
+        <p style="color:var(--text);line-height:1.7;margin-bottom:16px;">Our platform eliminates the walls. Every forwarder on one platform. Direct connections. No memberships. No gatekeepers. The network IS the platform.</p>
+        <p style="color:var(--text-dim);line-height:1.7;margin:0;">At 10,000 users — it's the largest open freight network in the world. At 100,000 users — it's the industry standard. Think LinkedIn for freight. Everyone's here. Why go anywhere else?</p>
       </div>
     </div>
   </div>
@@ -287,7 +279,7 @@
     </div>
     <div class="reveal reveal-delay-2">
       <div class="score-display-v2" id="scoreDisp">5</div>
-      <input type="range" class="score-slider-v2" id="scoreSlider" min="1" max="10" value="5" oninput="updateScore(this.value)">
+      <input type="range" class="score-slider-v2" id="scoreSlider" min="1" max="10" value="5">
       <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-muted);margin-top:8px;">
         <span>1 — Not viable</span><span>10 — This is a winner</span>
       </div>
@@ -298,18 +290,18 @@
     <div class="reveal reveal-delay-4" style="margin-top:24px;">
       <div style="font-size:0.85rem;color:var(--text-dim);margin-bottom:12px;">If this were crowdfunded, how much would you pledge?</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-        <button class="pledge-btn" onclick="setPledge(100,this)">$100</button>
-        <button class="pledge-btn" onclick="setPledge(500,this)">$500</button>
-        <button class="pledge-btn" onclick="setPledge(1000,this)">$1K</button>
-        <button class="pledge-btn" onclick="setPledge(5000,this)">$5K</button>
-        <button class="pledge-btn" onclick="setPledge(10000,this)">$10K</button>
-        <button class="pledge-btn" onclick="setPledge(25000,this)">$25K</button>
-        <button class="pledge-btn" onclick="setPledge(50000,this)">$50K</button>
+        <button class="pledge-btn" data-pledge="100">$100</button>
+        <button class="pledge-btn" data-pledge="500">$500</button>
+        <button class="pledge-btn" data-pledge="1000">$1K</button>
+        <button class="pledge-btn" data-pledge="5000">$5K</button>
+        <button class="pledge-btn" data-pledge="10000">$10K</button>
+        <button class="pledge-btn" data-pledge="25000">$25K</button>
+        <button class="pledge-btn" data-pledge="50000">$50K</button>
       </div>
       <input type="number" id="pledgeCustom" placeholder="Custom amount" style="margin-top:12px;width:200px;background:var(--glass);border:1px solid var(--glass-border);border-radius:8px;color:var(--text);padding:10px;font-family:'JetBrains Mono',monospace;text-align:center;outline:none;">
     </div>
     <div class="reveal reveal-delay-5" style="margin-top:32px;">
-      <button onclick="submitShowcase()" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;padding:16px 48px;border-radius:12px;font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:600;cursor:pointer;transition:all 0.3s;box-shadow:0 0 30px rgba(0,212,255,0.3);">
+      <button data-action="submit" style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;padding:16px 48px;border-radius:12px;font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:600;cursor:pointer;transition:all 0.3s;box-shadow:0 0 30px rgba(0,212,255,0.3);">
         Submit
       </button>
     </div>
@@ -325,7 +317,7 @@
     <h2 class="sc-headline">Thank you.</h2>
     <p class="sc-sub" style="margin:0 auto;">Your perspective matters. We're building something that could change how 100,000+ companies operate.</p>
     <div style="margin-top:32px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
-      <button onclick="copyLink()" class="pledge-btn" style="padding:12px 24px;"><i class="bi bi-link-45deg" style="margin-right:6px;"></i>Copy Link to Share</button>
+      <button data-action="copy" class="pledge-btn" style="padding:12px 24px;"><i class="bi bi-link-45deg" style="margin-right:6px;"></i>Copy Link to Share</button>
     </div>
   </div>
 </section>
@@ -484,6 +476,19 @@ document.addEventListener('touchend', e => {
 const style = document.createElement('style');
 style.textContent = '@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(8px)}}';
 document.head.appendChild(style);
+
+// ── Wire up event listeners (CSP-safe, no inline handlers) ──
+document.getElementById('scoreSlider').addEventListener('input', function() { updateScore(this.value); });
+document.querySelectorAll('.pledge-btn[data-pledge]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const amt = parseInt(this.dataset.pledge);
+    if(amt) setPledge(amt, this);
+  });
+});
+const submitBtn = document.querySelector('[data-action="submit"]');
+if(submitBtn) submitBtn.addEventListener('click', submitShowcase);
+const copyBtn = document.querySelector('[data-action="copy"]');
+if(copyBtn) copyBtn.addEventListener('click', copyLink);
 
 // ── Expiry countdown ──
 {% if token_info %}
