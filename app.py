@@ -886,11 +886,11 @@ def _set_security_headers(response):
     response.headers['Content-Security-Policy'] = (
         "default-src 'self'; "
         f"script-src 'self' 'nonce-{nonce}' https://js.stripe.com https://cdn.jsdelivr.net{hcaptcha_src}; "
-        f"style-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net{hcaptcha_src}; "
+        f"style-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net https://fonts.googleapis.com{hcaptcha_src}; "
         "img-src 'self' data: https:; "
         f"frame-src https://js.stripe.com{hcaptcha_src}; "
         f"connect-src 'self' https://api.stripe.com{hcaptcha_src}; "
-        "font-src 'self' https://cdn.jsdelivr.net"
+        "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com"
     )
     return response
 
