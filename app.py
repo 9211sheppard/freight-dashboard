@@ -463,10 +463,10 @@ def review_page():
 @app.route("/showcase")
 def showcase_page():
     if session.get("user_role") == "admin":
-        return render_template("showcase.html", token_info=None)
+        return render_template("showcase_v2.html", token_info=None)
     token_info = _check_temp_token("showcase")
     if token_info:
-        return render_template("showcase.html", token_info=token_info)
+        return render_template("showcase_v2.html", token_info=token_info)
     return redirect(url_for("index"))
 
 
