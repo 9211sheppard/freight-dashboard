@@ -1,0 +1,6 @@
+.env
+__pycache__/
+data/
+tms.db
+tests/
+*.pyc

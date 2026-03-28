@@ -1,10 +1,11 @@
 """
-app.py  —  WFA Contacts Dashboard
+app.py  —  Freight Intelligence Dashboard
 Run with:  python app.py
 Then open: http://127.0.0.1:5000
 """
 
 import csv
+import hashlib
 import io
 import os
 import re
@@ -13,8 +14,20 @@ import sys
 import webbrowser
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
+
+# ── Sentry error tracking (production only) ──────────────────────────────────
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+        sentry_sdk.init(dsn=SENTRY_DSN, integrations=[FlaskIntegration()],
+                        traces_sample_rate=0.1, send_default_pii=False)
+        print("[sentry] Error tracking enabled.")
+    except ImportError:
+        print("[sentry] sentry-sdk not installed — skipping.")
 
 from flask import (
     Flask, render_template, request, redirect,
@@ -25,13 +38,27 @@ import urllib.request
 import urllib.parse
 import json as _json
 
-from config import SECRET_KEY, PASSWORD, DB_PATH, CSV_SOURCES, DATA_DIR
-from config import FMCSA_KEY, EMAIL_USER
-from database import init_db, get_db, init_lanes_db, init_carriers_db, init_rates_db, init_users_db
+from config import (
+    SECRET_KEY, PASSWORD, DB_PATH, CSV_SOURCES, DATA_DIR,
+    API_RATE_LIMIT, LOGIN_RATE_LIMIT, MAX_UPLOAD_SIZE_MB,
+    SESSION_LIFETIME_HOURS,
+)
+from carrier_api import ORIGIN_PORTS, DEST_PORTS, has_any_api_keys_configured
+from schedule_sync_api import ensure_schedule_schema, start_background_sync
+import mailer as _mailer
+from database import init_db, get_db, init_lanes_db, init_rates_db, init_users_db, init_contact_intelligence_db, init_email_outreach_db
+from email_inspectors import init_inspection_log_db
+from predictive_eta import init_predictive_db, enrich_schedules_with_predictions
+from reliability import init_reliability_db, enrich_schedules_with_reliability, get_carrier_leaderboard, get_lane_leaderboard, compute_reliability_scores
+from record_arrivals import mark_arrived
+import contact_engine as _ce
 from import_csv import import_all_csvs, import_csv
 import rate_engine
 import rate_engine_v2
 import auth as _auth
+import quotes as _quotes
+import helpbot as _helpbot
+from permissions import feature_required
 
 if getattr(sys, 'frozen', False):
     # When running as a PyInstaller .exe, templates and static files
@@ -44,8 +71,87 @@ else:
     app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0   # disable static file caching
+app.config['TEMPLATES_AUTO_RELOAD'] = True    # always reload templates from disk
+app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=SESSION_LIFETIME_HOURS)
+if not app.debug:
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_NAME'] = '__Host-session'
+ensure_schedule_schema()
+_get_tms_tracking_context = None
+
+# ── TMS Blueprint ─────────────────────────────────────────────────────────────
+try:
+    from tms import portal as portal_blueprint, public as public_blueprint, tms as tms_blueprint
+    from tms.tms_db import get_tracking_page_context, init_tms_db
+    init_tms_db()
+    _get_tms_tracking_context = get_tracking_page_context
+    app.register_blueprint(tms_blueprint)
+    app.register_blueprint(portal_blueprint)
+    app.register_blueprint(public_blueprint)
+    print("[TMS] Loaded OK — available at /tms and /portal/login")
+except Exception as _tms_err:
+    print(f"[TMS] Failed to load: {_tms_err}")
+
+# ── Microservices Gateway ─────────────────────────────────────────────────────
+# Register all 12 microservice blueprints.
+# In monolith mode (current), they run as blueprints under this single Flask app.
+# Each service wraps its own business logic, models, and inter-service client.
+# To split into independent services later, each can be deployed separately.
+try:
+    from gateway import register_all_services
+    register_all_services(app)
+    print("[microservices] All 12 services registered successfully:")
+    print("  1. Auth & Permissions    7. Documents & OCR")
+    print("  2. Contact Engine        8. Billing & Invoicing")
+    print("  3. Email & Mailer        9. Compliance & Audit")
+    print("  4. Rate Engine          10. Scrapers & Data Sync")
+    print("  5. TMS Core             11. AI & Support")
+    print("  6. Carrier & Fleet      12. Admin & Monitoring")
+except Exception as _svc_err:
+    print(f"[microservices] Gateway registration failed: {_svc_err}")
 
 STARTUP_TIME = str(int(time.time()))          # changes on every restart → cache-busting
+
+# ── Theme system ───────────────────────────────────────────────────────────
+# Set DASHBOARD_THEME=stripe to use the Stripe-inspired light theme.
+# Default is "classic" (the original dark theme).
+DASHBOARD_THEME = os.environ.get("DASHBOARD_THEME", "stripe")
+
+def _t(template_name):
+    """Resolve template path based on active theme.
+    If theme is 'stripe' and a stripe/ version exists, use it.
+    Otherwise fall back to the original template."""
+    if DASHBOARD_THEME == "stripe":
+        stripe_path = f"stripe/{template_name}"
+        try:
+            app.jinja_env.get_template(stripe_path)
+            return stripe_path
+        except Exception:
+            pass
+    return template_name
+
+@app.context_processor
+def inject_startup_time():
+    return {"sv": STARTUP_TIME}
+
+
+@app.route("/track/<ref>")
+def public_tracking(ref):
+    if _get_tms_tracking_context is None:
+        return render_template(
+            "error.html",
+            code=503,
+            message="Shipment tracking is temporarily unavailable.",
+        ), 503
+
+    context = _get_tms_tracking_context(ref)
+    if not context:
+        return render_template("tms/tracking.html", shipment=None, ref=ref), 404
+
+    return render_template("tms/tracking.html", **context)
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  CSV auto-sync state  (shared between watcher thread + request handlers)
@@ -113,81 +219,1198 @@ def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get("logged_in"):
-            return redirect(url_for("login"))
+            # Auto-login for local dev — skip password prompt entirely
+            from config import AUTO_LOGIN
+            if AUTO_LOGIN:
+                _auto_login_dev()
+            else:
+                return redirect(url_for("login"))
         return f(*args, **kwargs)
     return decorated
+
+
+def _auto_login_dev():
+    """Auto-login as admin for local development. Never runs in production."""
+    conn = get_db()
+    try:
+        admin = conn.execute("SELECT id, email, name, role, tenant_id FROM users WHERE role = 'admin' LIMIT 1").fetchone()
+        if admin:
+            session["logged_in"] = True
+            session["user_id"] = admin["id"]
+            session["user_email"] = admin["email"]
+            session["user_name"] = admin["name"]
+            session["user_role"] = admin["role"]
+            session["tenant_id"] = admin["tenant_id"]
+            session["_created_at"] = datetime.now().isoformat()
+            session.permanent = True
+    finally:
+        conn.close()
 
 
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get("logged_in"):
-            return redirect(url_for("login"))
+            from config import AUTO_LOGIN
+            if AUTO_LOGIN:
+                _auto_login_dev()
+            else:
+                return redirect(url_for("login"))
         if session.get("user_role") != "admin":
             return jsonify({"ok": False, "error": "Admin access required."}), 403
         return f(*args, **kwargs)
     return decorated
 
 
+def _get_onboarding_status(user_id):
+    """Return onboarding completion state for a logged-in user."""
+    if not user_id:
+        return {"completed": True, "step": None}
+
+    conn = get_db()
+    try:
+        row = conn.execute(
+            """SELECT COALESCE(onboarding_completed, 0) AS onboarding_completed,
+                      onboarding_step
+               FROM users
+               WHERE id = ?""",
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        return {"completed": True, "step": None}
+
+    return {
+        "completed": bool(row["onboarding_completed"]),
+        "step": row["onboarding_step"],
+    }
+
+
+def _post_login_redirect(user_id):
+    """Send new users to onboarding before the dashboard."""
+    status = _get_onboarding_status(user_id)
+    if not status["completed"]:
+        return redirect(url_for("onboarding_page"))
+    return redirect(url_for("dashboard"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Theme Toggle API
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/theme", methods=["POST"])
+@login_required
+def api_set_theme():
+    """Toggle between 'stripe' and 'classic' themes."""
+    global DASHBOARD_THEME
+    data = request.get_json() or {}
+    theme = data.get("theme", "")
+    if theme not in ("stripe", "classic"):
+        return jsonify({"ok": False, "error": "Theme must be 'stripe' or 'classic'"}), 400
+    DASHBOARD_THEME = theme
+    return jsonify({"ok": True, "theme": DASHBOARD_THEME})
+
+
+@app.route("/api/theme")
+@login_required
+def api_get_theme():
+    return jsonify({"theme": DASHBOARD_THEME})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Health Check (Railway / load balancer)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/health")
+def health_endpoint():
+    from health import full_health_check
+    result = full_health_check()
+    code = 200 if result["status"] in ("healthy", "degraded") else 503
+    return jsonify(result), code
+
+
+@app.route("/status")
+def status_page():
+    """Public status page — no login required."""
+    import datetime as _dt
+    from health import full_health_check
+    health = full_health_check()
+    return render_template("status.html", health=health, now=_dt.datetime.utcnow())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Admin Panel (admin only — internal team and customers never see this)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/admin")
+@admin_required
+def admin_panel_page():
+    import admin_panel as _ap
+    metrics = _ap.get_saas_metrics()
+    tenants = _ap.list_tenants()
+    users = _ap.get_all_users()
+    spin_stats = _ap.get_spin_stats()
+    referral_stats = _ap.get_referral_stats()
+    ticket_stats = _ap.get_ticket_overview()
+    health = _ap.run_health_check()
+    # Pitch scores
+    conn = get_db()
+    try:
+        pitch_scores = [dict(r) for r in conn.execute(
+            "SELECT * FROM pitch_scores ORDER BY created_at DESC"
+        ).fetchall()]
+    except Exception:
+        pitch_scores = []
+    finally:
+        conn.close()
+    return render_template(_t("admin.html"),
+                           metrics=metrics, tenants=tenants, users=users,
+                           spin_stats=spin_stats, referral_stats=referral_stats,
+                           ticket_stats=ticket_stats, health=health,
+                           pitch_scores=pitch_scores,
+                           sv=STARTUP_TIME)
+
+
+@app.route("/api/admin/spin-stats")
+@admin_required
+def api_spin_stats():
+    import admin_panel as _ap
+    return jsonify(_ap.get_spin_stats())
+
+
+@app.route("/api/admin/referral-stats")
+@admin_required
+def api_referral_stats():
+    import admin_panel as _ap
+    return jsonify(_ap.get_referral_stats())
+
+
+# ── Spin-to-Win API (used during registration) ───────────────────────────────
+
+@app.route("/api/spin", methods=["POST"])
+@login_required
+def api_spin_wheel():
+    import admin_panel as _ap
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    prize = _ap.spin_the_wheel()
+    _ap.record_spin(tenant_id, user_id, prize)
+    return jsonify({"ok": True, "prize": prize})
+
+
+# ── Referral API ──────────────────────────────────────────────────────────────
+
+@app.route("/api/referral/code", methods=["POST"])
+@login_required
+def api_get_referral_code():
+    import admin_panel as _ap
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    result = _ap.create_referral_code(tenant_id, user_id)
+    return jsonify(result)
+
+
+@app.route("/api/referral/validate")
+def api_validate_referral():
+    import admin_panel as _ap
+    code = request.args.get("code", "")
+    result = _ap.validate_referral_code(code)
+    return jsonify(result)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Investor & Technical Review Pages (token-gated — admin generates temp links)
+# ─────────────────────────────────────────────────────────────────────────────
+
+import secrets as _secrets
+
+# In-memory temp link store: {token: {"page": str, "expires": datetime, "uses": int, "max_uses": int}}
+_temp_links = {}
+
+
+@app.route("/api/admin/temp-link", methods=["POST"])
+@admin_required
+def api_create_temp_link():
+    """Admin creates a temporary access link for pitch/invest/review."""
+    data = request.get_json() or {}
+    page = data.get("page", "pitch")
+    if page not in ("pitch", "invest", "review", "showcase"):
+        return jsonify({"ok": False, "error": "Page must be pitch, invest, or review"}), 400
+    hours = data.get("hours", 24)
+    max_uses = data.get("max_uses", 3)
+    token = _secrets.token_urlsafe(32)
+    _temp_links[token] = {
+        "page": page,
+        "expires": datetime.now() + timedelta(hours=hours),
+        "uses": 0,
+        "max_uses": max_uses,
+    }
+    base = request.host_url.rstrip("/")
+    return jsonify({"ok": True, "url": f"{base}/{page}?token={token}", "token": token,
+                    "expires_hours": hours, "max_uses": max_uses})
+
+
+@app.route("/api/gen-link")
+def api_gen_link_public():
+    """Generate temp link using admin secret key (no login needed)."""
+    key = request.args.get("key", "")
+    if key != os.environ.get("SECRET_KEY", ""):
+        return jsonify({"ok": False, "error": "Invalid key"}), 403
+    page = request.args.get("page", "review")
+    if page not in ("pitch", "invest", "review", "showcase"):
+        return jsonify({"ok": False, "error": "Invalid page"}), 400
+    hours = int(request.args.get("hours", "24"))
+    max_uses = int(request.args.get("max_uses", "3"))
+    token = _secrets.token_urlsafe(32)
+    _temp_links[token] = {
+        "page": page,
+        "expires": datetime.now() + timedelta(hours=hours),
+        "uses": 0,
+        "max_uses": max_uses,
+    }
+    base = request.host_url.rstrip("/")
+    return jsonify({"ok": True, "url": f"{base}/{page}?token={token}",
+                    "expires_hours": hours, "max_uses": max_uses})
+
+
+@app.route("/api/admin/temp-links")
+@admin_required
+def api_list_temp_links():
+    """List all active temp links."""
+    now = datetime.now()
+    active = []
+    for token, info in list(_temp_links.items()):
+        if info["expires"] > now and info["uses"] < info["max_uses"]:
+            active.append({"token": token[:8] + "...", "page": info["page"],
+                           "uses": info["uses"], "max_uses": info["max_uses"],
+                           "expires": info["expires"].isoformat()})
+    return jsonify(active)
+
+
+def _check_temp_token(page_name):
+    """Check if request has a valid temp token. Returns token info dict or None."""
+    token = request.args.get("token", "")
+    if not token:
+        return None
+    info = _temp_links.get(token)
+    if not info:
+        return None
+    if info["page"] != page_name:
+        return None
+    if datetime.now() > info["expires"]:
+        del _temp_links[token]
+        return None
+    if info["uses"] >= info["max_uses"]:
+        return None
+    info["uses"] += 1
+    return {
+        "expires_iso": info["expires"].isoformat(),
+        "remaining_uses": info["max_uses"] - info["uses"],
+        "max_uses": info["max_uses"],
+    }
+
+
+@app.route("/invest")
+def invest_page():
+    if session.get("user_role") == "admin":
+        return render_template("invest.html", token_info=None)
+    token_info = _check_temp_token("invest")
+    if token_info:
+        return render_template("invest.html", token_info=token_info)
+    return redirect(url_for("index"))
+
+
+@app.route("/review")
+def review_page():
+    if session.get("user_role") == "admin":
+        return render_template("review.html", token_info=None)
+    token_info = _check_temp_token("review")
+    if token_info:
+        return render_template("review.html", token_info=token_info)
+    return redirect(url_for("index"))
+    return redirect(url_for("index"))
+
+
+@app.route("/showcase")
+def showcase_page():
+    if session.get("user_role") == "admin":
+        return render_template("showcase_v2.html", token_info=None)
+    token_info = _check_temp_token("showcase")
+    if token_info:
+        return render_template("showcase_v2.html", token_info=token_info)
+    return redirect(url_for("index"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Billing Routes (Stripe)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/billing")
+@login_required
+def billing_page():
+    from billing import is_configured, STRIPE_PUBLISHABLE_KEY
+    from tenant import get_tenant, check_subscription
+    tenant_id = session.get("tenant_id", 1)
+    tenant = get_tenant(tenant_id)
+    sub = check_subscription(tenant_id)
+    return render_template(_t("billing.html"),
+                           tenant=tenant, subscription=sub,
+                           stripe_configured=is_configured(),
+                           stripe_key=STRIPE_PUBLISHABLE_KEY,
+                           user=_auth.current_user(session))
+
+
+@app.route("/api/billing/checkout", methods=["POST"])
+@login_required
+def billing_checkout():
+    from billing import create_checkout_session
+    tenant_id = session.get("tenant_id", 1)
+    email = session.get("user_email", "")
+    base = request.host_url.rstrip("/")
+    result = create_checkout_session(
+        tenant_id, email,
+        success_url=f"{base}/billing?success=1",
+        cancel_url=f"{base}/billing?cancelled=1",
+    )
+    return jsonify(result)
+
+
+@app.route("/api/billing/portal", methods=["POST"])
+@login_required
+def billing_portal():
+    from billing import create_portal_session
+    tenant_id = session.get("tenant_id", 1)
+    base = request.host_url.rstrip("/")
+    result = create_portal_session(tenant_id, return_url=f"{base}/billing")
+    return jsonify(result)
+
+
+@app.route("/api/billing/webhook", methods=["POST"])
+def billing_webhook():
+    from billing import handle_webhook
+    payload = request.get_data()
+    sig = request.headers.get("Stripe-Signature", "")
+    result = handle_webhook(payload, sig)
+    return jsonify(result), 200 if result.get("ok") else 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Quotes & Invoices
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/quotes", methods=["POST"])
+@feature_required("quotes", "write")
+def api_create_quote():
+    data = request.get_json() or {}
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    result = _quotes.create_quote(tenant_id, user_id, data)
+    return jsonify(result), 201 if result.get("ok") else 400
+
+@app.route("/api/quotes")
+@feature_required("quotes")
+def api_list_quotes():
+    tenant_id = session.get("tenant_id", 1)
+    doc_type = request.args.get("type")
+    status = request.args.get("status")
+    rows = _quotes.list_quotes(tenant_id, doc_type=doc_type, status=status)
+    return jsonify(rows)
+
+@app.route("/api/quotes/<int:qid>")
+@login_required
+def api_get_quote(qid):
+    tenant_id = session.get("tenant_id", 1)
+    q = _quotes.get_quote(qid, tenant_id)
+    if not q:
+        return jsonify({"error": "Not found"}), 404
+    return jsonify(q)
+
+@app.route("/api/quotes/<int:qid>", methods=["PATCH"])
+@login_required
+def api_update_quote(qid):
+    data = request.get_json() or {}
+    tenant_id = session.get("tenant_id", 1)
+    result = _quotes.update_quote(qid, tenant_id, data)
+    return jsonify(result)
+
+@app.route("/api/quotes/<int:qid>", methods=["DELETE"])
+@feature_required("quotes", "delete")
+def api_delete_quote(qid):
+    tenant_id = session.get("tenant_id", 1)
+    result = _quotes.delete_quote(qid, tenant_id)
+    return jsonify(result)
+
+@app.route("/api/quotes/<int:qid>/pdf")
+@login_required
+def api_quote_pdf(qid):
+    tenant_id = session.get("tenant_id", 1)
+    q = _quotes.get_quote(qid, tenant_id)
+    if not q:
+        return jsonify({"error": "Not found"}), 404
+    pdf_bytes = _quotes.generate_pdf(q)
+    content_type = "application/pdf"
+    if pdf_bytes[:5] == b"<!DOC":
+        content_type = "text/html"
+    return Response(pdf_bytes, mimetype=content_type,
+                    headers={"Content-Disposition": f"inline; filename={q['doc_number']}.pdf"})
+
+@app.route("/api/quotes/<int:qid>/html")
+@login_required
+def api_quote_html(qid):
+    tenant_id = session.get("tenant_id", 1)
+    q = _quotes.get_quote(qid, tenant_id)
+    if not q:
+        return jsonify({"error": "Not found"}), 404
+    html = _quotes.render_quote_html(q)
+    return Response(html, mimetype="text/html")
+
+@app.route("/api/quotes/from-rate", methods=["POST"])
+@login_required
+def api_quote_from_rate():
+    data = request.get_json() or {}
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    result = _quotes.quote_from_rate(
+        tenant_id, user_id,
+        rate_id=int(data.get("rate_id", 0)),
+        client_name=data.get("client_name", ""),
+        client_email=data.get("client_email", ""),
+        client_company=data.get("client_company", ""),
+        margin_pct=float(data.get("margin_pct", 15)),
+    )
+    return jsonify(result), 201 if result.get("ok") else 400
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Admin Dashboard (system-wide view)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/dashboard")
+@login_required
+def api_admin_dashboard():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Admin only"}), 403
+    from health import full_health_check, get_system_stats
+    health = full_health_check()
+    stats = get_system_stats()
+    conn = get_db()
+    try:
+        # Revenue metrics
+        tenants = conn.execute("""
+            SELECT plan, subscription_status, COUNT(*) as cnt
+            FROM tenants GROUP BY plan, subscription_status
+        """).fetchall()
+        # Recent signups
+        recent = conn.execute("""
+            SELECT t.name, t.slug, t.plan, t.subscription_status, t.created_at,
+                   COUNT(u.id) as user_count
+            FROM tenants t LEFT JOIN users u ON u.tenant_id = t.id
+            GROUP BY t.id ORDER BY t.created_at DESC LIMIT 20
+        """).fetchall()
+        # Quote stats
+        quote_stats = conn.execute("""
+            SELECT doc_type, status, COUNT(*) as cnt, COALESCE(SUM(total),0) as total_value
+            FROM quotes GROUP BY doc_type, status
+        """).fetchall()
+    finally:
+        conn.close()
+
+    active_paid = sum(r["cnt"] for r in tenants if r["subscription_status"] == "active" and r["plan"] == "pro")
+    trial = sum(r["cnt"] for r in tenants if r["plan"] == "trial")
+    mrr = active_paid * 49.99
+
+    return jsonify({
+        "health": health,
+        "stats": stats,
+        "revenue": {
+            "active_paid": active_paid,
+            "trial": trial,
+            "mrr": round(mrr, 2),
+            "arr": round(mrr * 12, 2),
+        },
+        "tenants_by_plan": [dict(r) for r in tenants],
+        "recent_tenants": [dict(r) for r in recent],
+        "quote_stats": [dict(r) for r in quote_stats],
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Rate Limiting
+# ─────────────────────────────────────────────────────────────────────────────
+
+_rate_limit_store = {}  # {ip: [timestamps]}
+_RATE_LIMIT_CLEANUP_COUNTER = 0
+
+def _check_rate_limit(ip: str, max_requests: int = 60, window: int = 60) -> bool:
+    """In-memory rate limiter with periodic cleanup."""
+    global _RATE_LIMIT_CLEANUP_COUNTER
+    now = time.time()
+
+    # Periodic cleanup to prevent unbounded memory growth
+    _RATE_LIMIT_CLEANUP_COUNTER += 1
+    if _RATE_LIMIT_CLEANUP_COUNTER >= 500:
+        _RATE_LIMIT_CLEANUP_COUNTER = 0
+        stale_keys = [k for k, v in _rate_limit_store.items() if not v or now - v[-1] > 300]
+        for k in stale_keys:
+            _rate_limit_store.pop(k, None)
+
+    if ip not in _rate_limit_store:
+        _rate_limit_store[ip] = []
+    _rate_limit_store[ip] = [t for t in _rate_limit_store[ip] if now - t < window]
+    if len(_rate_limit_store[ip]) >= max_requests:
+        return False
+    _rate_limit_store[ip].append(now)
+    return True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  CSRF Protection
+# ─────────────────────────────────────────────────────────────────────────────
+import secrets as _secrets
+
+def _generate_csrf_token():
+    """Generate or retrieve CSRF token from session."""
+    token = session.get("_csrf_token")
+    if not token:
+        token = _secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+@app.context_processor
+def _inject_csrf():
+    """Make csrf_token(), csp_nonce, and security config available in all templates."""
+    from config import HCAPTCHA_SITE_KEY, GOOGLE_CLIENT_ID, MICROSOFT_CLIENT_ID
+    import oauth as _oauth
+    return {
+        "csrf_token": _generate_csrf_token,
+        "csp_nonce": getattr(g, "csp_nonce", ""),
+        "hcaptcha_site_key": HCAPTCHA_SITE_KEY,
+        "google_oauth_enabled": _oauth.google_enabled(),
+        "microsoft_oauth_enabled": _oauth.microsoft_enabled(),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Security: before_request hooks
+# ─────────────────────────────────────────────────────────────────────────────
+from flask import g
+
+# Paths that are exempt from CSRF checks
+_CSRF_EXEMPT_PATHS = frozenset([
+    "/api/billing/webhook",     # Stripe uses signature verification
+    "/api/pitch/score",         # Public endpoint
+    "/r/",                      # Public click tracking
+])
+
+@app.before_request
+def _security_before_request():
+    """Combined security checks: request ID, CSP nonce, rate limiting, API key auth, CSRF, session fingerprint, timeout."""
+
+    # ── 0. Request ID + CSP nonce (every request) ───────────────────────
+    import uuid
+    g.request_id = str(uuid.uuid4())
+    g.csp_nonce = _secrets.token_urlsafe(16)
+
+    path = request.path
+
+    # ── 0.5. WAF / DDoS protection layer ─────────────────────────────
+    from waf import get_real_ip, is_ip_banned, check_ddos
+    ip = get_real_ip(request)
+    g.real_ip = ip
+
+    if is_ip_banned(ip):
+        return jsonify({"error": "Access denied."}), 403
+
+    if not check_ddos(ip):
+        return jsonify({"error": "Too many requests. Try again later."}), 429
+
+    # ── 1. Rate limiting (application-level, on top of WAF) ──────────
+    if path == "/login" and request.method == "POST":
+        if not _check_rate_limit(ip, max_requests=LOGIN_RATE_LIMIT, window=300):
+            return jsonify({"error": "Too many login attempts. Try again in a few minutes."}), 429
+    elif path.startswith("/api/"):
+        if not _check_rate_limit(ip, max_requests=API_RATE_LIMIT, window=60):
+            resp = jsonify({"error": "Rate limit exceeded. Try again shortly."})
+            resp.headers["Retry-After"] = "60"
+            return resp, 429
+
+    # ── 2. API key authentication ───────────────────────────────────────
+    g.api_user = None
+    g.is_api_request = False
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer fid_"):
+        from api_auth import validate_api_key
+        api_key = auth_header[7:]  # Strip "Bearer "
+        api_user = validate_api_key(api_key)
+        if api_user:
+            g.api_user = api_user
+            g.is_api_request = True
+        else:
+            return jsonify({"ok": False, "error": "Invalid or expired API key."}), 401
+
+    # ── 3. CSRF validation on state-changing requests ───────────────────
+    if request.method in ("POST", "PATCH", "PUT", "DELETE"):
+        # Skip CSRF for API key authenticated requests
+        if g.is_api_request:
+            pass
+        # Skip CSRF for exempt paths
+        elif any(path.startswith(p) for p in _CSRF_EXEMPT_PATHS):
+            pass
+        # Skip CSRF for JSON API requests that have session auth
+        # (browser JS sends X-CSRF-Token header)
+        elif request.is_json or request.content_type and "json" in request.content_type:
+            csrf_header = request.headers.get("X-CSRF-Token", "")
+            csrf_session = session.get("_csrf_token", "")
+            if csrf_session and csrf_header:
+                if not _secrets.compare_digest(csrf_header, csrf_session):
+                    return jsonify({"ok": False, "error": "Invalid CSRF token."}), 403
+        else:
+            # Form submissions must include csrf_token
+            csrf_form = request.form.get("csrf_token", "")
+            csrf_session = session.get("_csrf_token", "")
+            if csrf_session and csrf_form:
+                if not _secrets.compare_digest(csrf_form, csrf_session):
+                    return jsonify({"ok": False, "error": "Invalid CSRF token."}), 403
+
+    # ── 4. Session timeout check ────────────────────────────────────────
+    if session.get("logged_in") and not g.is_api_request:
+        created = session.get("_created_at")
+        if not created:
+            # Legacy session without timestamp — force re-login
+            _auth.clear_session(session)
+            if path.startswith("/api/"):
+                return jsonify({"ok": False, "error": "Session expired. Please log in again."}), 401
+            return redirect(url_for("login"))
+        try:
+            created_dt = datetime.fromisoformat(created)
+            if datetime.now() - created_dt > timedelta(hours=SESSION_LIFETIME_HOURS):
+                _auth.clear_session(session)
+                if path.startswith("/api/"):
+                    return jsonify({"ok": False, "error": "Session expired. Please log in again."}), 401
+                return redirect(url_for("login"))
+        except (ValueError, TypeError):
+            _auth.clear_session(session)
+            return redirect(url_for("login"))
+
+        # ── 5. Session fingerprint validation (detect hijacking) ──────
+        stored_fp = session.get("_fingerprint")
+        if stored_fp:
+            current_fp = hashlib.sha256(
+                (request.headers.get("User-Agent", "") +
+                 request.headers.get("Accept-Language", "")).encode()
+            ).hexdigest()
+            if current_fp != stored_fp:
+                from audit import log_event
+                log_event(session.get("tenant_id"), session.get("user_id"),
+                          "session_hijack_detected",
+                          details=f"fingerprint mismatch",
+                          ip=request.remote_addr or "")
+                _auth.clear_session(session)
+                if path.startswith("/api/"):
+                    return jsonify({"ok": False, "error": "Session invalidated. Please log in again."}), 401
+                return redirect(url_for("login"))
+
+        # ── 6. Single-session enforcement (detect password sharing) ───
+        if not _auth.validate_session_token(session):
+            _auth.clear_session(session)
+            if path.startswith("/api/"):
+                return jsonify({"ok": False, "error": "Session ended — your account was logged in elsewhere."}), 401
+            return redirect(url_for("login"))
+
+        # ── 7. MFA enforcement (admin can force all users to set up MFA)
+        if path not in ("/logout", "/api/auth/mfa/setup", "/api/auth/mfa/enable"):
+            tenant_id = session.get("tenant_id", 1)
+            user_id = session.get("user_id")
+            if _auth.check_mfa_enforced(tenant_id) and not _auth.is_user_mfa_enabled(user_id):
+                if path.startswith("/api/"):
+                    return jsonify({"ok": False, "error": "MFA is required. Please set up two-factor authentication.", "mfa_required": True}), 403
+                return redirect(url_for("mfa_setup_required"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Security Headers
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.after_request
+def _set_security_headers(response):
+    """Add security headers to all responses."""
+    nonce = getattr(g, "csp_nonce", "")
+    req_id = getattr(g, "request_id", "")
+
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    if req_id:
+        response.headers['X-Request-ID'] = req_id
+    if not app.debug:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    # CSP with nonces (replaces unsafe-inline)
+    hcaptcha_src = ""
+    try:
+        from config import HCAPTCHA_SITE_KEY
+        if HCAPTCHA_SITE_KEY:
+            hcaptcha_src = " https://hcaptcha.com https://*.hcaptcha.com"
+    except Exception:
+        pass
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        f"script-src 'self' 'nonce-{nonce}' https://js.stripe.com https://cdn.jsdelivr.net{hcaptcha_src}; "
+        f"style-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net https://fonts.googleapis.com{hcaptcha_src}; "
+        "img-src 'self' data: https:; "
+        f"frame-src https://js.stripe.com{hcaptcha_src}; "
+        f"connect-src 'self' https://api.stripe.com{hcaptcha_src}; "
+        "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com"
+    )
+    return response
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  AI Help Bot
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/helpbot/ask", methods=["POST"])
+@feature_required("helpbot")
+def api_helpbot_ask():
+    data = request.get_json() or {}
+    question = data.get("question", "").strip()
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    result = _helpbot.ask(question, tenant_id=tenant_id, user_id=user_id)
+    return jsonify(result)
+
+@app.route("/api/helpbot/stats")
+@login_required
+def api_helpbot_stats():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Admin only"}), 403
+    return jsonify(_helpbot.get_helpbot_stats())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Transactional Emails (welcome, trial ending, payment failed)
+# ─────────────────────────────────────────────────────────────────────────────
+
+TRANSACTIONAL_TEMPLATES = {
+    "welcome": {
+        "subject": "Welcome to Freight Intelligence — Your 14-Day Trial Starts Now",
+        "body": """<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;">
+<h2 style="color:#0047AB;">Welcome aboard!</h2>
+<p>Your 14-day free trial is active. Here's what you can do right now:</p>
+<ul>
+<li><strong>Import contacts</strong> — Upload your CSV or browse our network database</li>
+<li><strong>Run rate cycles</strong> — Collect and benchmark quotes from agents</li>
+<li><strong>Track vessels</strong> — Predictive ETAs and carrier reliability scoring</li>
+<li><strong>Score agents</strong> — See who responds fastest with the best rates</li>
+</ul>
+<p><a href="{base_url}/dashboard" style="background:#0047AB;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Open Dashboard</a></p>
+<p style="color:#666;font-size:13px;">No credit card required. Full access for 14 days.</p>
+</div>""",
+    },
+    "trial_ending": {
+        "subject": "Your Trial Ends in 3 Days — Keep Your Data",
+        "body": """<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;">
+<h2 style="color:#0047AB;">Your trial ends in 3 days</h2>
+<p>Your contacts, rates, and agent scores are safe — but you'll lose access when the trial ends.</p>
+<p>Upgrade to Pro ($49.99/mo) to keep everything:</p>
+<ul>
+<li>Up to 50,000 contacts</li>
+<li>Up to 50 team members</li>
+<li>Unlimited rate cycles</li>
+<li>All features forever</li>
+</ul>
+<p><a href="{base_url}/billing" style="background:#0047AB;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Upgrade Now</a></p>
+</div>""",
+    },
+    "payment_failed": {
+        "subject": "Action Required — Payment Failed",
+        "body": """<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;">
+<h2 style="color:#dc3545;">Payment failed</h2>
+<p>We couldn't process your payment for Freight Intelligence ($49.99/mo).</p>
+<p>Please update your payment method to keep your account active. Your data is safe — you have 7 days to resolve this.</p>
+<p><a href="{base_url}/billing" style="background:#dc3545;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Update Payment</a></p>
+</div>""",
+    },
+    "payment_success": {
+        "subject": "Payment Confirmed — You're All Set",
+        "body": """<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;">
+<h2 style="color:#198754;">Payment confirmed!</h2>
+<p>Your Freight Intelligence subscription is active. $49.99 has been charged to your card.</p>
+<p>View your invoice and manage your subscription anytime from the billing page.</p>
+<p><a href="{base_url}/billing" style="background:#0047AB;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">View Billing</a></p>
+</div>""",
+    },
+}
+
+
+def _send_transactional(to_email: str, template_name: str, base_url: str = ""):
+    """Send a transactional email using a predefined template."""
+    tmpl = TRANSACTIONAL_TEMPLATES.get(template_name)
+    if not tmpl:
+        return {"ok": False, "error": f"Unknown template: {template_name}"}
+    subject = tmpl["subject"]
+    body = tmpl["body"].replace("{base_url}", base_url)
+    try:
+        _mailer.send(to=to_email, subject=subject, body_html=body)
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Support Tickets
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/support/ticket", methods=["POST"])
+@login_required
+def create_support_ticket():
+    from tenant import create_ticket
+    data = request.get_json() or {}
+    tenant_id = session.get("tenant_id", 1)
+    user_id = session.get("user_id")
+    result = create_ticket(
+        tenant_id, user_id,
+        category=data.get("category", "general"),
+        subject=data.get("subject", ""),
+        description=data.get("description", ""),
+    )
+    return jsonify(result)
+
+
+@app.route("/api/support/tickets")
+@login_required
+def list_support_tickets():
+    from tenant import get_tickets
+    tenant_id = session.get("tenant_id", 1)
+    status_filter = request.args.get("status")
+    tickets = get_tickets(tenant_id, status=status_filter)
+    return jsonify({"tickets": tickets})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  System Admin (super-admin only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/health")
+@admin_required
+def admin_health():
+    from health import full_health_check, get_system_stats
+    return jsonify({
+        "health": full_health_check(),
+        "stats": get_system_stats(),
+    })
+
+
+@app.route("/api/admin/bounces")
+@admin_required
+def admin_bounces():
+    """Return all recorded bounces and optionally trigger a new scan."""
+    from bounce_monitor import get_all_bounces, check_bounces
+    action = request.args.get("action", "")
+    if action == "scan":
+        result = check_bounces()
+        return jsonify({"ok": True, "scan_result": result, "bounces": get_all_bounces()})
+    return jsonify({"ok": True, "bounces": get_all_bounces()})
+
+
+@app.route("/api/admin/bounces/scan", methods=["POST"])
+@admin_required
+def admin_bounces_scan():
+    """Trigger a bounce scan now."""
+    from bounce_monitor import check_bounces
+    result = check_bounces()
+    return jsonify({"ok": True, **result})
+
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Error Handlers (user-friendly error pages)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.errorhandler(400)
+def bad_request(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Bad request"}), 400
+    return render_template("error.html", code=400, message="Bad request"), 400
+
+
+@app.errorhandler(403)
+def forbidden(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Access denied"}), 403
+    return render_template("error.html", code=403, message="Access denied"), 403
+
+
+@app.errorhandler(404)
+def not_found(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    return render_template("error.html", code=404, message="Page not found"), 404
+
+
+@app.errorhandler(413)
+def request_too_large(e):
+    return jsonify({"ok": False, "error": f"File too large. Maximum size is {MAX_UPLOAD_SIZE_MB} MB."}), 413
+
+
+@app.errorhandler(429)
+def rate_limited(e):
+    resp = jsonify({"ok": False, "error": "Rate limit exceeded. Try again shortly."})
+    resp.headers["Retry-After"] = "60"
+    return resp, 429
+
+
+@app.errorhandler(500)
+def server_error(e):
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Internal server error"}), 500
+    return render_template("error.html", code=500,
+                           message="Something went wrong. Our team has been notified."), 500
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Auth routes  (per-user email + password)
 # ─────────────────────────────────────────────────────────────────────────────
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/")
+def index():
+    """Landing page for visitors, dashboard redirect for logged-in users."""
+    if session.get("logged_in"):
+        return _post_login_redirect(session.get("user_id"))
+    return render_template("landing.html")
+
+
+def _build_session_fingerprint():
+    """Build a session fingerprint from browser characteristics."""
+    return hashlib.sha256(
+        (request.headers.get("User-Agent", "") +
+         request.headers.get("Accept-Language", "")).encode()
+    ).hexdigest()
+
+
+def _send_login_notification(user, ip):
+    """Send email notification for new device/IP login (non-blocking)."""
+    try:
+        conn = get_db()
+        # Check if this IP has been seen before for this user
+        seen = conn.execute(
+            "SELECT COUNT(*) FROM user_logins WHERE user_id = ? AND ip_address = ?",
+            (user["id"], ip)
+        ).fetchone()[0]
+        # Check user preference
+        row = conn.execute(
+            "SELECT COALESCE(login_notifications_enabled, 1) as notif FROM users WHERE id = ?",
+            (user["id"],)
+        ).fetchone()
+        conn.close()
+        if seen <= 1 and row and row["notif"]:  # <= 1 because current login already inserted
+            ua = request.headers.get("User-Agent", "Unknown browser")[:100]
+            _auth._send_email(
+                to=user["email"],
+                subject="New login to your Freight Intelligence account",
+                body=(
+                    f"Hi {user['name']},\n\n"
+                    f"We detected a new login to your account:\n\n"
+                    f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}\n"
+                    f"IP: {ip}\n"
+                    f"Browser: {ua}\n\n"
+                    f"If this wasn't you, change your password immediately.\n\n"
+                    f"— Freight Intelligence Security"
+                ),
+            )
+    except Exception:
+        pass  # Non-blocking — never crash login for notifications
+
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("logged_in"):
-        return redirect(url_for("dashboard"))
+        return _post_login_redirect(session.get("user_id"))
+
+    error = None
+    paywall = False
+    if request.method == "POST":
+        # hCaptcha verification
+        from validators import verify_captcha
+        captcha_token = request.form.get("h-captcha-response", "")
+        if not verify_captcha(captcha_token):
+            error = "Please complete the security check."
+            return render_template(_t("login.html"), error=error, paywall=False)
+
+        email    = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+        ip       = request.remote_addr or ""
+
+        result = _auth.login_user(email, password, ip=ip)
+        if result["ok"]:
+            if result.get("mfa_required"):
+                session["_mfa_pending"]  = True
+                session["_mfa_user"]     = result["user"]
+                return redirect(url_for("mfa_verify_page"))
+            _auth.set_session(session, result["user"],
+                              ip=ip, user_agent=request.headers.get("User-Agent", ""))
+            session["_fingerprint"] = _build_session_fingerprint()
+            _send_login_notification(result["user"], ip)
+            return _post_login_redirect(result["user"]["id"])
+        error = result["error"]
+        paywall = result.get("paywall", False)
+
+    return render_template(_t("login.html"), error=error, paywall=paywall)
+
+
+@app.route("/mfa-verify", methods=["GET", "POST"])
+def mfa_verify_page():
+    """MFA verification page shown after successful password check."""
+    if not session.get("_mfa_pending"):
+        return redirect(url_for("login"))
 
     error = None
     if request.method == "POST":
-        email    = request.form.get("email", "").strip()
-        password = request.form.get("password", "")
+        code = request.form.get("code", "").strip()
+        user = session.get("_mfa_user")
+        if not user:
+            return redirect(url_for("login"))
 
-        # ── Legacy single-password fallback (for admin during migration) ──
-        if not email and password == PASSWORD:
-            session["logged_in"] = True
-            session["user_role"]  = "admin"
-            session["user_name"]  = "Admin"
-            session.permanent     = False
-            return redirect(url_for("dashboard"))
-
-        result = _auth.login_user(email, password)
+        result = _auth.verify_mfa(user["id"], code)
         if result["ok"]:
-            _auth.set_session(session, result["user"])
-            return redirect(url_for("dashboard"))
+            session.pop("_mfa_pending", None)
+            session.pop("_mfa_user", None)
+            _auth.set_session(session, user,
+                              ip=request.remote_addr or "",
+                              user_agent=request.headers.get("User-Agent", ""))
+            session["_fingerprint"] = _build_session_fingerprint()
+            _send_login_notification(user, request.remote_addr or "")
+            return _post_login_redirect(user["id"])
         error = result["error"]
 
-    return render_template("login.html", error=error)
+    return render_template("mfa_verify.html", error=error)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Adaptive Pitch Page (token-gated — admin generates temp links)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/pitch")
+def pitch_page():
+    if session.get("user_role") == "admin":
+        return render_template("pitch.html", token_info=None)
+    token_info = _check_temp_token("pitch")
+    if token_info:
+        return render_template("pitch.html", token_info=token_info)
+    return redirect(url_for("index"))
+
+
+@app.route("/api/pitch/profiles")
+def api_pitch_profiles():
+    """Serve profession profiles as JSON (fallback if static file fails)."""
+    import json
+    try:
+        with open(os.path.join(BASE_DIR, "pitch_profiles.json"), "r") as f:
+            return jsonify(json.load(f))
+    except Exception:
+        return jsonify({"default": {"label": "Business Professional", "icon": "bi-briefcase",
+                                     "analogies": {}, "scoring_questions": {}}})
+
+
+@app.route("/api/pitch/score", methods=["POST"])
+def api_pitch_score():
+    """Save a visitor's pitch score and feedback."""
+    import json as _json
+    data = request.get_json() or {}
+    now = datetime.now().isoformat()
+    conn = get_db()
+    try:
+        conn.execute(
+            """INSERT INTO pitch_scores
+               (visitor_name, profession_key, profession_label, score,
+                risk_answer, advice_answer, fund_answer, scoring_answers,
+                ip_address, user_agent, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (data.get("name", ""), data.get("profession", ""),
+             data.get("profession_label", ""), data.get("score", 5),
+             data.get("risk_answer", ""), data.get("advice_answer", ""),
+             data.get("fund_answer", ""),
+             _json.dumps(data.get("scoring_answers", [])),
+             request.remote_addr or "", request.headers.get("User-Agent", "")[:200],
+             now)
+        )
+        conn.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if session.get("logged_in"):
-        return redirect(url_for("dashboard"))
+        return _post_login_redirect(session.get("user_id"))
 
     error   = None
     success = None
     if request.method == "POST":
-        name     = request.form.get("name", "").strip()
-        email    = request.form.get("email", "").strip()
-        password = request.form.get("password", "")
-        confirm  = request.form.get("confirm", "")
+        # hCaptcha verification
+        from validators import verify_captcha, check_password_breach
+        captcha_token = request.form.get("h-captcha-response", "")
+        if not verify_captcha(captcha_token):
+            error = "Please complete the security check."
+            return render_template("register.html", error=error, success=None)
+
+        name          = request.form.get("name", "").strip()
+        email         = request.form.get("email", "").strip()
+        company_name  = request.form.get("company_name", "").strip()
+        password      = request.form.get("password", "")
+        confirm       = request.form.get("confirm", "")
+        referral_code = request.form.get("referral_code", "").strip()
 
         if password != confirm:
             error = "Passwords do not match."
         else:
-            result = _auth.register_user(name, email, password)
+            # Check for breached password (advisory warning)
+            breached, count = check_password_breach(password)
+            breach_warning = ""
+            if breached:
+                breach_warning = f"Warning: This password has appeared in {count:,} data breaches. Consider using a different one."
+
+            result = _auth.register_user(name, email, password,
+                                         role="customer", company_name=company_name)
             if result["ok"]:
+                # Process referral code if provided
+                if referral_code:
+                    try:
+                        import admin_panel as _ap
+                        _ap.complete_referral(referral_code, result["tenant_id"], email)
+                    except Exception:
+                        pass  # Don't block registration if referral fails
+
                 # Auto-login after registration
-                login_result = _auth.login_user(email, password)
+                login_result = _auth.login_user(email, password, ip=request.remote_addr or "")
                 if login_result["ok"]:
-                    _auth.set_session(session, login_result["user"])
-                    return redirect(url_for("dashboard"))
+                    _auth.set_session(session, login_result["user"],
+                                          ip=request.remote_addr or "",
+                                          user_agent=request.headers.get("User-Agent", ""))
+                    session["show_spin"] = True  # Flag to show spin wheel
+                    return redirect(url_for("spin_page"))
                 success = "Account created! Please log in."
             else:
                 error = result["error"]
 
     return render_template("register.html", error=error, success=success)
+
+
+@app.route("/spin")
+@login_required
+def spin_page():
+    """Spin-to-win page shown after registration."""
+    if not session.pop("show_spin", False):
+        # If they navigate here directly without registering, skip to dashboard
+        return redirect(url_for("dashboard"))
+    return render_template("spin.html", sv=STARTUP_TIME)
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])
@@ -223,6 +1446,9 @@ def reset_password():
 
 @app.route("/logout")
 def logout():
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "logout",
+              ip=request.remote_addr or "")
     _auth.clear_session(session)
     return redirect(url_for("login"))
 
@@ -267,21 +1493,718 @@ def api_admin_set_role(user_id):
     return jsonify(result)
 
 
+@app.route("/api/admin/activity")
+@login_required
+def api_admin_activity():
+    if session.get("user_role") != "admin":
+        return jsonify({"ok": False, "error": "Admin only."}), 403
+    conn = get_db()
+    try:
+        users = conn.execute("""
+            SELECT id, name, email, role, last_login,
+                   COALESCE(login_count, 0) as login_count
+            FROM users ORDER BY last_login DESC
+        """).fetchall()
+        recent = conn.execute("""
+            SELECT ul.user_id, u.name, ul.login_at, ul.ip_address
+            FROM user_logins ul JOIN users u ON ul.user_id = u.id
+            ORDER BY ul.login_at DESC LIMIT 50
+        """).fetchall()
+        return jsonify({
+            "users": [dict(r) for r in users],
+            "recent_logins": [dict(r) for r in recent]
+        })
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  User Invite  (admin only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _graph_token():
+    """Fetch an OAuth2 client-credentials token from Microsoft Graph."""
+    from config import GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET
+    url  = f"https://login.microsoftonline.com/{GRAPH_TENANT_ID}/oauth2/v2.0/token"
+    data = urllib.parse.urlencode({
+        "grant_type":    "client_credentials",
+        "client_id":     GRAPH_CLIENT_ID,
+        "client_secret": GRAPH_CLIENT_SECRET,
+        "scope":         "https://graph.microsoft.com/.default",
+    }).encode()
+    req = urllib.request.Request(url, data=data, method="POST")
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return _json.loads(r.read())["access_token"]
+
+
+def _graph_request(method, path, body=None, token=None):
+    """Make a Microsoft Graph API call. Returns parsed JSON response."""
+    if token is None:
+        token = _graph_token()
+    url     = f"https://graph.microsoft.com/v1.0{path}"
+    payload = _json.dumps(body).encode() if body else None
+    req     = urllib.request.Request(url, data=payload, method=method)
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type",  "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            raw = r.read()
+            return _json.loads(raw) if raw.strip() else {}
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode(errors="replace")
+        raise RuntimeError(f"Graph {method} {path} → {e.code}: {err_body}")
+
+
+@app.route("/api/users/invite", methods=["POST"])
+@login_required
+def api_users_invite():
+    if session.get("user_role") != "admin":
+        return jsonify({"ok": False, "error": "Admin access required."}), 403
+
+    data  = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        return jsonify({"ok": False, "error": "Valid email address required."}), 400
+
+    import secrets as _secrets
+    import string  as _string
+    from config import GRAPH_TENANT_ID, EMAIL_FROM
+
+    dashboard_url = "https://flashcargo-dashboard-5000.use.devtunnels.ms"
+
+    # ── 1. Generate a 12-char password ────────────────────────────────────
+    alphabet = _string.ascii_letters + _string.digits + "!@#$%"
+    password = "".join(_secrets.choice(alphabet) for _ in range(12))
+
+    # ── 2. Create Flask dashboard account ─────────────────────────────────
+    name   = email.split("@")[0].replace(".", " ").replace("_", " ").title()
+    result = _auth.register_user(name, email, password, role="user")
+    if not result["ok"]:
+        # If already exists, still send the welcome email with a new password reset
+        if "already exists" not in result.get("error", ""):
+            return jsonify({"ok": False, "error": result["error"]}), 400
+
+    try:
+        token = _graph_token()
+
+        # ── 3. Send Azure B2B guest invite ─────────────────────────────────
+        try:
+            _graph_request("POST", "/invitations", body={
+                "invitedUserEmailAddress": email,
+                "inviteRedirectUrl":       dashboard_url,
+                "sendInvitationMessage":   False,   # we send our own email below
+            }, token=token)
+        except Exception as inv_err:
+            print(f"[invite] B2B invite warning (non-fatal): {inv_err}")
+            # Continue — some tenants block B2B invites; email still goes out
+
+        # ── 4. Send welcome email via Graph API ────────────────────────────
+        body_html = f"""
+<p>Hi {name},</p>
+<p>You have been invited to the <strong>Flash Cargo Freight Dashboard</strong>.</p>
+<p><strong>Login URL:</strong> <a href="{dashboard_url}">{dashboard_url}</a><br>
+<strong>Username:</strong> {email}<br>
+<strong>Password:</strong> {password}</p>
+<p>Please log in and change your password as soon as possible.</p>
+<p>— Flash Cargo Team</p>
+"""
+        _graph_request("POST", f"/users/{EMAIL_FROM}/sendMail", body={
+            "message": {
+                "subject": "Your Flash Cargo Dashboard Access",
+                "body":    {"contentType": "HTML", "content": body_html},
+                "toRecipients": [{"emailAddress": {"address": email}}],
+            },
+            "saveToSentItems": True,
+        }, token=token)
+
+    except Exception as e:
+        # Roll back the created user if Graph calls fail entirely
+        print(f"[invite] Graph error: {e}")
+        return jsonify({"ok": False, "error": f"Account created but email failed: {e}"}), 500
+
+    return jsonify({"ok": True, "message": f"Invite sent to {email}"})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  OAuth2 / SSO routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/auth/google")
+def auth_google():
+    import oauth as _oauth
+    if not _oauth.google_enabled():
+        return redirect(url_for("login"))
+    state = _secrets.token_urlsafe(32)
+    session["_oauth_state"] = state
+    return redirect(_oauth.get_google_auth_url(state))
+
+
+@app.route("/auth/google/callback")
+def auth_google_callback():
+    import oauth as _oauth
+    code = request.args.get("code", "")
+    state = request.args.get("state", "")
+    if not state or state != session.pop("_oauth_state", ""):
+        return redirect(url_for("login"))
+    result = _oauth.handle_google_callback(code)
+    if not result["ok"]:
+        return render_template(_t("login.html"), error=result["error"], paywall=False)
+    login_result = _oauth.oauth_login_or_register(
+        result["email"], result["name"], "google", ip=request.remote_addr or ""
+    )
+    if login_result["ok"]:
+        _auth.set_session(session, login_result["user"],
+                                          ip=request.remote_addr or "",
+                                          user_agent=request.headers.get("User-Agent", ""))
+        session["_fingerprint"] = _build_session_fingerprint()
+        if login_result.get("new_user"):
+            session["show_spin"] = True
+            return redirect(url_for("spin_page"))
+        return _post_login_redirect(login_result["user"]["id"])
+    return render_template(_t("login.html"), error=login_result.get("error", "OAuth failed."), paywall=False)
+
+
+@app.route("/auth/microsoft")
+def auth_microsoft():
+    import oauth as _oauth
+    if not _oauth.microsoft_enabled():
+        return redirect(url_for("login"))
+    state = _secrets.token_urlsafe(32)
+    session["_oauth_state"] = state
+    return redirect(_oauth.get_microsoft_auth_url(state))
+
+
+@app.route("/auth/microsoft/callback")
+def auth_microsoft_callback():
+    import oauth as _oauth
+    code = request.args.get("code", "")
+    state = request.args.get("state", "")
+    if not state or state != session.pop("_oauth_state", ""):
+        return redirect(url_for("login"))
+    result = _oauth.handle_microsoft_callback(code)
+    if not result["ok"]:
+        return render_template(_t("login.html"), error=result["error"], paywall=False)
+    login_result = _oauth.oauth_login_or_register(
+        result["email"], result["name"], "microsoft", ip=request.remote_addr or ""
+    )
+    if login_result["ok"]:
+        _auth.set_session(session, login_result["user"],
+                                          ip=request.remote_addr or "",
+                                          user_agent=request.headers.get("User-Agent", ""))
+        session["_fingerprint"] = _build_session_fingerprint()
+        if login_result.get("new_user"):
+            session["show_spin"] = True
+            return redirect(url_for("spin_page"))
+        return _post_login_redirect(login_result["user"]["id"])
+    return render_template(_t("login.html"), error=login_result.get("error", "OAuth failed."), paywall=False)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Security.txt (RFC 9116)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/.well-known/security.txt")
+def security_txt():
+    from config import SECURITY_CONTACT_EMAIL, BUG_BOUNTY_ENABLED, BUG_BOUNTY_URL
+    lines = [
+        f"Contact: mailto:{SECURITY_CONTACT_EMAIL}",
+        f"Preferred-Languages: en",
+        f"Canonical: {request.url_root.rstrip('/')}/.well-known/security.txt",
+        f"Policy: {request.url_root.rstrip('/')}/security",
+        f"Expires: 2027-12-31T23:59:59Z",
+    ]
+    if BUG_BOUNTY_ENABLED and BUG_BOUNTY_URL:
+        lines.append(f"Acknowledgments: {BUG_BOUNTY_URL}")
+    return Response("\n".join(lines) + "\n", mimetype="text/plain")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Security API routes (MFA, permissions, audit, API keys, IP allowlist)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/mfa-setup-required")
+@login_required
+def mfa_setup_required():
+    """Page shown when admin enforces MFA and user hasn't set it up yet."""
+    if _auth.is_user_mfa_enabled(session.get("user_id")):
+        return redirect(url_for("dashboard"))
+    return render_template("mfa_setup_required.html")
+
+
+@app.route("/api/admin/enforce-mfa", methods=["POST"])
+@admin_required
+def api_enforce_mfa():
+    """Admin toggle: force all users in tenant to enable MFA."""
+    data = request.get_json() or {}
+    enabled = 1 if data.get("enabled") else 0
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE tenants SET mfa_enforced = ? WHERE id = ?",
+            (enabled, session.get("tenant_id", 1))
+        )
+        conn.commit()
+        from audit import log_event
+        log_event(session.get("tenant_id"), session.get("user_id"),
+                  "mfa_enforcement_toggled", details=f"enabled={enabled}")
+        return jsonify({"ok": True, "mfa_enforced": bool(enabled)})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/enforce-single-session", methods=["POST"])
+@admin_required
+def api_enforce_single_session():
+    """Admin toggle: enforce single active session per user."""
+    data = request.get_json() or {}
+    enabled = 1 if data.get("enabled") else 0
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE tenants SET single_session_enforced = ? WHERE id = ?",
+            (enabled, session.get("tenant_id", 1))
+        )
+        conn.commit()
+        from audit import log_event
+        log_event(session.get("tenant_id"), session.get("user_id"),
+                  "single_session_enforcement_toggled", details=f"enabled={enabled}")
+        return jsonify({"ok": True, "single_session_enforced": bool(enabled)})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/active-sessions")
+@admin_required
+def api_active_sessions():
+    """View all active sessions for the tenant — see who's logged in right now."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT s.user_id, u.name, u.email, s.ip_address, s.user_agent, "
+            "s.created_at, s.last_seen "
+            "FROM active_sessions s JOIN users u ON s.user_id = u.id "
+            "WHERE u.tenant_id = ? ORDER BY s.last_seen DESC",
+            (session.get("tenant_id", 1),)
+        ).fetchall()
+        return jsonify({"sessions": [dict(r) for r in rows]})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/kill-session/<int:target_user_id>", methods=["POST"])
+@admin_required
+def api_kill_session(target_user_id):
+    """Admin force-logout a specific user."""
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM active_sessions WHERE user_id = ?", (target_user_id,))
+        conn.commit()
+        from audit import log_event
+        log_event(session.get("tenant_id"), session.get("user_id"),
+                  "session_killed_by_admin", resource=f"user:{target_user_id}")
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+@app.route("/api/auth/mfa/setup", methods=["GET"])
+@login_required
+def api_mfa_setup():
+    result = _auth.setup_mfa(session.get("user_id"))
+    return jsonify(result)
+
+
+@app.route("/api/auth/mfa/enable", methods=["POST"])
+@login_required
+def api_mfa_enable():
+    data = request.get_json() or {}
+    code = data.get("code", "")
+    result = _auth.enable_mfa(session.get("user_id"), code)
+    return jsonify(result)
+
+
+@app.route("/api/auth/mfa/disable", methods=["POST"])
+@login_required
+def api_mfa_disable():
+    data = request.get_json() or {}
+    password = data.get("password", "")
+    result = _auth.disable_mfa(session.get("user_id"), password)
+    return jsonify(result)
+
+
+@app.route("/api/auth/api-keys", methods=["GET"])
+@login_required
+def api_list_keys():
+    from api_auth import list_api_keys
+    keys = list_api_keys(session.get("user_id"), session.get("tenant_id", 1))
+    return jsonify({"keys": keys})
+
+
+@app.route("/api/auth/api-keys", methods=["POST"])
+@login_required
+def api_create_key():
+    from api_auth import create_api_key
+    data = request.get_json() or {}
+    result = create_api_key(
+        user_id=session.get("user_id"),
+        tenant_id=session.get("tenant_id", 1),
+        name=data.get("name", ""),
+        permissions=data.get("permissions"),
+        expires_days=data.get("expires_days"),
+    )
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "api_key_created",
+              details=f"name={data.get('name', '')}")
+    return jsonify(result)
+
+
+@app.route("/api/auth/api-keys/<int:key_id>", methods=["DELETE"])
+@login_required
+def api_revoke_key(key_id):
+    from api_auth import revoke_api_key
+    result = revoke_api_key(key_id, session.get("user_id"), session.get("tenant_id", 1))
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "api_key_revoked",
+              details=f"key_id={key_id}")
+    return jsonify(result)
+
+
+@app.route("/api/admin/permissions/<int:target_user_id>", methods=["GET"])
+@admin_required
+def api_get_permissions(target_user_id):
+    from permissions import get_user_permissions
+    perms = get_user_permissions(target_user_id, session.get("tenant_id", 1))
+    return jsonify({"permissions": perms})
+
+
+@app.route("/api/admin/permissions/<int:target_user_id>", methods=["PATCH"])
+@admin_required
+def api_set_permissions(target_user_id):
+    from permissions import bulk_set_permissions
+    data = request.get_json() or {}
+    result = bulk_set_permissions(
+        admin_user_id=session.get("user_id"),
+        target_user_id=target_user_id,
+        tenant_id=session.get("tenant_id", 1),
+        permissions_map=data,
+    )
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "permissions_changed",
+              resource=f"user:{target_user_id}",
+              details=str(data)[:500])
+    return jsonify(result)
+
+
+@app.route("/api/admin/permissions/templates", methods=["GET"])
+@admin_required
+def api_list_permission_templates():
+    from permissions import list_templates
+    templates = list_templates(session.get("tenant_id", 1))
+    return jsonify({"templates": templates})
+
+
+@app.route("/api/admin/permissions/templates", methods=["POST"])
+@admin_required
+def api_save_permission_template():
+    from permissions import save_template
+    data = request.get_json() or {}
+    result = save_template(
+        tenant_id=session.get("tenant_id", 1),
+        name=data.get("name", ""),
+        permissions=data.get("permissions", {}),
+        created_by=session.get("user_id"),
+    )
+    return jsonify(result)
+
+
+@app.route("/api/admin/audit")
+@admin_required
+def api_audit_log():
+    from audit import get_audit_log
+    page = request.args.get("page", 1, type=int)
+    per_page = min(request.args.get("per_page", 50, type=int), 200)
+    result = get_audit_log(
+        tenant_id=session.get("tenant_id", 1),
+        page=page,
+        per_page=per_page,
+        action_filter=request.args.get("action"),
+        user_id_filter=request.args.get("user_id", type=int),
+        date_from=request.args.get("from"),
+        date_to=request.args.get("to"),
+    )
+    return jsonify(result)
+
+
+@app.route("/api/admin/audit/user/<int:target_user_id>")
+@admin_required
+def api_user_audit(target_user_id):
+    from audit import get_user_audit
+    events = get_user_audit(target_user_id, session.get("tenant_id", 1))
+    return jsonify({"events": events})
+
+
+@app.route("/api/admin/ip-allowlist", methods=["GET"])
+@admin_required
+def api_list_ip_allowlist():
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, ip_address, label, created_at FROM ip_allowlist WHERE tenant_id = ?",
+            (session.get("tenant_id", 1),)
+        ).fetchall()
+        tenant = conn.execute(
+            "SELECT COALESCE(ip_restriction_enabled, 0) as ip_restriction_enabled FROM tenants WHERE id = ?",
+            (session.get("tenant_id", 1),)
+        ).fetchone()
+        return jsonify({
+            "entries": [dict(r) for r in rows],
+            "enabled": bool(tenant and tenant["ip_restriction_enabled"]),
+        })
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/ip-allowlist", methods=["POST"])
+@admin_required
+def api_add_ip_allowlist():
+    data = request.get_json() or {}
+    ip_addr = data.get("ip_address", "").strip()
+    label = data.get("label", "").strip()
+    if not ip_addr:
+        return jsonify({"ok": False, "error": "IP address is required."}), 400
+    # Validate IP/CIDR
+    import ipaddress
+    try:
+        ipaddress.ip_network(ip_addr, strict=False)
+    except ValueError:
+        return jsonify({"ok": False, "error": "Invalid IP address or CIDR notation."}), 400
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO ip_allowlist (tenant_id, ip_address, label, created_by, created_at) VALUES (?,?,?,?,?)",
+            (session.get("tenant_id", 1), ip_addr, label,
+             session.get("user_id"), datetime.now().isoformat())
+        )
+        conn.commit()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/ip-allowlist/<int:entry_id>", methods=["DELETE"])
+@admin_required
+def api_delete_ip_allowlist(entry_id):
+    conn = get_db()
+    try:
+        conn.execute(
+            "DELETE FROM ip_allowlist WHERE id = ? AND tenant_id = ?",
+            (entry_id, session.get("tenant_id", 1))
+        )
+        conn.commit()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/ip-allowlist/toggle", methods=["POST"])
+@admin_required
+def api_toggle_ip_restriction():
+    data = request.get_json() or {}
+    enabled = 1 if data.get("enabled") else 0
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE tenants SET ip_restriction_enabled = ? WHERE id = ?",
+            (enabled, session.get("tenant_id", 1))
+        )
+        conn.commit()
+        from audit import log_event
+        log_event(session.get("tenant_id"), session.get("user_id"),
+                  "ip_restriction_toggled", details=f"enabled={enabled}")
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Compliance & WAF Admin routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/admin/compliance/status")
+@admin_required
+def api_compliance_status():
+    from compliance import get_compliance_status
+    return jsonify(get_compliance_status(session.get("tenant_id", 1)))
+
+
+@app.route("/api/admin/compliance/access-review")
+@admin_required
+def api_access_review():
+    from compliance import get_access_review_report
+    from audit import log_event
+    report = get_access_review_report(session.get("tenant_id", 1))
+    log_event(session.get("tenant_id"), session.get("user_id"), "access_review_generated")
+    return jsonify(report)
+
+
+@app.route("/api/admin/compliance/export-user-data/<int:target_user_id>")
+@admin_required
+def api_export_user_data(target_user_id):
+    from compliance import export_user_data
+    return jsonify(export_user_data(target_user_id, session.get("tenant_id", 1)))
+
+
+@app.route("/api/admin/compliance/anonymize/<int:target_user_id>", methods=["POST"])
+@admin_required
+def api_anonymize_user(target_user_id):
+    from compliance import anonymize_user
+    return jsonify(anonymize_user(session.get("user_id"), target_user_id, session.get("tenant_id", 1)))
+
+
+@app.route("/api/admin/compliance/purge-old-logs", methods=["POST"])
+@admin_required
+def api_purge_old_logs():
+    from compliance import purge_old_audit_logs, purge_old_login_records
+    audit_result = purge_old_audit_logs()
+    login_result = purge_old_login_records()
+    return jsonify({"audit": audit_result, "logins": login_result})
+
+
+@app.route("/api/admin/waf/status")
+@admin_required
+def api_waf_status():
+    from waf import get_banned_ips, get_top_requesters
+    from config import CLOUDFLARE_ENABLED, BEHIND_PROXY, DDOS_RATE_LIMIT, DDOS_BAN_THRESHOLD
+    return jsonify({
+        "cloudflare_enabled": CLOUDFLARE_ENABLED,
+        "behind_proxy": BEHIND_PROXY,
+        "ddos_rate_limit": DDOS_RATE_LIMIT,
+        "ddos_ban_threshold": DDOS_BAN_THRESHOLD,
+        "banned_ips": get_banned_ips(),
+        "top_requesters": get_top_requesters(),
+    })
+
+
+@app.route("/api/admin/waf/ban", methods=["POST"])
+@admin_required
+def api_waf_ban_ip():
+    from waf import ban_ip
+    data = request.get_json() or {}
+    ip_addr = data.get("ip", "").strip()
+    minutes = data.get("minutes", 60)
+    if not ip_addr:
+        return jsonify({"ok": False, "error": "IP address required."}), 400
+    ban_ip(ip_addr, minutes)
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "ip_manually_banned",
+              details=f"ip={ip_addr}, minutes={minutes}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/waf/unban", methods=["POST"])
+@admin_required
+def api_waf_unban_ip():
+    from waf import unban_ip
+    data = request.get_json() or {}
+    ip_addr = data.get("ip", "").strip()
+    if not ip_addr:
+        return jsonify({"ok": False, "error": "IP address required."}), 400
+    unban_ip(ip_addr)
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "ip_unbanned",
+              details=f"ip={ip_addr}")
+    return jsonify({"ok": True})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Bug Bounty / Responsible Disclosure
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/security")
+def security_page():
+    """Public security page with responsible disclosure policy."""
+    from config import SECURITY_CONTACT_EMAIL, BUG_BOUNTY_ENABLED, BUG_BOUNTY_URL
+    return render_template("security_policy.html",
+                           contact_email=SECURITY_CONTACT_EMAIL,
+                           bug_bounty_enabled=BUG_BOUNTY_ENABLED,
+                           bug_bounty_url=BUG_BOUNTY_URL)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Main dashboard
 # ─────────────────────────────────────────────────────────────────────────────
 
+@app.route("/onboarding")
+@login_required
+def onboarding_page():
+    """First-run setup wizard."""
+    if not session.get("user_id"):
+        return redirect(url_for("dashboard"))
+
+    status = _get_onboarding_status(session.get("user_id"))
+    if status["completed"]:
+        return redirect(url_for("dashboard"))
+
+    return render_template(
+        "onboarding.html",
+        active_tab=None,
+        hide_tab_strip=True,
+        sv=STARTUP_TIME,
+    )
+
+
+@app.route("/api/onboarding/complete", methods=["POST"])
+@login_required
+def api_onboarding_complete():
+    """Mark onboarding as completed for the current user."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"ok": True})
+
+    data = request.get_json(silent=True) or {}
+    final_step = data.get("step") or "complete"
+
+    conn = get_db()
+    try:
+        conn.execute(
+            """UPDATE users
+               SET onboarding_completed = 1,
+                   onboarding_step = ?
+               WHERE id = ?""",
+            (final_step, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({"ok": True})
+
+
+@app.route("/tms-overview")
+@login_required
+def tms_overview():
+    """Stripe-themed TMS shell — separate from the TMS blueprint."""
+    return render_template("stripe/tms.html", sv=STARTUP_TIME)
+
+
+@app.route("/help")
+@login_required
+def help_page():
+    """Render the in-app help and documentation page."""
+    return render_template(_t("help.html"), active_tab="help", sv=STARTUP_TIME)
+
+
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    return render_template("dashboard.html", sv=STARTUP_TIME, current_user=_auth.current_user(session))
+    return render_template(_t("dashboard.html"), sv=STARTUP_TIME, current_user=_auth.current_user(session))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  API — search / filter
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _build_query(args, select="network, company_name, contact_name, email, phone_number, country, city, verified_status, verified_score, website_url, linkedin_url"):
+def _build_query(args, select="id, network, company_name, contact_name, email, phone_number, country, city, verified_status, verified_score, website_url, linkedin_url", paginate=False):
     country   = args.get("country",   "").strip()
     company   = args.get("company",   "").strip()
     name      = args.get("name",      "").strip()
@@ -300,13 +2223,13 @@ def _build_query(args, select="network, company_name, contact_name, email, phone
     params = []
 
     if country:
-        sql += " AND LOWER(country) LIKE LOWER(?)"
+        sql += " AND country LIKE ? COLLATE NOCASE"
         params.append(f"%{country}%")
     if company:
-        sql += " AND LOWER(company_name) LIKE LOWER(?)"
+        sql += " AND company_name LIKE ? COLLATE NOCASE"
         params.append(f"%{company}%")
     if name:
-        sql += " AND LOWER(contact_name) LIKE LOWER(?)"
+        sql += " AND contact_name LIKE ? COLLATE NOCASE"
         params.append(f"%{name}%")
     verify = args.get("verify", "").strip()
     if network:
@@ -320,19 +2243,42 @@ def _build_query(args, select="network, company_name, contact_name, email, phone
     if has_phone:
         sql += " AND phone_number IS NOT NULL AND TRIM(phone_number) != ''"
 
-    sql += f" ORDER BY LOWER({sort_by}) {sort_dir.upper()}"
+    sql += f" ORDER BY {sort_by} COLLATE NOCASE {sort_dir.upper()}"
+
+    if paginate:
+        page = max(1, int(args.get("page", 1)))
+        per_page = min(200, max(10, int(args.get("per_page", 50))))
+        offset = (page - 1) * per_page
+        sql += f" LIMIT {per_page} OFFSET {offset}"
+
     return sql, params
 
 
 @app.route("/api/search")
 @login_required
 def api_search():
-    sql, params = _build_query(request.args)
-    conn  = get_db()
-    rows  = conn.execute(sql, params).fetchall()
+    page = max(1, int(request.args.get("page", 1)))
+    per_page = min(200, max(10, int(request.args.get("per_page", 50))))
+
+    # Get paginated results
+    sql, params = _build_query(request.args, paginate=True)
+    conn = get_db()
+    rows = conn.execute(sql, params).fetchall()
+
+    # Get total count for the same filters (without pagination)
+    count_sql, count_params = _build_query(request.args, select="COUNT(*) AS total")
+    total = conn.execute(count_sql, count_params).fetchone()["total"]
     conn.close()
+
     results = [dict(r) for r in rows]
-    return jsonify({"count": len(results), "results": results})
+    total_pages = max(1, -(-total // per_page))  # ceiling division
+    return jsonify({
+        "count": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "results": results,
+    })
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -347,10 +2293,23 @@ def api_version():
 @app.route("/api/stats")
 @login_required
 def api_stats():
-    conn  = get_db()
-    total = conn.execute("SELECT COUNT(*) FROM contacts").fetchone()[0]
+    conn = get_db()
+    row = conn.execute(
+        """SELECT COUNT(*) AS total,
+                  COUNT(DISTINCT CASE
+                      WHEN TRIM(COALESCE(country, '')) <> '' THEN TRIM(country)
+                  END) AS countries,
+                  COUNT(DISTINCT CASE
+                      WHEN TRIM(COALESCE(network, '')) <> '' THEN TRIM(network)
+                  END) AS networks
+           FROM contacts"""
+    ).fetchone()
     conn.close()
-    return jsonify({"total": total})
+    return jsonify({
+        "total": row["total"],
+        "countries": row["countries"],
+        "networks": row["networks"],
+    })
 
 
 @app.route("/api/verify-stats")
@@ -378,7 +2337,7 @@ def api_verify_stats():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/export")
-@login_required
+@feature_required("contacts", "export")
 def api_export():
     sql, params = _build_query(request.args)
     conn  = get_db()
@@ -398,6 +2357,10 @@ def api_export():
             row["country"],
             row["city"],
         ])
+
+    from audit import log_event
+    log_event(session.get("tenant_id"), session.get("user_id"), "data_exported",
+              details=f"rows={len(rows)}", ip=request.remote_addr or "")
 
     output.seek(0)
     return Response(
@@ -446,29 +2409,53 @@ def api_refresh():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/upload-csv", methods=["POST"])
-@login_required
+@feature_required("contacts", "write")
 def api_upload_csv():
+    from validators import sanitize_filename
+    from werkzeug.utils import secure_filename as _secure_filename
+
     if "file" not in request.files:
         return jsonify({"ok": False, "error": "No file received."})
 
     f = request.files["file"]
-    if not f.filename.lower().endswith(".csv"):
+    if not f.filename:
+        return jsonify({"ok": False, "error": "No filename."})
+
+    safe_name = sanitize_filename(_secure_filename(f.filename))
+    if not safe_name.lower().endswith(".csv"):
         return jsonify({"ok": False, "error": "File must be a .csv"})
 
-    # Detect network from filename  (wfa_... → WFA,  wwpc_... → WWPC, else custom)
-    name_lower = f.filename.lower()
+    # Validate file content looks like text/CSV (not binary)
+    header_bytes = f.read(512)
+    f.seek(0)
+    try:
+        header_bytes.decode("utf-8")
+    except (UnicodeDecodeError, AttributeError):
+        return jsonify({"ok": False, "error": "File does not appear to be a valid CSV."})
+
+    # Detect network from filename (whitelisted network names only)
+    _ALLOWED_NETWORKS = {"WFA", "WWPC", "FIATA", "FREIGHTNET", "AHK-JAPAN", "IMPORT"}
+    name_lower = safe_name.lower()
     if "wfa" in name_lower:
         network = "WFA"
     elif "wwpc" in name_lower:
         network = "WWPC"
     elif "fiata" in name_lower:
         network = "FIATA"
+    elif "freightnet" in name_lower:
+        network = "FREIGHTNET"
+    elif "ahk" in name_lower:
+        network = "AHK-JAPAN"
     else:
-        network = os.path.splitext(f.filename)[0].upper()
+        network = "IMPORT"
 
-    # Save into the app's data folder
+    # Save into the app's data folder with safe path
     os.makedirs(DATA_DIR, exist_ok=True)
-    save_path = os.path.join(DATA_DIR, f"upload_{network.lower()}.csv")
+    save_name = f"upload_{network.lower().replace('-', '_')}.csv"
+    save_path = os.path.join(DATA_DIR, save_name)
+    # Verify resolved path is within DATA_DIR (prevent path traversal)
+    if not os.path.realpath(save_path).startswith(os.path.realpath(DATA_DIR)):
+        return jsonify({"ok": False, "error": "Invalid file path."}), 400
     f.save(save_path)
 
     try:
@@ -479,6 +2466,12 @@ def api_upload_csv():
         with _sync_lock:
             _sync_state["last_sync"]  = datetime.now()
             _sync_state["row_count"]  = count
+
+        from audit import log_event
+        log_event(session.get("tenant_id"), session.get("user_id"), "csv_imported",
+                  resource=f"network:{network}", details=f"imported={result['imported']}",
+                  ip=request.remote_addr or "")
+
         return jsonify({
             "ok":        True,
             "network":   network,
@@ -486,7 +2479,7 @@ def api_upload_csv():
             "row_count": count,
         })
     except Exception as exc:
-        return jsonify({"ok": False, "error": str(exc)})
+        return jsonify({"ok": False, "error": "Import failed. Please check the CSV format."})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -530,7 +2523,8 @@ def carrier_alliance(carrier_name):
 def _migrate_lanes_carrier():
     """Add carrier, source, service, confidence, alliance, frequency columns if missing."""
     conn = get_db()
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(lanes)").fetchall()}
+    from database import _get_existing_columns
+    cols = _get_existing_columns(conn, "lanes")
     for col, default in [
         ("carrier",    "''"),
         ("source",     "'maersk'"),
@@ -581,7 +2575,7 @@ def import_lanes_csv(path):
     print(f"[lanes] Imported Maersk lanes from {path}")
 
 
-SCHEDULES_PATH = r"C:\Users\Owner\Desktop\shipping_schedules.csv"
+SCHEDULES_PATH = os.path.join(DATA_DIR, "shipping_schedules.csv")
 _schedules_mtime = 0.0
 
 
@@ -659,7 +2653,7 @@ def _schedules_watcher():
 @app.route("/lanes")
 @login_required
 def lanes():
-    return render_template("lanes.html", sv=STARTUP_TIME)
+    return render_template(_t("lanes.html"), sv=STARTUP_TIME)
 
 
 @app.route("/api/lanes/options")
@@ -684,13 +2678,42 @@ def api_lanes_options():
 def api_lanes_search():
     origin      = request.args.get("origin",      "").strip()
     destination = request.args.get("destination", "").strip()
-    status      = request.args.get("status",      "all").strip().lower()
     vessel_q    = request.args.get("vessel",      "").strip()
     carrier_q   = request.args.get("carrier",     "").strip()
+    lane_group  = request.args.get("lane_group",  "").strip()
 
+    conn = get_db()
+
+    # If lane_group selected, query vessel_schedules (richer, Codex-sourced data)
+    if lane_group:
+        sql    = """SELECT id, origin AS origin_name, destination AS destination_name,
+                           'active' AS lane_status, NULL AS last_checked, NULL AS sailing_id,
+                           etd, eta, vessel_name AS vessel, transit_time AS transit,
+                           NULL AS route, NULL AS booking_url, carrier, 'schedules' AS source,
+                           service, NULL AS confidence, NULL AS alliance, NULL AS frequency,
+                           NULL AS locode_origin, NULL AS locode_dest
+                    FROM vessel_schedules WHERE lane = ?"""
+        params = [lane_group]
+        if carrier_q:
+            sql += " AND LOWER(carrier) LIKE LOWER(?)"
+            params.append(f"%{carrier_q}%")
+        if origin:
+            sql += " AND LOWER(origin) LIKE LOWER(?)"
+            params.append(f"%{origin}%")
+        if destination:
+            sql += " AND LOWER(destination) LIKE LOWER(?)"
+            params.append(f"%{destination}%")
+        if vessel_q:
+            sql += " AND LOWER(vessel_name) LIKE LOWER(?)"
+            params.append(f"%{vessel_q}%")
+        sql += " ORDER BY etd ASC LIMIT 500"
+        rows = conn.execute(sql, params).fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+
+    # Default: query lanes table
     sql    = "SELECT * FROM lanes WHERE 1=1"
     params = []
-
     if origin:
         sql += " AND LOWER(origin_name) = LOWER(?)"
         params.append(origin)
@@ -704,14 +2727,313 @@ def api_lanes_search():
         sql += " AND LOWER(carrier) = LOWER(?)"
         params.append(carrier_q)
 
-    # Sort: active lanes with etd first, then inactive
-    sql += " ORDER BY CASE WHEN lane_status='active' AND etd != '' THEN 0 ELSE 1 END, etd ASC"
-
-    conn  = get_db()
-    rows  = conn.execute(sql, params).fetchall()
+    sql += " ORDER BY CASE WHEN lane_status='active' AND etd != '' THEN 0 ELSE 1 END, etd ASC LIMIT 500"
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Port → Region mapping  (used by new unified schedules UI)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _build_port_like_clause(ports, column):
+    """Return (sql_fragment, params) for matching a column against a list of port names."""
+    if not ports:
+        return "1=0", []
+    clauses = " OR ".join([f"LOWER({column}) LIKE LOWER(?)" for _ in ports])
+    params  = [f"%{p}%" for p in ports]
+    return f"({clauses})", params
+
+
+@app.route("/schedules")
+@login_required
+def schedules_page():
+    return render_template(_t("schedules.html"), active_tab="schedules", sv=STARTUP_TIME)
+
+
+@app.route("/api/schedules/search")
+@login_required
+def api_schedules_search():
+    ensure_schedule_schema()
+    origin_region = request.args.get("origin_region", "").strip()
+    dest_region   = request.args.get("dest_region",   "").strip()
+    carrier_q     = request.args.get("carrier",       "").strip()
+    vessel_q      = request.args.get("vessel",        "").strip()
+
+    # Legacy params (old schedules.html still in use on /api/schedules/search)
+    lane_q   = request.args.get("lane",   "").strip()
+    origin_q = request.args.get("origin", "").strip()
+    dest_q   = request.args.get("dest",   "").strip()
+
+    sql    = "SELECT * FROM vessel_schedules WHERE 1=1"
+    params = []
+
+    if origin_region and origin_region in ORIGIN_PORTS:
+        frag, p = _build_port_like_clause(ORIGIN_PORTS[origin_region], "origin")
+        sql    += f" AND {frag}"
+        params += p
+    elif origin_q:
+        sql    += " AND LOWER(origin) LIKE LOWER(?)"
+        params.append(f"%{origin_q}%")
+
+    if dest_region and dest_region in DEST_PORTS:
+        frag, p = _build_port_like_clause(DEST_PORTS[dest_region], "destination")
+        sql    += f" AND {frag}"
+        params += p
+    elif dest_q:
+        sql    += " AND LOWER(destination) LIKE LOWER(?)"
+        params.append(f"%{dest_q}%")
+
+    if lane_q:
+        sql    += " AND lane = ?"
+        params.append(lane_q)
+    if carrier_q:
+        sql    += " AND LOWER(carrier) LIKE LOWER(?)"
+        params.append(f"%{carrier_q}%")
+    if vessel_q:
+        sql    += " AND LOWER(vessel_name) LIKE LOWER(?)"
+        params.append(f"%{vessel_q}%")
+
+    sql += " ORDER BY etd ASC LIMIT 500"
+    conn  = get_db()
+    rows  = conn.execute(sql, params).fetchall()
+    conn.close()
+    row_dicts = [dict(r) for r in rows]
+    row_dicts = enrich_schedules_with_predictions(row_dicts)
+    row_dicts = enrich_schedules_with_reliability(row_dicts)
+    return jsonify(row_dicts)
+
+
+@app.route("/api/schedules/lane-status")
+@login_required
+def api_schedules_lane_status():
+    """Return availability map: { origin_region: { dest_region: bool } }"""
+    ensure_schedule_schema()
+    conn = get_db()
+    result = {}
+    for origin_region, origin_ports in ORIGIN_PORTS.items():
+        result[origin_region] = {}
+        for dest_region, dest_ports in DEST_PORTS.items():
+            if not origin_ports or not dest_ports:
+                result[origin_region][dest_region] = False
+                continue
+            orig_frag, orig_p = _build_port_like_clause(origin_ports, "origin")
+            dest_frag, dest_p = _build_port_like_clause(dest_ports,   "destination")
+            sql = (f"SELECT COUNT(*) FROM vessel_schedules "
+                   f"WHERE {orig_frag} AND {dest_frag} LIMIT 1")
+            count = conn.execute(sql, orig_p + dest_p).fetchone()[0]
+            result[origin_region][dest_region] = count > 0
+    conn.close()
+    return jsonify(result)
+
+
+@app.route("/api/schedules/options")
+@login_required
+def api_schedules_options():
+    ensure_schedule_schema()
+    conn     = get_db()
+    lanes    = [r[0] for r in conn.execute("SELECT DISTINCT lane FROM vessel_schedules ORDER BY lane").fetchall()]
+    carriers = [r[0] for r in conn.execute("SELECT DISTINCT carrier FROM vessel_schedules ORDER BY carrier").fetchall()]
+    origins  = [r[0] for r in conn.execute("SELECT DISTINCT origin FROM vessel_schedules ORDER BY origin").fetchall()]
+    conn.close()
+    return jsonify({"lanes": lanes, "carriers": carriers, "origins": origins})
+
+
+@app.route("/api/schedules/record-arrival", methods=["POST"])
+@login_required
+def api_record_arrival():
+    """Record actual arrival for a sailing. Body: { schedule_id, actual_eta }"""
+    payload = request.get_json(silent=True) or {}
+    schedule_id = payload.get("schedule_id")
+    actual_eta = str(payload.get("actual_eta", "")).strip()
+
+    if not schedule_id or not actual_eta:
+        return jsonify({"ok": False, "error": "schedule_id and actual_eta are required"}), 400
+
+    try:
+        result = mark_arrived(int(schedule_id), actual_eta)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    return jsonify({"ok": True, "arrival": result})
+
+
+@app.route("/api/schedules/delay-stats")
+@login_required
+def api_delay_stats():
+    """Return delay stats summary. Optional filters: carrier, origin, destination."""
+    init_predictive_db()
+    carrier_q = request.args.get("carrier", "").strip()
+    origin_q = request.args.get("origin", "").strip()
+    destination_q = request.args.get("destination", "").strip()
+
+    sql = "SELECT * FROM delay_stats WHERE 1=1"
+    params = []
+
+    if carrier_q:
+        sql += " AND LOWER(carrier) LIKE LOWER(?)"
+        params.append(f"%{carrier_q}%")
+    if origin_q:
+        sql += " AND LOWER(origin) LIKE LOWER(?)"
+        params.append(f"%{origin_q}%")
+    if destination_q:
+        sql += " AND LOWER(destination) LIKE LOWER(?)"
+        params.append(f"%{destination_q}%")
+
+    sql += " ORDER BY sample_count DESC, avg_delay_hours DESC, carrier ASC, origin ASC, destination ASC LIMIT 500"
+    conn = get_db()
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/schedules/reliability/leaderboard")
+@login_required
+def api_reliability_leaderboard():
+    """Return carrier reliability leaderboard."""
+    period = request.args.get("period", "90d")
+    try:
+        limit = int(request.args.get("limit", "20"))
+    except ValueError:
+        limit = 20
+    return jsonify(get_carrier_leaderboard(period, limit))
+
+
+@app.route("/api/schedules/reliability/lane")
+@login_required
+def api_reliability_lane():
+    """Return per-port-pair reliability for a lane."""
+    origin_region = request.args.get("origin_region", "")
+    dest_region = request.args.get("dest_region", "")
+    period = request.args.get("period", "90d")
+    try:
+        limit = int(request.args.get("limit", "20"))
+    except ValueError:
+        limit = 20
+    return jsonify(get_lane_leaderboard(origin_region, dest_region, period, limit))
+
+
+@app.route("/api/schedules/reliability/recompute", methods=["POST"])
+@login_required
+def api_reliability_recompute():
+    """Trigger reliability score recomputation in a background thread."""
+    threading.Thread(target=compute_reliability_scores, daemon=True).start()
+    return jsonify({"status": "started", "message": "Recomputing reliability scores..."})
+
+
+@app.route("/api/schedules/stats")
+@login_required
+def api_schedules_stats():
+    ensure_schedule_schema()
+    init_predictive_db()
+    init_reliability_db()
+    conn = get_db()
+    total    = conn.execute("SELECT COUNT(*) FROM vessel_schedules").fetchone()[0]
+    carriers = conn.execute("SELECT COUNT(DISTINCT carrier) FROM vessel_schedules").fetchone()[0]
+
+    # Count lanes that have data (origin+destination combos matching our regions)
+    lane_count  = conn.execute("SELECT COUNT(DISTINCT lane) FROM vessel_schedules").fetchone()[0]
+
+    # Last updated timestamp
+    last_row = conn.execute(
+        "SELECT COALESCE(last_checked, imported_at) FROM vessel_schedules "
+        "WHERE COALESCE(last_checked, imported_at) IS NOT NULL "
+        "ORDER BY COALESCE(last_checked, imported_at) DESC LIMIT 1"
+    ).fetchone()
+    last_updated = "—"
+    if last_row and last_row[0]:
+        try:
+            dt = datetime.fromisoformat(str(last_row[0]).replace("T", " "))
+            last_updated = f"{dt.strftime('%b')} {dt.day}"
+        except Exception:
+            last_updated = str(last_row[0])[:10]
+
+    source_counts = {"csv": 0, "api": 0}
+    for source_name, count in conn.execute(
+        """
+        SELECT COALESCE(NULLIF(data_source, ''), 'csv') AS source_name, COUNT(*)
+        FROM vessel_schedules
+        GROUP BY source_name
+        """
+    ).fetchall():
+        source_counts[str(source_name)] = count
+
+    source_lane_counts = {"csv": 0, "api": 0}
+    for source_name, count in conn.execute(
+        """
+        SELECT COALESCE(NULLIF(data_source, ''), 'csv') AS source_name, COUNT(DISTINCT lane)
+        FROM vessel_schedules
+        GROUP BY source_name
+        """
+    ).fetchall():
+        source_lane_counts[str(source_name)] = count
+
+    try:
+        gaps = conn.execute("SELECT COUNT(*) FROM schedule_gaps").fetchone()[0]
+    except Exception:
+        gaps = 0
+
+    try:
+        predictions_available = conn.execute("SELECT COUNT(*) FROM delay_stats").fetchone()[0] > 0
+        avg_delay_hours = conn.execute(
+            """
+            SELECT ROUND(AVG(delay_hours), 2)
+            FROM voyage_actuals
+            WHERE delay_hours IS NOT NULL
+              AND actual_eta IS NOT NULL
+              AND substr(COALESCE(actual_eta, scheduled_eta), 1, 10) >= ?
+            """,
+            ((datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d"),),
+        ).fetchone()[0]
+    except Exception:
+        predictions_available = False
+        avg_delay_hours = None
+
+    try:
+        reliability_available = conn.execute("SELECT COUNT(*) FROM reliability_scores").fetchone()[0] > 0
+    except Exception:
+        reliability_available = False
+
+    top_carrier = None
+    top_carrier_pct = None
+    leaderboard = get_carrier_leaderboard("90d", 1) if reliability_available else []
+    if leaderboard:
+        top_carrier = leaderboard[0]["carrier"]
+        top_carrier_pct = float(leaderboard[0]["on_time_pct"] or 0)
+
+    by_lane = conn.execute(
+        "SELECT lane, COUNT(*), COUNT(DISTINCT carrier) FROM vessel_schedules GROUP BY lane ORDER BY lane"
+    ).fetchall()
+    conn.close()
+    return jsonify({
+        "total":          total,
+        "carriers":       carriers,
+        "lanes":          lane_count,
+        "lanes_with_data": lane_count,
+        "gaps":           gaps,
+        "last_updated":   last_updated,
+        "data_sources":   source_counts,
+        "source_lanes":   source_lane_counts,
+        "predictions_available": predictions_available,
+        "avg_delay_hours": avg_delay_hours,
+        "reliability_available": reliability_available,
+        "top_carrier": top_carrier,
+        "top_carrier_pct": top_carrier_pct,
+        "by_lane": [{"lane": r[0], "sailings": r[1], "carriers": r[2]} for r in by_lane],
+    })
+
+
+@app.route("/api/schedules/sync", methods=["POST"])
+@login_required
+def api_schedules_sync():
+    """Trigger manual schedule sync from carrier APIs."""
+    if session.get("user_role") != "admin":
+        return jsonify({"ok": False, "error": "Admin access required."}), 403
+    start_background_sync()
+    return jsonify({"status": "started", "message": "Syncing schedules from carrier APIs..."})
 
 @app.route("/api/lanes/stats")
 @login_required
@@ -734,215 +3056,6 @@ def api_lanes_stats():
     })
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Carriers — FMCSA SAFER API + local DB
-# ─────────────────────────────────────────────────────────────────────────────
-
-FMCSA_BASE = "https://mobile.fmcsa.dot.gov/qc/services"
-
-def _fmcsa_get(path):
-    """Hit FMCSA SAFER REST API. Returns parsed JSON or None on failure."""
-    if not FMCSA_KEY:
-        return None
-    sep = "&" if "?" in path else "?"
-    url = f"{FMCSA_BASE}{path}{sep}webKey={FMCSA_KEY}"
-    try:
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return _json.loads(r.read().decode())
-    except Exception as e:
-        print(f"[fmcsa] Error: {e}")
-        return None
-
-
-def _score_carrier(c):
-    """Score 0–100 based on safety, fleet size, years, insurance."""
-    score = 0
-    # Safety rating (40 pts)
-    rating = (c.get("safety_rating") or "").lower()
-    if rating == "satisfactory":   score += 40
-    elif rating == "":             score += 25   # not rated ≠ bad
-    elif rating == "conditional":  score += 10
-    # Fleet size sweet spot 5–50 (20 pts)
-    trucks = c.get("fleet_trucks", 0) or 0
-    if 5 <= trucks <= 50:          score += 20
-    elif 51 <= trucks <= 150:      score += 10
-    elif trucks > 0:               score += 5
-    # Years active (20 pts)
-    years = c.get("years_active", 0) or 0
-    score += min(years * 2, 20)
-    # Insurance on file (10 pts)
-    if c.get("insured"):           score += 10
-    # Active status (10 pts)
-    if (c.get("status") or "").upper() == "A": score += 10
-    return round(score, 1)
-
-
-def _fmcsa_to_row(carrier_data):
-    """Normalize FMCSA API carrier object into our DB columns."""
-    c = carrier_data.get("carrier", carrier_data)
-    # Derive years active from mileageYear or operatingStatus
-    from datetime import datetime as _dt
-    entity_type = c.get("carrierOperation", {})
-    # Try to get founding year from census data
-    years = 0
-    try:
-        out_of_service = c.get("oosDate", "")
-        # Not reliable — leave as 0 if not present
-    except Exception:
-        pass
-
-    row = {
-        "dot_number":    str(c.get("dotNumber", "") or ""),
-        "mc_number":     str(c.get("mcNumber",  "") or ""),
-        "legal_name":    c.get("legalName",  "") or "",
-        "dba_name":      c.get("dbaName",    "") or "",
-        "city":          c.get("phyCity",    "") or "",
-        "state":         c.get("phyState",   "") or "",
-        "phone":         c.get("telephone",  "") or "",
-        "fleet_trucks":  int(c.get("totalPowerUnits", 0) or 0),
-        "fleet_drivers": int(c.get("totalDrivers",    0) or 0),
-        "safety_rating": c.get("safetyRating", "") or "",
-        "status":        c.get("statusCode",   "") or "",
-        "years_active":  years,
-        "insured":       1 if c.get("bipdInsuranceOnFile") == "Y" else 0,
-        "fetched_at":    datetime.now().strftime("%Y-%m-%d"),
-    }
-    row["score"] = _score_carrier(row)
-    return row
-
-
-@app.route("/carriers")
-@login_required
-def carriers():
-    return render_template("carriers.html", sv=STARTUP_TIME)
-
-
-@app.route("/api/carriers")
-@login_required
-def api_carriers():
-    """List all saved carriers with optional filters."""
-    state  = request.args.get("state",  "").strip().upper()
-    min_sc = request.args.get("min_score", "").strip()
-    q      = request.args.get("q", "").strip()
-
-    sql    = "SELECT * FROM carriers WHERE 1=1"
-    params = []
-    if state:
-        sql += " AND UPPER(state) = ?"
-        params.append(state)
-    if min_sc:
-        sql += " AND score >= ?"
-        params.append(float(min_sc))
-    if q:
-        sql += " AND (LOWER(legal_name) LIKE LOWER(?) OR LOWER(dba_name) LIKE LOWER(?) OR dot_number LIKE ? OR mc_number LIKE ?)"
-        params += [f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"]
-
-    sql += " ORDER BY score DESC"
-    conn = get_db()
-    rows = conn.execute(sql, params).fetchall()
-    conn.close()
-    return jsonify([dict(r) for r in rows])
-
-
-@app.route("/api/carriers/lookup", methods=["POST"])
-@login_required
-def api_carriers_lookup():
-    """Look up a carrier by DOT or MC number via FMCSA and save to DB."""
-    data    = request.get_json() or {}
-    dot     = str(data.get("dot", "")).strip()
-    mc      = str(data.get("mc",  "")).strip()
-
-    if not FMCSA_KEY:
-        return jsonify({"ok": False, "error": "No FMCSA API key configured. Add it to config.py."})
-    if not dot and not mc:
-        return jsonify({"ok": False, "error": "Provide a DOT or MC number."})
-
-    result = None
-    if dot:
-        result = _fmcsa_get(f"/carriers/{dot}")
-    elif mc:
-        result = _fmcsa_get(f"/carriers/docket-number/{mc}")
-
-    if not result:
-        return jsonify({"ok": False, "error": "Carrier not found or FMCSA unreachable."})
-
-    row = _fmcsa_to_row(result)
-
-    conn = get_db()
-    # Upsert by dot_number
-    existing = conn.execute(
-        "SELECT id FROM carriers WHERE dot_number = ?", (row["dot_number"],)
-    ).fetchone()
-
-    if existing:
-        conn.execute("""
-            UPDATE carriers SET legal_name=?, dba_name=?, city=?, state=?, phone=?,
-              fleet_trucks=?, fleet_drivers=?, safety_rating=?, status=?,
-              insured=?, score=?, fetched_at=?
-            WHERE dot_number=?""",
-            (row["legal_name"], row["dba_name"], row["city"], row["state"],
-             row["phone"], row["fleet_trucks"], row["fleet_drivers"],
-             row["safety_rating"], row["status"], row["insured"],
-             row["score"], row["fetched_at"], row["dot_number"])
-        )
-    else:
-        conn.execute("""
-            INSERT INTO carriers
-              (dot_number, mc_number, legal_name, dba_name, city, state, phone,
-               fleet_trucks, fleet_drivers, safety_rating, status,
-               insured, score, fetched_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (row["dot_number"], row["mc_number"], row["legal_name"], row["dba_name"],
-             row["city"], row["state"], row["phone"], row["fleet_trucks"],
-             row["fleet_drivers"], row["safety_rating"], row["status"],
-             row["insured"], row["score"], row["fetched_at"])
-        )
-    conn.commit()
-    conn.close()
-    return jsonify({"ok": True, "carrier": row})
-
-
-@app.route("/api/carriers/<int:carrier_id>", methods=["DELETE"])
-@login_required
-def api_carrier_delete(carrier_id):
-    conn = get_db()
-    conn.execute("DELETE FROM carriers WHERE id = ?", (carrier_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({"ok": True})
-
-
-@app.route("/api/carriers/<int:carrier_id>", methods=["PATCH"])
-@login_required
-def api_carrier_patch(carrier_id):
-    """Update lanes or notes for a saved carrier."""
-    data = request.get_json() or {}
-    fields, params = [], []
-    for col in ("lanes", "notes"):
-        if col in data:
-            fields.append(f"{col} = ?")
-            params.append(data[col])
-    if not fields:
-        return jsonify({"ok": False, "error": "Nothing to update."})
-    params.append(carrier_id)
-    conn = get_db()
-    conn.execute(f"UPDATE carriers SET {', '.join(fields)} WHERE id = ?", params)
-    conn.commit()
-    conn.close()
-    return jsonify({"ok": True})
-
-
-@app.route("/api/carriers/stats")
-@login_required
-def api_carriers_stats():
-    conn = get_db()
-    total  = conn.execute("SELECT COUNT(*) FROM carriers").fetchone()[0]
-    rated  = conn.execute("SELECT COUNT(*) FROM carriers WHERE safety_rating = 'Satisfactory'").fetchone()[0]
-    states = conn.execute("SELECT COUNT(DISTINCT state) FROM carriers WHERE state != ''").fetchone()[0]
-    avg_sc = conn.execute("SELECT AVG(score) FROM carriers").fetchone()[0] or 0
-    conn.close()
-    return jsonify({"total": total, "satisfactory": rated, "states": states, "avg_score": round(avg_sc, 1)})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1124,11 +3237,12 @@ def api_compose_email():
 @app.route("/rates")
 @login_required
 def rates():
-    return render_template("rates.html", sv=STARTUP_TIME, email_configured=bool(EMAIL_USER))
+    from config import GRAPH_CLIENT_SECRET
+    return render_template(_t("rates.html"), sv=STARTUP_TIME, email_configured=bool(GRAPH_CLIENT_SECRET))
 
 
 @app.route("/api/rates")
-@login_required
+@feature_required("rates")
 def api_rates():
     """List rates with optional filters: carrier, origin, destination, cycle, verified."""
     carrier     = request.args.get("carrier",     "").strip()
@@ -1226,7 +3340,7 @@ def api_rates_options():
 
 
 @app.route("/api/rates/parse", methods=["POST"])
-@login_required
+@feature_required("rates", "write")
 def api_rates_parse():
     """Parse an email body for rate data.
     Body JSON: {email_body: str, contact_id: int, cycle: str}
@@ -1259,6 +3373,67 @@ def api_rate_verify(rate_id):
     conn.commit()
     conn.close()
     return jsonify({"ok": True, "verified": verified})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Contact Intelligence API
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/contacts/<int:contact_id>/intelligence")
+@login_required
+def api_contact_intelligence(contact_id):
+    """Full intelligence card for a contact — behavioral profile, interests, call prep."""
+    card = _ce.get_intelligence_card(contact_id)
+    if not card:
+        return jsonify({"ok": False, "error": "Contact not found"}), 404
+    return jsonify({"ok": True, **card})
+
+
+@app.route("/api/contacts/<int:contact_id>/interests", methods=["POST"])
+@login_required
+def api_contact_interests(contact_id):
+    """Store confirmed interests for a contact.
+    Body JSON: {interests: ["football", "cooking", ...]}
+    Or: {reply_text: "raw reply text to parse"}
+    """
+    data = request.get_json() or {}
+    if "reply_text" in data:
+        interests = _ce.parse_interests_from_reply(data["reply_text"])
+    else:
+        interests = data.get("interests", [])
+    _ce.store_interests(contact_id, interests)
+    return jsonify({"ok": True, "interests": interests})
+
+
+@app.route("/api/contacts/<int:contact_id>/responded", methods=["POST"])
+@login_required
+def api_contact_responded(contact_id):
+    """Record that a contact responded. Updates behavioral scoring.
+    Body JSON: {sent_at: "2026-03-21T10:00:00"}
+    """
+    data    = request.get_json() or {}
+    sent_at = data.get("sent_at", "")
+    result  = _ce.record_response(contact_id, sent_at)
+    return jsonify({"ok": True, **result})
+
+
+@app.route("/api/contacts/<int:contact_id>/profile")
+@login_required
+def api_contact_profile(contact_id):
+    """Return the raw contact profile (behavioral + interests)."""
+    profile = _ce.get_or_create_profile(contact_id)
+    return jsonify({"ok": True, "profile": profile})
+
+
+@app.route("/api/test-email", methods=["POST"])
+@login_required
+def api_test_email():
+    """Send a test email to pricing@flashcargoglobal.com to verify Graph API works."""
+    try:
+        _mailer.test_connection()
+        return jsonify({"ok": True, "message": "Test email sent to pricing@flashcargoglobal.com"})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)})
 
 
 @app.route("/api/rates/gaps")
@@ -1449,7 +3624,7 @@ def api_rate_patch(rate_id):
 
 
 @app.route("/api/rates/<int:rate_id>", methods=["DELETE"])
-@login_required
+@feature_required("rates", "delete")
 def api_rate_delete(rate_id):
     """Delete a rate record."""
     conn = get_db()
@@ -1496,7 +3671,7 @@ def api_contacts_ids():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/learning/progress", methods=["GET"])
-@login_required
+@feature_required("learning")
 def api_learning_progress():
     """Return learning progress for all users (admin) or current user."""
     conn = get_db()
@@ -1512,7 +3687,7 @@ def api_learning_progress():
 
 
 @app.route("/api/learning/progress", methods=["POST"])
-@login_required
+@feature_required("learning", "write")
 def api_learning_record():
     """Record a completed lesson.
     Body JSON: {user_id: int, book: str, lesson: str, score: int}
@@ -1603,7 +3778,7 @@ def api_v2_benchmarks():
 
 
 @app.route("/api/v2/rates/run-cycle", methods=["POST"])
-@login_required
+@feature_required("rates", "write")
 def api_v2_run_cycle():
     """Run full intelligence cycle for a given cycle_id."""
     data     = request.get_json() or {}
@@ -1712,36 +3887,376 @@ def api_v2_best_match():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  Intro outreach routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/r/<token>/<selection>")
+def intro_click_track(token, selection):
+    """One-click lane/carrier tracking from intro email buttons. No login required."""
+    import intro_mailer as _im
+    result = _im.record_click(token, selection)
+
+    is_carrier = selection.startswith("carrier-")
+    label = selection.replace("carrier-", "").replace("-", " ").title()
+    if selection == "all":
+        label = "All Destinations"
+
+    category = "Shipping Line" if is_carrier else "Lane"
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Flash Cargo Global — Confirmed</title>
+  <style>
+    body {{font-family:Arial,sans-serif;background:#f4f4f4;display:flex;align-items:center;
+           justify-content:center;min-height:100vh;margin:0;}}
+    .card {{background:#fff;border-radius:10px;padding:40px 48px;max-width:480px;
+            text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.08);}}
+    .check {{font-size:56px;margin-bottom:16px;}}
+    h2 {{color:#1a73e8;margin:0 0 12px;}}
+    p {{color:#555;font-size:15px;line-height:1.6;}}
+    .tag {{display:inline-block;background:#e8f0fe;color:#1a73e8;
+           border-radius:20px;padding:4px 14px;font-size:13px;font-weight:600;margin-top:8px;}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="check">&#10003;</div>
+    <h2>Got it — thank you!</h2>
+    <p>We've recorded your {category.lower()} preference:</p>
+    <div class="tag">{label}</div>
+    <p style="margin-top:20px;">
+      You can close this tab. We'll only send you rate requests
+      for the lanes and carriers you've selected.
+    </p>
+    <p style="font-size:13px;color:#888;margin-top:24px;">
+      Flash Cargo Global &mdash; Delivering confidence worldwide
+    </p>
+  </div>
+</body>
+</html>""", 200
+
+
+@app.route("/api/inbox/poll", methods=["POST"])
+@login_required
+def api_inbox_poll():
+    """Manually trigger reply inbox poll."""
+    import reply_parser as _rp
+    stats = _rp.poll_inbox(lookback_hours=72)
+    return jsonify(stats)
+
+
+@app.route("/api/intro/stats")
+@login_required
+def api_intro_stats():
+    """Return aggregate stats for intro outreach emails."""
+    import intro_mailer as _im
+    return jsonify(_im.get_intro_stats())
+
+
+@app.route("/api/intro/send/<int:contact_id>", methods=["POST"])
+@feature_required("outreach", "write")
+def api_intro_send(contact_id):
+    """Send the intro email to a single contact by id."""
+    import intro_mailer as _im
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id, email, contact_name, company_name, country, city FROM contacts WHERE id = ?",
+        (contact_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return jsonify({"ok": False, "error": f"Contact {contact_id} not found."})
+    contact = dict(row)
+    try:
+        ok = _im.send_intro(contact)
+        return jsonify({"ok": ok, "contact_id": contact_id, "email": contact["email"]})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)})
+
+
+@app.route("/api/contacts/<int:contact_id>/lane-confirmed", methods=["POST"])
+@login_required
+def api_lane_confirmed(contact_id):
+    """Store confirmed lanes and carriers from an agent's reply."""
+    data = request.get_json(silent=True) or {}
+    lanes     = data.get("lanes", [])
+    carriers  = data.get("carriers", [])
+    notes     = data.get("notes", "")
+
+    lanes_json    = _json.dumps(lanes)
+    carriers_json = _json.dumps(carriers)
+    now           = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    conn = get_db()
+    # Update the most recent intro_outreach row for this contact
+    row = conn.execute(
+        "SELECT id FROM intro_outreach WHERE contact_id = ? ORDER BY id DESC LIMIT 1",
+        (contact_id,),
+    ).fetchone()
+    if row:
+        conn.execute(
+            """
+            UPDATE intro_outreach
+            SET lanes_confirmed=?, carriers_confirmed=?,
+                reply_received=1, status='replied', notes=?
+            WHERE id=?
+            """,
+            (lanes_json, carriers_json, notes, row["id"]),
+        )
+    else:
+        # No prior intro row — create a stub record
+        conn.execute(
+            """
+            INSERT INTO intro_outreach
+                (contact_id, email, lanes_confirmed, carriers_confirmed,
+                 reply_received, status, sent_at, notes)
+            SELECT ?, email, ?, ?, 1, 'replied', ?, ?
+            FROM contacts WHERE id=?
+            """,
+            (contact_id, lanes_json, carriers_json, now, notes, contact_id),
+        )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "contact_id": contact_id,
+                    "lanes": lanes, "carriers": carriers})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  Startup
 # ─────────────────────────────────────────────────────────────────────────────
 
+@app.route("/outreach")
+@login_required
+def outreach_page():
+    return render_template(_t("outreach.html"), active_tab="outreach")
+
+
+@app.route("/api/outreach/replies")
+@login_required
+def api_outreach_replies():
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT
+            io.id, io.email, io.country, io.sent_at, io.status,
+            io.reply_received, io.lanes_confirmed, io.carriers_confirmed,
+            io.lane_clicks, io.carrier_clicks,
+            c.company_name, c.contact_name, c.city
+        FROM intro_outreach io
+        LEFT JOIN contacts c ON io.contact_id = c.id
+        ORDER BY io.sent_at DESC
+        LIMIT 500
+    """).fetchall()
+    conn.close()
+    keys = ["id","email","country","sent_at","status","reply_received",
+            "lanes_confirmed","carriers_confirmed","lane_clicks","carrier_clicks",
+            "company_name","contact_name","city"]
+    return jsonify([{k: r[k] for k in keys} for r in rows])
+
+
+# ── Agents Office ────────────────────────────────────────────────────────────
+
+_COUNTRY_FLAGS = {
+    "italy": "IT", "germany": "DE", "france": "FR", "spain": "ES",
+    "netherlands": "NL", "belgium": "BE", "switzerland": "CH", "austria": "AT",
+    "poland": "PL", "greece": "GR", "turkey": "TR", "portugal": "PT",
+    "sweden": "SE", "denmark": "DK", "norway": "NO", "finland": "FI",
+    "russia": "RU", "ukraine": "UA", "czech republic": "CZ", "romania": "RO",
+    "hungary": "HU", "croatia": "HR", "ireland": "IE",
+    "united kingdom": "GB", "uk": "GB",
+    "china": "CN", "hong kong": "HK", "taiwan": "TW", "japan": "JP",
+    "south korea": "KR", "korea": "KR", "india": "IN", "singapore": "SG",
+    "malaysia": "MY", "indonesia": "ID", "thailand": "TH", "vietnam": "VN",
+    "philippines": "PH", "australia": "AU", "new zealand": "NZ",
+    "bangladesh": "BD", "pakistan": "PK", "sri lanka": "LK",
+    "usa": "US", "united states": "US", "brazil": "BR", "mexico": "MX",
+    "colombia": "CO", "argentina": "AR", "chile": "CL", "peru": "PE",
+    "canada": "CA", "ecuador": "EC", "venezuela": "VE",
+    "costa rica": "CR", "panama": "PA",
+    "uae": "AE", "united arab emirates": "AE", "saudi arabia": "SA",
+    "qatar": "QA", "kuwait": "KW", "bahrain": "BH", "oman": "OM",
+    "egypt": "EG", "jordan": "JO", "lebanon": "LB", "israel": "IL",
+    "south africa": "ZA", "nigeria": "NG", "kenya": "KE", "ghana": "GH",
+    "tanzania": "TZ", "morocco": "MA",
+}
+
+
+def _flag_emoji(iso2):
+    """Convert 2-letter ISO code to flag emoji."""
+    return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in iso2.upper())
+
+
+@app.route("/agents")
+@login_required
+@admin_required
+def agents_page():
+    return render_template(_t("agents.html"), active_tab="agents")
+
+
+@app.route("/api/agents/stats")
+@login_required
+@admin_required
+def api_agents_stats():
+    conn = get_db()
+
+    # Contact counts per country
+    contact_rows = conn.execute(
+        "SELECT LOWER(TRIM(country)), COUNT(*) FROM contacts WHERE country IS NOT NULL AND country != '' GROUP BY LOWER(TRIM(country))"
+    ).fetchall()
+    contact_counts = {r[0]: r[1] for r in contact_rows}
+
+    # Intro outreach stats per country
+    outreach_rows = conn.execute(
+        "SELECT LOWER(TRIM(country)), COUNT(*), SUM(CASE WHEN reply_received IS NOT NULL AND reply_received != '' THEN 1 ELSE 0 END) FROM intro_outreach WHERE country IS NOT NULL AND country != '' GROUP BY LOWER(TRIM(country))"
+    ).fetchall()
+    outreach_stats = {r[0]: {"sent": r[1], "replies": r[2]} for r in outreach_rows}
+
+    # Rate outreach stats per country
+    rate_rows = conn.execute(
+        "SELECT LOWER(TRIM(contact_country)), COUNT(*), SUM(CASE WHEN responded_at IS NOT NULL THEN 1 ELSE 0 END) FROM rate_outreach WHERE contact_country IS NOT NULL AND contact_country != '' GROUP BY LOWER(TRIM(contact_country))"
+    ).fetchall()
+    rate_stats = {r[0]: {"sent": r[1], "replies": r[2]} for r in rate_rows}
+
+    conn.close()
+
+    # Build per-country agent data from mailer's _COUNTRY_NAMES
+    seen_iso = set()
+    countries = []
+    for country_key, names in _mailer._COUNTRY_NAMES.items():
+        iso2 = _COUNTRY_FLAGS.get(country_key, "")
+        if not iso2 or iso2 in seen_iso:
+            continue
+        seen_iso.add(iso2)
+
+        agents = []
+        for name in names:
+            alias = _mailer._strip_accents(name).lower()
+            email = f"{alias}@flashcargoglobal.com" if alias in _mailer._ACTIVE_ALIASES else "pricing@flashcargoglobal.com"
+            agents.append({"name": name, "email": email, "has_alias": alias in _mailer._ACTIVE_ALIASES})
+
+        c_contacts = contact_counts.get(country_key, 0)
+        o = outreach_stats.get(country_key, {"sent": 0, "replies": 0})
+        r = rate_stats.get(country_key, {"sent": 0, "replies": 0})
+        total_sent = o["sent"] + r["sent"]
+        total_replies = o["replies"] + r["replies"]
+
+        display_name = country_key.title()
+        if country_key in ("uae",):
+            display_name = "UAE"
+        elif country_key in ("usa",):
+            display_name = "USA"
+        elif country_key in ("uk",):
+            display_name = "UK"
+
+        countries.append({
+            "country": display_name,
+            "country_key": country_key,
+            "iso2": iso2,
+            "flag": _flag_emoji(iso2),
+            "agents": agents,
+            "agent_count": len(agents),
+            "contacts": c_contacts,
+            "emails_sent": total_sent,
+            "replies": total_replies,
+            "response_rate": round(total_replies / total_sent * 100, 1) if total_sent > 0 else 0,
+        })
+
+    countries.sort(key=lambda x: x["contacts"], reverse=True)
+
+    totals = {
+        "total_agents": sum(c["agent_count"] for c in countries),
+        "total_countries": len(countries),
+        "total_contacts": sum(c["contacts"] for c in countries),
+        "total_sent": sum(c["emails_sent"] for c in countries),
+        "total_replies": sum(c["replies"] for c in countries),
+    }
+    totals["overall_response_rate"] = round(totals["total_replies"] / totals["total_sent"] * 100, 1) if totals["total_sent"] > 0 else 0
+
+    return jsonify({"countries": countries, "totals": totals})
+
+
+@app.route("/api/translate", methods=["POST"])
+@login_required
+def api_translate():
+    """Translate text — used by dashboard to show translated replies inline."""
+    data = request.get_json(force=True)
+    text = (data.get("text") or "").strip()
+    target_lang = (data.get("target_lang") or "en").strip()
+    source_lang = data.get("source_lang")  # optional, auto-detect if None
+
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    try:
+        from translation_service import translate_text, detect_language
+        if not target_lang or target_lang == "auto":
+            target_lang = "en"
+        if not source_lang:
+            source_lang = detect_language(text)
+        result = translate_text(text, target_lang, source_lang=source_lang)
+        return jsonify(result)
+    except ImportError:
+        return jsonify({"error": "translation_service not available"}), 500
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
 def open_browser():
+    """Auto-open browser in local dev mode only."""
+    if os.environ.get("PRODUCTION"):
+        return
     time.sleep(1.2)
     webbrowser.open("http://127.0.0.1:5000")
 
 
-if __name__ == "__main__":
+def init_all_dbs():
+    """Initialize all database tables — called on startup.
+
+    Microservice mapping:
+      Service 12 (Admin)      → init_tenants_db()
+      Service 2  (Contacts)   → init_db(), init_contact_intelligence_db()
+      Service 4  (Rates)      → init_rates_db(), init_lanes_db()
+      Service 1  (Auth)       → init_users_db()
+      Service 3  (Email)      → init_email_outreach_db(), init_bounced_emails_db()
+      Service 6  (Carriers)   → init_predictive_db(), init_reliability_db(), ensure_schedule_schema()
+      Service 8  (Billing)    → init_quotes_db()
+      Service 11 (AI Support) → init_helpbot_db()
+      Service 2  (Contacts)   → init_inspection_log_db()
+    """
+    from database import init_tenants_db
+    init_tenants_db()
     init_db()
     init_lanes_db()
-    init_carriers_db()
     init_rates_db()
     init_users_db()
+    init_contact_intelligence_db()
+    init_email_outreach_db()
+    init_inspection_log_db()
+    init_predictive_db()
+    init_reliability_db()
+    ensure_schedule_schema()
+    _quotes.init_quotes_db()
+    _helpbot.init_helpbot_db()
     _migrate_lanes_carrier()
+    from bounce_monitor import init_bounced_emails_db
+    init_bounced_emails_db()
+
+
+def start_background_workers():
+    """Start all background threads — called once on startup."""
+    if not has_any_api_keys_configured():
+        print("[schedules] No carrier API keys configured — running in CSV-only mode")
 
     # ── Maersk lanes import ───────────────────────────────────────────────────
-    _lanes_csv = r"C:\Users\Owner\Desktop\maersk_lanes.csv"
-    if not os.path.exists(_lanes_csv):
-        _lanes_csv = os.path.join(DATA_DIR, "maersk_lanes.csv")
+    _lanes_csv = os.path.join(DATA_DIR, "maersk_lanes.csv")
     if os.path.exists(_lanes_csv):
         import_lanes_csv(_lanes_csv)
-        import shutil
-        _lanes_dest = os.path.join(DATA_DIR, "maersk_lanes.csv")
-        if os.path.abspath(_lanes_csv) != os.path.abspath(_lanes_dest):
-            shutil.copy2(_lanes_csv, _lanes_dest)
     else:
         print("[lanes] No maersk_lanes.csv found.")
 
-    # ── Shipping schedules import (India→North America, multi-carrier) ────────
+    # ── Shipping schedules import ─────────────────────────────────────────────
     if os.path.exists(SCHEDULES_PATH):
         import_schedules_csv(SCHEDULES_PATH)
         threading.Thread(target=_schedules_watcher, daemon=True).start()
@@ -1750,12 +4265,10 @@ if __name__ == "__main__":
         print(f"[schedules] {SCHEDULES_PATH} not found — skipping.")
 
     if CSV_SOURCES:
-        # Source machine — import CSVs as usual
         print("[startup] Importing all CSVs…")
         _run_import()
         print(f"[startup] {_sync_state['row_count']} total contacts loaded.")
     else:
-        # Team member machine (no CSV files) — use existing database as-is
         conn = get_db()
         count = conn.execute("SELECT COUNT(*) FROM contacts").fetchone()[0]
         conn.close()
@@ -1764,21 +4277,58 @@ if __name__ == "__main__":
             _sync_state["last_sync"] = datetime.now()
         print(f"[startup] {count} contacts loaded from database.")
 
-    # Start background watcher thread
+    # Background watcher
     threading.Thread(target=_csv_watcher, daemon=True).start()
     print(f"[startup] Auto-sync active — checking every {CHECK_INTERVAL}s for CSV changes.")
 
-    # Start rate engine scheduler (reminders + monthly sends)
+    # Rate engine scheduler
     def _run_in_app_context(fn):
         with app.app_context():
             fn()
     rate_engine.start_scheduler(_run_in_app_context)
 
+    # Reply inbox poller
+    def _poll_replies():
+        while True:
+            time.sleep(1800)
+            try:
+                import reply_parser as _rp
+                stats = _rp.poll_inbox(lookback_hours=48)
+                print(f"[reply_parser] poll complete: {stats}")
+            except Exception as _e:
+                print(f"[reply_parser] poll error: {_e}")
+
+    threading.Thread(target=_poll_replies, daemon=True).start()
+    print("[reply_parser] Inbox poller started — runs every 30 min.")
+
+
+    # Bounce monitor poller
+    def _poll_bounces():
+        while True:
+            time.sleep(3600)  # check every hour
+            try:
+                from bounce_monitor import check_bounces
+                result = check_bounces()
+                if result["new_bounces"] > 0:
+                    print(f"[bounce_monitor] Found {result['new_bounces']} new bounces")
+                else:
+                    print("[bounce_monitor] No new bounces")
+            except Exception as _e:
+                print(f"[bounce_monitor] poll error: {_e}")
+
+    threading.Thread(target=_poll_bounces, daemon=True).start()
+    print("[bounce_monitor] Bounce poller started -- runs every 60 min.")
+
+if __name__ == "__main__":
+    init_all_dbs()
+    start_background_workers()
+
+    PORT = int(os.environ.get("PORT", 5000))
     print("\n" + "=" * 55)
-    print("  WFA Contacts Dashboard")
-    print("  Local:    http://127.0.0.1:5000")
-    print("  Network:  http://0.0.0.0:5000")
+    print("  Freight Intelligence Dashboard")
+    print(f"  Local:    http://127.0.0.1:{PORT}")
+    print(f"  Network:  http://0.0.0.0:{PORT}")
     print("  Press Ctrl+C to stop")
     print("=" * 55 + "\n")
     threading.Thread(target=open_browser, daemon=True).start()
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=PORT, debug=False)

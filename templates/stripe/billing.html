@@ -1,0 +1,80 @@
+{% extends "stripe/base.html" %}
+{% set active_tab = 'billing' %}
+
+{% block title %}Billing{% endblock %}
+
+{% block content %}
+<div class="s-fade-in">
+
+  <div class="s-page-header">
+    <div>
+      <h1 class="s-page-title">Billing</h1>
+      <div class="s-page-subtitle">Subscription, invoices, and payment methods</div>
+    </div>
+  </div>
+
+  <div class="s-stats-grid" style="grid-template-columns:repeat(3, 1fr);">
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-credit-card"></i> Current Plan</div>
+      <div class="s-stat-value" style="font-size:24px;">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-calendar"></i> Next Invoice</div>
+      <div class="s-stat-value" style="font-size:24px;">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-receipt"></i> Amount Due</div>
+      <div class="s-stat-value" style="font-size:24px;">&mdash;</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Subscription</span>
+        <button class="s-btn s-btn-secondary s-btn-sm" disabled>Manage</button>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-box-seam"></i>
+          <div class="s-empty-title">Plan details</div>
+          <div class="s-empty-desc">Your subscription tier, usage limits, and renewal info will display here.</div>
+        </div>
+      </div>
+    </div>
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Payment Method</span>
+        <button class="s-btn s-btn-secondary s-btn-sm" disabled>Update</button>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-credit-card-2-front"></i>
+          <div class="s-empty-title">No payment method</div>
+          <div class="s-empty-desc">Add a card or bank account to activate your subscription.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="s-card" style="margin-top:16px;">
+    <div class="s-card-header">
+      <span class="s-card-title">Invoice History</span>
+    </div>
+    <div class="s-card-body s-card-body--flush">
+      <table class="s-table">
+        <thead>
+          <tr><th>Date</th><th>Description</th><th>Amount</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="5" class="s-table-empty">
+            <i class="bi bi-receipt"></i>
+            No invoices yet.
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

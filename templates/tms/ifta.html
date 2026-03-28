@@ -1,0 +1,378 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}IFTA Reporting{% endblock %}
+{% block tms_content %}
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-fuel-pump me-2"></i>IFTA Reporting</h2>
+    <div class="text-muted small">International Fuel Tax Agreement — quarterly fuel &amp; mileage tracking</div>
+  </div>
+  <form method="get" class="d-flex align-items-center gap-2">
+    <label class="text-muted small mb-0">Quarter:</label>
+    <select name="quarter" class="form-select form-select-sm bg-dark text-white border-secondary" style="min-width:130px" onchange="this.form.submit()">
+      {% for q in quarters %}
+      <option value="{{ q }}" {% if q == quarter %}selected{% endif %}>{{ q }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<!-- ── Summary Cards ────────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small mb-1"><i class="bi bi-speedometer2 me-1"></i>TOTAL MILES</div>
+        <div class="fs-4 fw-bold">{{ "{:,.1f}".format(summary.total_miles) }}</div>
+        <div class="text-muted small">this quarter</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small mb-1"><i class="bi bi-droplet-half me-1"></i>TOTAL GALLONS</div>
+        <div class="fs-4 fw-bold">{{ "{:,.3f}".format(summary.total_gallons) }}</div>
+        <div class="text-muted small">purchased</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small mb-1"><i class="bi bi-graph-up me-1"></i>AVERAGE MPG</div>
+        <div class="fs-4 fw-bold">{{ "{:.2f}".format(summary.avg_mpg) if summary.avg_mpg else "—" }}</div>
+        <div class="text-muted small">fleet avg</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small mb-1"><i class="bi bi-cash me-1"></i>NET TAX</div>
+        {% if summary.total_net > 0 %}
+        <div class="fs-4 fw-bold text-danger">${{ "{:,.2f}".format(summary.total_net) }}</div>
+        <div class="text-muted small text-danger">amount owed</div>
+        {% elif summary.total_net < 0 %}
+        <div class="fs-4 fw-bold text-success">${{ "{:,.2f}".format(summary.total_net | abs) }}</div>
+        <div class="text-muted small text-success">refund due</div>
+        {% else %}
+        <div class="fs-4 fw-bold text-muted">$0.00</div>
+        <div class="text-muted small">balanced</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Jurisdiction Table ───────────────────────────────────────────────────── -->
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-map me-2"></i>Jurisdiction Breakdown — {{ quarter }}</span>
+    {% if summary.jurisdictions %}
+    <span class="badge bg-secondary">{{ summary.jurisdictions | length }} jurisdiction{{ 's' if summary.jurisdictions | length != 1 }}</span>
+    {% endif %}
+  </div>
+  <div class="card-body p-0">
+    {% if summary.jurisdictions %}
+    <div class="table-responsive">
+      <table class="table table-dark table-hover mb-0 align-middle small">
+        <thead class="text-muted" style="font-size:0.75rem;letter-spacing:.04em">
+          <tr>
+            <th class="ps-3">STATE/PROV</th>
+            <th class="text-end">MILES DRIVEN</th>
+            <th class="text-end">GAL CONSUMED</th>
+            <th class="text-end">GAL PURCHASED</th>
+            <th class="text-end">TAX RATE</th>
+            <th class="text-end">TAX OWED</th>
+            <th class="text-end">TAX PAID</th>
+            <th class="text-end pe-3">NET</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in summary.jurisdictions %}
+          <tr>
+            <td class="ps-3 fw-bold">{{ row.state }}</td>
+            <td class="text-end">{{ "{:,.1f}".format(row.miles) }}</td>
+            <td class="text-end">{{ "{:,.3f}".format(row.gallons_consumed) }}</td>
+            <td class="text-end">{{ "{:,.3f}".format(row.gallons_purchased) }}</td>
+            <td class="text-end text-muted">${{ "%.3f"|format(row.tax_rate) }}</td>
+            <td class="text-end">${{ "{:,.2f}".format(row.tax_owed) }}</td>
+            <td class="text-end">${{ "{:,.2f}".format(row.tax_paid) }}</td>
+            <td class="text-end pe-3 fw-bold {% if row.net > 0 %}text-danger{% elif row.net < 0 %}text-success{% endif %}">
+              {% if row.net < 0 %}
+                <span title="Refund">${{ "{:,.2f}".format(row.net | abs) }} <i class="bi bi-arrow-down-circle-fill small"></i></span>
+              {% elif row.net > 0 %}
+                <span title="Owe">${{ "{:,.2f}".format(row.net) }} <i class="bi bi-arrow-up-circle-fill small"></i></span>
+              {% else %}
+                $0.00
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="border-top border-secondary">
+          <tr class="fw-bold">
+            <td class="ps-3 text-muted">TOTAL</td>
+            <td class="text-end">{{ "{:,.1f}".format(summary.total_miles) }}</td>
+            <td colspan="5"></td>
+            <td class="text-end pe-3 {% if summary.total_net > 0 %}text-danger{% elif summary.total_net < 0 %}text-success{% endif %}">
+              {% if summary.total_net < 0 %}
+                ${{ "{:,.2f}".format(summary.total_net | abs) }} REFUND
+              {% elif summary.total_net > 0 %}
+                ${{ "{:,.2f}".format(summary.total_net) }} OWED
+              {% else %}
+                $0.00
+              {% endif %}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-map display-6 d-block mb-2 opacity-25"></i>
+      No data for {{ quarter }}. Add fuel purchases and mileage logs below.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Tabs: Fuel Purchases | Mileage Logs ─────────────────────────────────── -->
+<ul class="nav nav-tabs border-secondary mb-3" id="iftaTabs">
+  <li class="nav-item">
+    <button class="nav-link active text-white" data-bs-toggle="tab" data-bs-target="#tabFuel">
+      <i class="bi bi-fuel-pump me-1"></i>Fuel Purchases
+      <span class="badge bg-secondary ms-1">{{ purchases | length }}</span>
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link text-white" data-bs-toggle="tab" data-bs-target="#tabMileage">
+      <i class="bi bi-signpost-split me-1"></i>Mileage Logs
+      <span class="badge bg-secondary ms-1">{{ mileage | length }}</span>
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- FUEL PURCHASES TAB -->
+  <div class="tab-pane fade show active" id="tabFuel">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Fuel Purchases — {{ quarter }}</span>
+        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#addFuelModal">
+          <i class="bi bi-plus-lg me-1"></i>Add Fuel Purchase
+        </button>
+      </div>
+      <div class="card-body p-0">
+        {% if purchases %}
+        <div class="table-responsive">
+          <table class="table table-dark table-hover mb-0 align-middle small">
+            <thead class="text-muted" style="font-size:0.75rem;letter-spacing:.04em">
+              <tr>
+                <th class="ps-3">DATE</th>
+                <th>STATE</th>
+                <th>FUEL TYPE</th>
+                <th class="text-end">GALLONS</th>
+                <th class="text-end">PRICE/GAL</th>
+                <th class="text-end">TOTAL</th>
+                <th>RECEIPT #</th>
+                <th class="pe-3">VEHICLE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in purchases %}
+              <tr>
+                <td class="ps-3">{{ p.purchase_date }}</td>
+                <td class="fw-bold">{{ p.state_province }}</td>
+                <td><span class="badge bg-secondary">{{ p.fuel_type }}</span></td>
+                <td class="text-end">{{ "{:,.3f}".format(p.gallons) }}</td>
+                <td class="text-end text-muted">${{ "%.3f"|format(p.price_per_gallon) }}</td>
+                <td class="text-end fw-bold">${{ "{:,.2f}".format(p.total_cost) }}</td>
+                <td class="text-muted">{{ p.receipt_number or '—' }}</td>
+                <td class="pe-3 text-muted">{{ p.vehicle_id or '—' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+          <i class="bi bi-fuel-pump display-6 d-block mb-2 opacity-25"></i>
+          No fuel purchases recorded for {{ quarter }}.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- MILEAGE LOGS TAB -->
+  <div class="tab-pane fade" id="tabMileage">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Mileage Logs — {{ quarter }}</span>
+        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addMileageModal">
+          <i class="bi bi-plus-lg me-1"></i>Add Mileage
+        </button>
+      </div>
+      <div class="card-body p-0">
+        {% if mileage %}
+        <div class="table-responsive">
+          <table class="table table-dark table-hover mb-0 align-middle small">
+            <thead class="text-muted" style="font-size:0.75rem;letter-spacing:.04em">
+              <tr>
+                <th class="ps-3">DATE</th>
+                <th>STATE</th>
+                <th class="text-end">MILES</th>
+                <th>SHIPMENT REF</th>
+                <th class="pe-3">VEHICLE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in mileage %}
+              <tr>
+                <td class="ps-3">{{ m.trip_date }}</td>
+                <td class="fw-bold">{{ m.state_province }}</td>
+                <td class="text-end">{{ "{:,.1f}".format(m.miles) }}</td>
+                <td class="text-muted">{{ m.shipment_ref or '—' }}</td>
+                <td class="pe-3 text-muted">{{ m.vehicle_id or '—' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+          <i class="bi bi-signpost-split display-6 d-block mb-2 opacity-25"></i>
+          No mileage logs recorded for {{ quarter }}.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Add Fuel Purchase Modal ──────────────────────────────────────────────── -->
+<div class="modal fade" id="addFuelModal" tabindex="-1" aria-labelledby="addFuelModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" id="addFuelModalLabel"><i class="bi bi-fuel-pump me-2"></i>Add Fuel Purchase</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/tms/ifta/fuel">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Purchase Date <span class="text-danger">*</span></label>
+              <input type="date" name="purchase_date" class="form-control bg-dark text-white border-secondary" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">State / Province <span class="text-danger">*</span></label>
+              <input type="text" name="state_province" class="form-control bg-dark text-white border-secondary"
+                     placeholder="e.g. CA, TX, ON" maxlength="3" style="text-transform:uppercase" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Fuel Type</label>
+              <select name="fuel_type" class="form-select bg-dark text-white border-secondary">
+                {% for ft in fuel_types %}
+                <option value="{{ ft }}" {% if ft == 'Diesel' %}selected{% endif %}>{{ ft }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Gallons <span class="text-danger">*</span></label>
+              <input type="number" name="gallons" class="form-control bg-dark text-white border-secondary"
+                     placeholder="0.000" step="0.001" min="0" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Price per Gallon ($)</label>
+              <input type="number" name="price_per_gallon" class="form-control bg-dark text-white border-secondary"
+                     placeholder="0.000" step="0.001" min="0">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Total Cost ($)</label>
+              <input type="number" name="total_cost" class="form-control bg-dark text-white border-secondary"
+                     placeholder="Auto-calculated" step="0.01" min="0">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Vehicle ID</label>
+              <input type="text" name="vehicle_id" class="form-control bg-dark text-white border-secondary" placeholder="Truck #, VIN prefix…">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Receipt Number</label>
+              <input type="text" name="receipt_number" class="form-control bg-dark text-white border-secondary" placeholder="Optional">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Quarter</label>
+              <input type="text" name="quarter" class="form-control bg-dark text-white border-secondary"
+                     value="{{ quarter }}" placeholder="e.g. 2025-Q1">
+            </div>
+            <div class="col-12">
+              <label class="form-label small text-muted">Notes</label>
+              <textarea name="notes" class="form-control bg-dark text-white border-secondary" rows="2" placeholder="Optional notes"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning"><i class="bi bi-plus-lg me-1"></i>Save Purchase</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add Mileage Modal ────────────────────────────────────────────────────── -->
+<div class="modal fade" id="addMileageModal" tabindex="-1" aria-labelledby="addMileageModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" id="addMileageModalLabel"><i class="bi bi-signpost-split me-2"></i>Add Mileage Log</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/tms/ifta/mileage">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Trip Date <span class="text-danger">*</span></label>
+              <input type="date" name="trip_date" class="form-control bg-dark text-white border-secondary" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">State / Province <span class="text-danger">*</span></label>
+              <input type="text" name="state_province" class="form-control bg-dark text-white border-secondary"
+                     placeholder="e.g. CA, TX, ON" maxlength="3" style="text-transform:uppercase" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Miles <span class="text-danger">*</span></label>
+              <input type="number" name="miles" class="form-control bg-dark text-white border-secondary"
+                     placeholder="0.0" step="0.1" min="0" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Vehicle ID</label>
+              <input type="text" name="vehicle_id" class="form-control bg-dark text-white border-secondary" placeholder="Truck #, VIN prefix…">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Shipment Reference</label>
+              <input type="text" name="shipment_ref" class="form-control bg-dark text-white border-secondary" placeholder="Optional">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-muted">Quarter</label>
+              <input type="text" name="quarter" class="form-control bg-dark text-white border-secondary"
+                     value="{{ quarter }}" placeholder="e.g. 2025-Q1">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Save Mileage</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

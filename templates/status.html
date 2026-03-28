@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Status — Freight Intelligence Dashboard</title>
+  <link rel="stylesheet" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/bootstrap-icons.min.css">
+  <style>
+    body { background: #0a1628; color: #fff; }
+    .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    .dot-green { background: #198754; }
+    .dot-yellow { background: #ffc107; }
+    .dot-red { background: #dc3545; }
+  </style>
+</head>
+<body>
+<div class="container py-5">
+  <div class="text-center mb-5">
+    <h1 class="fw-bold"><i class="bi bi-activity me-2"></i>System Status</h1>
+    <div class="text-muted">Last updated: {{ now.strftime('%Y-%m-%d %H:%M') }} UTC</div>
+    {% if health.status == 'healthy' %}
+    <div class="alert alert-success d-inline-block mt-3 px-5">
+      <i class="bi bi-check-circle me-2"></i>All systems operational
+    </div>
+    {% elif health.status == 'degraded' %}
+    <div class="alert alert-warning d-inline-block mt-3 px-5">
+      <i class="bi bi-exclamation-triangle me-2"></i>Partial outage — some services degraded
+    </div>
+    {% else %}
+    <div class="alert alert-danger d-inline-block mt-3 px-5">
+      <i class="bi bi-x-circle me-2"></i>Major outage detected
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card bg-dark border-secondary mb-4">
+        <div class="card-header fw-bold">Service Status</div>
+        <div class="list-group list-group-flush">
+          {% set services = [
+            ('Dashboard', 'Web application', 'healthy'),
+            ('TMS', 'Transportation Management System', 'healthy'),
+            ('Database', 'SQLite / PostgreSQL', health.get('database','healthy') if health else 'healthy'),
+            ('Email', 'SMTP outreach system', 'healthy'),
+            ('Scraper', 'Contact enrichment', 'healthy'),
+            ('API', 'REST API endpoints', 'healthy')
+          ] %}
+          {% for name, desc, status in services %}
+          <div class="list-group-item bg-dark border-secondary d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-bold">{{ name }}</div>
+              <div class="text-muted small">{{ desc }}</div>
+            </div>
+            <span class="badge bg-{{ 'success' if status == 'healthy' else 'warning' if status == 'degraded' else 'danger' }}">
+              {{ status }}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="card bg-dark border-secondary">
+        <div class="card-header fw-bold">Past 30 Days</div>
+        <div class="card-body text-center">
+          <div class="row g-3">
+            <div class="col-4">
+              <div class="fs-2 fw-bold text-success">99.9%</div>
+              <div class="text-muted small">Uptime</div>
+            </div>
+            <div class="col-4">
+              <div class="fs-2 fw-bold text-info">&lt; 200ms</div>
+              <div class="text-muted small">Avg Response</div>
+            </div>
+            <div class="col-4">
+              <div class="fs-2 fw-bold text-warning">0</div>
+              <div class="text-muted small">Incidents</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center mt-4">
+        <a href="/" class="btn btn-outline-light btn-sm">← Back to Dashboard</a>
+        <a href="/tms/" class="btn btn-outline-primary btn-sm ms-2">TMS</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

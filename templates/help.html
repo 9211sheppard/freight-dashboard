@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Help - Freight Intelligence{% endblock %}
+
+{% block content %}
+<style>
+  .help-shell {
+    max-width: 1100px;
+  }
+
+  .help-search {
+    background: rgba(17, 24, 39, 0.92);
+    border: 1px solid rgba(108, 117, 125, 0.45);
+    border-radius: 1rem;
+  }
+
+  .help-accordion .accordion-item {
+    background: rgba(17, 24, 39, 0.92);
+    border: 1px solid rgba(108, 117, 125, 0.35);
+    border-radius: 0.9rem;
+    overflow: hidden;
+  }
+
+  .help-accordion .accordion-button {
+    background: rgba(17, 24, 39, 0.96);
+    color: #f8f9fa;
+    box-shadow: none;
+  }
+
+  .help-accordion .accordion-button:not(.collapsed) {
+    background: rgba(13, 202, 240, 0.12);
+    color: #f8f9fa;
+  }
+
+  .help-accordion .accordion-body {
+    background: rgba(9, 14, 24, 0.96);
+    color: #d0d5dd;
+  }
+
+  .help-accordion code {
+    color: #8bdaf0;
+  }
+</style>
+
+<div class="container-fluid px-3 px-lg-4 py-4">
+  <div class="help-shell mx-auto">
+    <div class="help-search p-4 mb-4">
+      <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-end">
+        <div>
+          <div class="text-uppercase small text-info fw-semibold mb-2">Documentation</div>
+          <h1 class="h3 mb-2">Help &amp; Documentation</h1>
+          <p class="text-secondary mb-0">Search by keyword or jump directly to a section such as <code>/help#rates</code>.</p>
+        </div>
+        <div class="w-100" style="max-width: 380px;">
+          <label for="helpSearchInput" class="form-label small text-secondary">Search documentation</label>
+          <input type="search" id="helpSearchInput" class="form-control bg-dark text-light border-secondary" placeholder="Search contacts, rates, ETAs, users...">
+        </div>
+      </div>
+    </div>
+
+    <div class="accordion help-accordion d-flex flex-column gap-3" id="helpAccordion">
+      <div class="accordion-item" id="getting-started" data-help-section>
+        <h2 class="accordion-header" id="headingGettingStarted">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGettingStarted" aria-expanded="true" aria-controls="collapseGettingStarted">
+            Getting Started
+          </button>
+        </h2>
+        <div id="collapseGettingStarted" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+          <div class="accordion-body">
+            <p><strong>What is Freight Intelligence?</strong><br>It is a freight operations dashboard that combines contact data, vessel schedules, rate workflows, outreach tracking, agent scoring, and guided learning in one place.</p>
+            <p><strong>How to create an account</strong><br>Open <code>/register</code>, create your user profile, and sign in. The first registered user becomes an admin automatically.</p>
+            <p><strong>How to import your first CSV</strong><br>Click the yellow <strong>Import CSV</strong> button in the top-right navbar, choose your file, and let the dashboard map common freight contact columns.</p>
+            <p class="mb-0"><strong>Understanding the dashboard layout</strong><br>The top navbar holds global actions like Learn, Help, CSV import, refresh, team invites, and logout. The tab strip below it switches between Contacts, Schedules, Rates, Outreach, and Agents for admins.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion-item" id="contacts" data-help-section>
+        <h2 class="accordion-header" id="headingContacts">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseContacts" aria-expanded="false" aria-controls="collapseContacts">
+            Contacts
+          </button>
+        </h2>
+        <div id="collapseContacts" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+          <div class="accordion-body">
+            <p><strong>Searching contacts</strong><br>Use the filters to search by company, contact name, country, network, or email availability. You can also sort by company or country and export filtered results to CSV.</p>
+            <p><strong>Importing CSV files</strong><br>Supported files typically include columns such as <code>company_name</code>, <code>contact_name</code>, <code>email</code>, <code>phone</code>, <code>country</code>, <code>city</code>, <code>website</code>, and <code>network</code>.</p>
+            <p><strong>Exporting contacts to CSV</strong><br>Apply the filters you want, then click <strong>Export CSV</strong> to download the current result set.</p>
+            <p class="mb-0"><strong>Contact networks</strong><br>Common network tags include WFA, WWPC, FIATA, Freightnet, WCA, and AHK-Japan. Use the network buttons to narrow the contact list quickly.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion-item" id="schedules" data-help-section>
+        <h2 class="accordion-header" id="headingSchedules">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSchedules" aria-expanded="false" aria-controls="collapseSchedules">
+            Vessel Schedules
+          </button>
+        </h2>
+        <div id="collapseSchedules" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+          <div class="accordion-body">
+            <p><strong>Browsing schedules by origin and destination</strong><br>Start by selecting an origin region, then choose a destination region to load available sailings and lane coverage.</p>
+            <p><strong>Understanding carrier badges and colors</strong><br>Each carrier uses a distinct badge color so you can scan results faster when comparing sailings on the same lane.</p>
+            <p><strong>Filtering by carrier and vessel name</strong><br>Once a lane is selected, use the carrier dropdown or vessel search box to narrow the results.</p>
+            <p><strong>Predictive ETAs and what they mean</strong><br>Predicted ETAs estimate likely arrival timing using historical schedule performance. They help surface likely delay patterns before a vessel arrives.</p>
+            <p><strong>Which lanes have data</strong><br>The destination pills show where a selected origin already has schedule coverage so you can avoid empty lanes quickly.</p>
+            <p class="mb-0"><strong>Reliability grades explained</strong><br>Grades from A+ through F summarize on-time performance, delay consistency, and recent voyage history for each carrier or lane.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion-item" id="rates" data-help-section>
+        <h2 class="accordion-header" id="headingRates">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRates" aria-expanded="false" aria-controls="collapseRates">
+            Rates
+          </button>
+        </h2>
+        <div id="collapseRates" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+          <div class="accordion-body">
+            <p><strong>Rate cycles</strong><br>A rate cycle groups one round of requests, responses, follow-ups, and benchmarking for a date range or campaign.</p>
+            <p><strong>Sending rate requests to agents</strong><br>Choose the contacts and lanes you want, then send rate requests to your network for the current cycle.</p>
+            <p><strong>Parsing rate replies from email</strong><br>The dashboard can capture structured rate details from agent emails and link them back to the relevant cycle and lane.</p>
+            <p><strong>Benchmarks</strong><br>Floor, mid, and max values show the pricing spread for each lane so you can spot outliers quickly.</p>
+            <p><strong>Agent nudging system</strong><br>Nudges help follow up with agents who have not replied or whose pricing sits well outside the typical market range.</p>
+            <p class="mb-0"><strong>Rate trends</strong><br>Use cycle history to compare how rates are moving over time by lane, carrier, or participating agent.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion-item" id="outreach" data-help-section>
+        <h2 class="accordion-header" id="headingOutreach">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOutreach" aria-expanded="false" aria-controls="collapseOutreach">
+            Outreach
+          </button>
+        </h2>
+        <div id="collapseOutreach" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+          <div class="accordion-body">
+            <p><strong>Email campaigns overview</strong><br>Outreach keeps a record of who you contacted, when messages were sent, and how agents responded.</p>
+            <p><strong>Tracking replies and responses</strong><br>Use reply tracking to see follow-up status, response timing, and which contacts still need attention.</p>
+            <p class="mb-0"><strong>Introduction emails</strong><br>Use introduction outreach when you are warming up a contact before a rate cycle or relationship handoff.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion-item" id="agents" data-help-section>
+        <h2 class="accordion-header" id="headingAgents">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAgents" aria-expanded="false" aria-controls="collapseAgents">
+            Agents (Admin)
+          </button>
+        </h2>
+        <div id="collapseAgents" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+          <div class="accordion-body">
+            <p><strong>Agent scoring methodology</strong><br>Scores combine response time, data quality, consistency, and lane coverage so admins can compare partners on more than price alone.</p>
+            <p><strong>Nudge engine rules</strong><br>The nudge engine highlights slow responses, thin lane participation, and unusual pricing behavior that needs follow-up.</p>
+            <p><strong>Self-recovery system</strong><br>Agents can recover from flags over time as they submit clean, timely, and consistent data in future cycles.</p>
+            <p class="mb-0"><strong>Flagged agents</strong><br>Use the flagged view to review partners with repeated data quality or responsiveness issues before assigning new work.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion-item" id="account-settings" data-help-section>
+        <h2 class="accordion-header" id="headingAccount">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAccount" aria-expanded="false" aria-controls="collapseAccount">
+            Account &amp; Settings
+          </button>
+        </h2>
+        <div id="collapseAccount" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+          <div class="accordion-body">
+            <p><strong>Changing your password</strong><br>Use the password reset flow if you forgot your password, or change it from the logged-in account tools if that action is enabled for your role.</p>
+            <p><strong>User roles</strong><br><code>admin</code> users can invite team members and access Agents. <code>user</code> accounts can work with the main freight data pages without admin controls.</p>
+            <p class="mb-0"><strong>Inviting team members</strong><br>Admins can use <strong>Add User</strong> in the navbar to send an invite by email or direct teammates to register at <code>/register</code>.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion-item" id="shortcuts" data-help-section>
+        <h2 class="accordion-header" id="headingShortcuts">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseShortcuts" aria-expanded="false" aria-controls="collapseShortcuts">
+            Keyboard Shortcuts &amp; Tips
+          </button>
+        </h2>
+        <div id="collapseShortcuts" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+          <div class="accordion-body">
+            <p><strong>Quick search</strong><br>On the Contacts page, start typing in the search filters immediately to narrow results.</p>
+            <p><strong>Import CSV</strong><br>Use the yellow navbar button whenever you receive a fresh contact export. The importer expects a header row and UTF-8 CSV format.</p>
+            <p class="mb-0"><strong>Learn mode</strong><br>Click <strong>Learn</strong> in the navbar to start interactive training sessions without leaving the application.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center text-secondary small mt-4 d-none" id="helpNoResults">
+      No documentation sections match that search.
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const searchInput = document.getElementById('helpSearchInput');
+    const sections = Array.from(document.querySelectorAll('[data-help-section]'));
+    const noResults = document.getElementById('helpNoResults');
+
+    function filterSections(query) {
+      const term = (query || '').trim().toLowerCase();
+      let visibleCount = 0;
+
+      sections.forEach(function (section) {
+        const text = section.textContent.toLowerCase();
+        const match = !term || text.indexOf(term) !== -1;
+        section.classList.toggle('d-none', !match);
+        if (match) visibleCount += 1;
+      });
+
+      noResults.classList.toggle('d-none', visibleCount !== 0);
+    }
+
+    function openHashSection() {
+      const hash = window.location.hash ? window.location.hash.slice(1) : '';
+      if (!hash) return;
+
+      const section = document.getElementById(hash);
+      if (!section) return;
+
+      section.classList.remove('d-none');
+      const collapse = section.querySelector('.accordion-collapse');
+      if (collapse) {
+        bootstrap.Collapse.getOrCreateInstance(collapse, { toggle: false }).show();
+      }
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    searchInput.addEventListener('input', function () {
+      filterSections(searchInput.value);
+    });
+
+    window.addEventListener('hashchange', openHashSection);
+
+    filterSections('');
+    openHashSection();
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "stripe/base.html" %}
+{% set active_tab = 'admin' %}
+
+{% block title %}Admin{% endblock %}
+
+{% block content %}
+<div class="s-fade-in">
+
+  <div class="s-page-header">
+    <div>
+      <h1 class="s-page-title">Admin</h1>
+      <div class="s-page-subtitle">Platform administration and monitoring</div>
+    </div>
+  </div>
+
+  <div class="s-stats-grid">
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-people"></i> Users</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-buildings"></i> Tenants</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-heart-pulse"></i> System Health</div>
+      <div class="s-stat-value" style="font-size:24px;">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-ticket-detailed"></i> Open Tickets</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">User Management</span>
+        <button class="s-btn s-btn-secondary s-btn-sm" disabled>Invite User</button>
+      </div>
+      <div class="s-card-body s-card-body--flush">
+        <table class="s-table">
+          <thead>
+            <tr><th>Name</th><th>Email</th><th>Role</th><th>Last Login</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4" class="s-table-empty">
+              <i class="bi bi-person-gear"></i>
+              User list will populate here.
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Tenant Overview</span>
+      </div>
+      <div class="s-card-body s-card-body--flush">
+        <table class="s-table">
+          <thead>
+            <tr><th>Tenant</th><th>Plan</th><th>Users</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4" class="s-table-empty">
+              <i class="bi bi-buildings"></i>
+              Tenant directory will populate here.
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Audit Log</span>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-shield-check"></i>
+          <div class="s-empty-title">Audit trail</div>
+          <div class="s-empty-desc">Security events, login activity, and permission changes.</div>
+        </div>
+      </div>
+    </div>
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Support Tickets</span>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-ticket-detailed"></i>
+          <div class="s-empty-title">No open tickets</div>
+          <div class="s-empty-desc">Support requests and issue tracking will show here.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

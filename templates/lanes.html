@@ -75,7 +75,22 @@
     <div class="card-body pb-2">
       <div class="row g-2 align-items-end">
 
-        <div class="col-12 col-md-3">
+        <div class="col-12 col-md-2">
+          <label class="form-label fw-medium small mb-1">
+            <i class="bi bi-map me-1 text-warning"></i>Lane
+          </label>
+          <select id="filterLaneGroup" class="form-select">
+            <option value="">All Lanes</option>
+            <option value="China to NA">China → NA</option>
+            <option value="Europe to NA">Europe → NA</option>
+            <option value="India to NA">India → NA</option>
+            <option value="Middle East to NA">Middle East → NA</option>
+            <option value="Vietnam to Europe">Vietnam → Europe</option>
+            <option value="Vietnam to NA">Vietnam → NA</option>
+          </select>
+        </div>
+
+        <div class="col-12 col-md-2">
           <label class="form-label fw-medium small mb-1">
             <i class="bi bi-geo-alt me-1 text-primary"></i>Origin
           </label>

@@ -3,45 +3,91 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() if csrf_token is defined else '' }}">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <title>{% block title %}Dashboard{% endblock %}</title>
-  <!-- Bootstrap 5 -->
-  <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-        crossorigin="anonymous">
-  <!-- Bootstrap Icons -->
-  <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5 (local) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <!-- Bootstrap Icons (local) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-icons.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ sv|default('1') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='learn.css') }}?v={{ sv|default('1') }}">
+  {% if session.get('logged_in') %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='tour.css') }}?v={{ sv|default('1') }}">
+  {% endif %}
+  {% if request.path.startswith('/tms') or request.path.startswith('/track') %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='tms.css') }}?v={{ sv|default('20260327') }}">
+  {% endif %}
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
 
 {% block navbar %}
-<nav class="navbar navbar-dark navbar-expand-lg px-3 py-2" id="main-nav">
+<nav class="navbar navbar-dark navbar-expand-lg px-3 py-2" id="main-nav" data-bs-theme="dark">
   <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold flex-shrink-0" href="#">
     <i class="bi bi-people-fill fs-5"></i>
   </a>
   <div class="quote-ticker-wrap d-none d-lg-flex">
     <div id="quoteTicker"></div>
   </div>
-  <div class="ms-auto d-flex align-items-center gap-2 flex-shrink-0">
+  <div class="ms-auto d-flex align-items-center gap-2">
     <span class="text-secondary small" id="nav-db-count"></span>
-    <span class="text-secondary small d-none d-md-inline" id="nav-last-sync" title="Last time CSV was synced"></span>
+    <span class="text-secondary small d-none d-lg-inline" id="nav-last-sync" title="Last time CSV was synced"></span>
     <!-- Hidden file input -->
     <input type="file" id="csvFileInput" accept=".csv" style="display:none">
-    <button class="btn btn-sm btn-outline-info" id="learnBtn" title="Start a learning session">
-      <i class="bi bi-book me-1"></i><span class="d-none d-md-inline">Learn</span>
-    </button>
-    <button class="btn btn-sm btn-outline-warning" id="importCsvBtn" title="Import a CSV file you received by email">
-      <i class="bi bi-upload" id="importIcon"></i> Import CSV
-    </button>
-    <button class="btn btn-sm btn-outline-light" id="refreshBtn" title="Re-import CSV now">
-      <i class="bi bi-arrow-clockwise" id="refreshIcon"></i> Refresh Data
-    </button>
-    <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-box-arrow-right"></i> Logout
+    {% if session.get('user_role') == 'admin' %}
+    <a href="/admin" class="btn btn-sm btn-outline-danger d-none d-md-inline-flex" title="Admin Panel">
+      <i class="bi bi-shield-lock-fill"></i>
     </a>
+    <button class="btn btn-sm btn-outline-success d-none d-md-inline-flex" id="addUserBtn" title="Invite a new user">
+      <i class="bi bi-person-plus-fill"></i>
+    </button>
+    {% endif %}
+    <!-- Overflow: secondary actions hidden behind ··· -->
+    <div class="dropdown">
+      <button class="nav-overflow-btn" data-bs-toggle="dropdown" title="More actions">···</button>
+      <ul class="dropdown-menu dropdown-menu-end" style="background:var(--surface);border:1px solid var(--border);min-width:180px;">
+        <li><button class="dropdown-item" id="learnBtn" style="color:var(--text-2);font-size:0.84rem;padding:8px 16px;background:transparent;"><i class="bi bi-book me-2"></i>Learn</button></li>
+        <li><a class="dropdown-item" href="/help" style="color:var(--text-2);font-size:0.84rem;padding:8px 16px;"><i class="bi bi-question-circle me-2"></i>Help</a></li>
+        <li><button class="dropdown-item" id="startTourBtn" style="color:var(--text-2);font-size:0.84rem;padding:8px 16px;background:transparent;"><i class="bi bi-signpost-2 me-2"></i>Tour</button></li>
+        <li><hr class="dropdown-divider" style="border-color:var(--border);margin:4px 0;"></li>
+        <li><button class="dropdown-item" id="importCsvBtn" style="color:var(--text-2);font-size:0.84rem;padding:8px 16px;background:transparent;"><i class="bi bi-upload me-2" id="importIcon"></i>Import CSV</button></li>
+        <li><button class="dropdown-item" id="refreshBtn" style="color:var(--text-2);font-size:0.84rem;padding:8px 16px;background:transparent;"><i class="bi bi-arrow-clockwise me-2" id="refreshIcon"></i>Refresh Data</button></li>
+      </ul>
+    </div>
+    <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-secondary" title="Logout">
+      <i class="bi bi-box-arrow-right"></i>
+    </a>
+  </div>
+
+  <!-- Add User Modal -->
+  <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addUserModalLabel"><i class="bi bi-person-plus-fill me-2"></i>Invite New User</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small mb-3">Sends a Microsoft B2B invite and emails the user their dashboard credentials.</p>
+          <input type="email" class="form-control" id="inviteEmailInput" placeholder="user@example.com" autocomplete="off">
+          <div id="inviteMsg" class="mt-2 small"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success btn-sm" id="sendInviteBtn">
+            <span id="sendInviteSpinner" class="spinner-border spinner-border-sm d-none me-1"></span>
+            Send Invite
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Toast notification -->
@@ -56,42 +102,105 @@
 </nav>
 {% endblock %}
 
-{% if session.get('logged_in') %}
-<div class="tab-nav-strip">
+{% if session.get('logged_in') and not hide_tab_strip %}
+<div class="tab-nav-strip" id="tabNavStrip">
   <a href="/dashboard" class="tab-link {% if active_tab == 'contacts' %}active{% endif %}">
     <i class="bi bi-people-fill"></i> Contacts
   </a>
-  <a href="/lanes" class="tab-link {% if active_tab == 'lanes' %}active{% endif %}">
-    <i class="bi bi-ship"></i> Lanes
-  </a>
-  <a href="/carriers" class="tab-link {% if active_tab == 'carriers' %}active{% endif %}">
-    <i class="bi bi-truck"></i> Carriers
+  <a href="/schedules" class="tab-link {% if active_tab == 'schedules' %}active{% endif %}">
+    <i class="bi bi-ship"></i> Schedules
   </a>
   <a href="/rates" class="tab-link {% if active_tab == 'rates' %}active{% endif %}">
     <i class="bi bi-currency-dollar"></i> Rates
   </a>
+  <a href="/outreach" class="tab-link {% if active_tab == 'outreach' %}active{% endif %}">
+    <i class="bi bi-send"></i> Outreach
+  </a>
+  {% if session.get('user_role') == 'admin' %}
+  <a href="/agents" class="tab-link {% if active_tab == 'agents' %}active{% endif %}">
+    <i class="bi bi-globe2"></i> Agents
+  </a>
+  {% endif %}
+  <a href="/billing" class="tab-link {% if active_tab == 'billing' %}active{% endif %}">
+    <i class="bi bi-credit-card"></i> Billing
+  </a>
+  <a href="/tms" class="tab-link {% if active_tab == 'tms' %}active{% endif %}">
+    <i class="bi bi-truck"></i> TMS
+  </a>
 </div>
 {% endif %}
 
+<div id="main-content-wrap" class="{% if request.path.startswith('/tms') or request.path.startswith('/track') %}tms-page{% else %}container-fluid py-4 px-4{% endif %}">
 {% block content %}{% endblock %}
+</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmYvBaVlnLM4GzaFEQRNKb4inCF7"
-        crossorigin="anonymous"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+// Global CSRF token for all fetch calls
+(function(){
+  var ct = document.querySelector('meta[name="csrf-token"]');
+  var token = ct ? ct.getAttribute('content') : '';
+  var _f = window.fetch;
+  window.fetch = function(url, opts){
+    opts = opts || {};
+    var m = (opts.method || 'GET').toUpperCase();
+    if (['POST','PUT','PATCH','DELETE'].indexOf(m) >= 0) {
+      opts.headers = opts.headers || {};
+      if (!opts.headers['X-CSRF-Token']) opts.headers['X-CSRF-Token'] = token;
+    }
+    return _f.call(this, url, opts);
+  };
+})();
+</script>
 {% block scripts %}{% endblock %}
 {% if session.get('logged_in') %}
-<script src="{{ url_for('static', filename='quotes.js') }}?v={{ sv|default('1') }}"></script>
-<script src="{{ url_for('static', filename='learn.js') }}?v={{ sv|default('1') }}"></script>
-<!-- Auto-reload: detects server restart and refreshes page automatically -->
+<script nonce="{{ csp_nonce }}">window.__userRole = "{{ session.get('user_role', '') }}";</script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='quotes.js') }}?v={{ sv|default('1') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='learn.js') }}?v={{ sv|default('1') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='tour.js') }}?v={{ sv|default('1') }}"></script>
+<!-- No auto-reload: page only refreshes when user presses browser refresh -->
+
+<!-- Floating Help Bot Widget -->
+<div id="helpBot">
+  <div id="helpBotChat">
+    <div class="helpbot-header">
+      <span class="helpbot-title"><i class="bi bi-robot"></i> Help Assistant</span>
+      <button class="helpbot-close" onclick="document.getElementById('helpBotChat').style.display='none'">&times;</button>
+    </div>
+    <div id="helpBotMessages">
+      <div class="helpbot-bubble-bot">Hi! I can help with passwords, billing, rates, schedules, and more. What do you need?</div>
+    </div>
+    <div class="helpbot-input-wrap">
+      <input id="helpBotInput" type="text" class="helpbot-input" placeholder="Ask a question..."
+             onkeydown="if(event.key==='Enter')window._askHelpBot()">
+      <button onclick="window._askHelpBot()" class="helpbot-send">Send</button>
+    </div>
+  </div>
+  <button class="helpbot-toggle" onclick="document.getElementById('helpBotChat').style.display=document.getElementById('helpBotChat').style.display==='none'?'block':'none'" title="Help">
+    <i class="bi bi-chat-dots-fill"></i>
+  </button>
+</div>
 <script>
-(function(){
-  const V = '{{ sv|default("1") }}';
-  setInterval(function(){
-    fetch('/api/version').then(r=>r.json()).then(d=>{
-      if(d.v && d.v !== V) window.location.reload();
-    }).catch(function(){});
-  }, 3000);
-})();
+window._askHelpBot = function() {
+  var input = document.getElementById('helpBotInput');
+  var q = input.value.trim();
+  if (!q) return;
+  var msgs = document.getElementById('helpBotMessages');
+  msgs.innerHTML += '<div class="helpbot-bubble-user">'+q.replace(/</g,'&lt;')+'</div>';
+  input.value = '';
+  fetch('/api/helpbot/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({question:q})})
+    .then(r=>r.json()).then(function(d) {
+      var html = '<div class="helpbot-bubble-bot">'+d.answer;
+      if (d.action && d.action.url) html += '<br><a href="'+d.action.url+'" style="color:var(--gold);font-weight:600;">'+d.action.label+'</a>';
+      if (d.suggestions) { html += '<div style="margin-top:8px;font-size:0.78rem;color:var(--text-2);">Try asking:'; d.suggestions.forEach(function(s){html+=' <a href="#" onclick="document.getElementById(\'helpBotInput\').value=\''+s+'\';window._askHelpBot();return false;" style="color:var(--gold);">'+s+'</a> |';}); html += '</div>'; }
+      html += '</div>';
+      msgs.innerHTML += html;
+      msgs.scrollTop = msgs.scrollHeight;
+    }).catch(function(){
+      msgs.innerHTML += '<div class="helpbot-bubble-bot" style="color:var(--warning);">Something went wrong. Please try again.</div>';
+    });
+  msgs.scrollTop = msgs.scrollHeight;
+};
 </script>
 {% endif %}
 </body>

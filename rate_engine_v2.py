@@ -53,7 +53,10 @@ LOCODE = {
     'Genoa': 'ITGOA', 'Barcelona': 'ESBCN', 'Algeciras': 'ESALG',
     'La Spezia': 'ITLSP', 'Gioia Tauro': 'ITGIT',
     # Vietnam
-    'Cai Mep': 'VNCMP', 'Hai Phong': 'VNHPH', 'Ho Chi Minh': 'VNSGN',
+    'Cai Mep': 'VNCMP', 'Cai Mep / Vung Tau': 'VNCMP',
+    'Hai Phong': 'VNHPH',
+    'Ho Chi Minh': 'VNSGN', 'Ho Chi Minh City': 'VNSGN',
+    'Ho Chi Minh City / Cat Lai': 'VNSGN',
     'Da Nang': 'VNDAD',
 }
 

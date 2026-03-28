@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Security — Freight Intelligence Dashboard{% endblock %}
+
+{% block navbar %}{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="max-width:720px;">
+  <h2 class="fw-bold mb-4"><i class="bi bi-shield-check me-2"></i>Security at Freight Intelligence</h2>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Our Security Commitments</h5>
+      <ul class="mb-0">
+        <li>All data encrypted in transit (TLS/HSTS) and at rest (AES-256)</li>
+        <li>Multi-factor authentication (TOTP) with backup codes</li>
+        <li>Role-based access control with granular per-feature permissions</li>
+        <li>SOC 2-ready audit logging and quarterly access reviews</li>
+        <li>Session fingerprinting and anomaly detection</li>
+        <li>Password breach detection via HaveIBeenPwned</li>
+        <li>Content Security Policy with per-request nonces</li>
+        <li>API authentication with scoped, expiring keys</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Responsible Disclosure Policy</h5>
+      <p>We take security seriously. If you discover a vulnerability, please report it responsibly.</p>
+      <ul>
+        <li>Email: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></li>
+        <li>Please include a detailed description and steps to reproduce</li>
+        <li>Allow up to 72 hours for initial response</li>
+        <li>Do not access other users' data or disrupt the service</li>
+        <li>We will not take legal action against good-faith researchers</li>
+      </ul>
+      {% if bug_bounty_enabled and bug_bounty_url %}
+      <div class="alert alert-success mt-3 mb-0">
+        <i class="bi bi-trophy me-1"></i>
+        We run a <strong>bug bounty program</strong>.
+        <a href="{{ bug_bounty_url }}" target="_blank" rel="noopener" class="alert-link">Submit via our bounty platform</a>
+        for eligible rewards.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Infrastructure</h5>
+      <ul class="mb-0">
+        <li>Hosted on Azure with automatic failover</li>
+        <li>WAF and DDoS protection layer</li>
+        <li>Automated IP banning for abuse detection</li>
+        <li>Request tracing with unique IDs for forensics</li>
+        <li>GDPR-compliant data export and erasure</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="text-muted small text-center">
+    <a href="/.well-known/security.txt" class="text-muted">security.txt</a> |
+    <a href="{{ url_for('login') }}" class="text-muted">Back to Login</a>
+  </p>
+</div>
+{% endblock %}

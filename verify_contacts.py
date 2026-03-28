@@ -85,7 +85,8 @@ SKIP_DOMAINS = {
 # ── DB migration ────────────────────────────────────────────────────────────
 def _migrate():
     conn = get_db()
-    existing = {r[1] for r in conn.execute("PRAGMA table_info(contacts)").fetchall()}
+    from database import _get_existing_columns
+    existing = _get_existing_columns(conn, "contacts")
     for col, defn in [
         ("verified_status", "TEXT    DEFAULT 'unverified'"),
         ("verified_score",  "INTEGER DEFAULT 0"),

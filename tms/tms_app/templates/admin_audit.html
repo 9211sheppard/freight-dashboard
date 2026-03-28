@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Audit Log | TMS Sandbox{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <p class="eyebrow">Admin</p>
+    <h3>Audit log</h3>
+  </div>
+  <form method="get" class="stack">
+    <label><span>Tenant</span>
+      <select name="tenant_id">
+        <option value="">All tenants</option>
+        {% for tenant in tenants %}
+        <option value="{{ tenant.tenant_id }}" {% if filters.tenant_id == tenant.tenant_id %}selected{% endif %}>{{ tenant.company_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label><span>User</span><input type="text" name="user_id" value="{{ filters.user_id }}"></label>
+    <label><span>Action</span><input type="text" name="action" value="{{ filters.action }}"></label>
+    <label><span>Start Date</span><input type="date" name="start_date" value="{{ filters.start_date }}"></label>
+    <label><span>End Date</span><input type="date" name="end_date" value="{{ filters.end_date }}"></label>
+    <button type="submit">Filter</button>
+    <a href="{{ url_for('admin_audit_export', **filters) }}">Export CSV</a>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Tenant</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Table</th>
+          <th>Record</th>
+          <th>IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in entries %}
+        <tr>
+          <td>{{ entry.created_at }}</td>
+          <td>{{ entry.tenant_id }}</td>
+          <td>{{ entry.user_id or "system" }}</td>
+          <td>{{ entry.action }}</td>
+          <td>{{ entry.table_name }}</td>
+          <td>{{ entry.record_id }}</td>
+          <td>{{ entry.ip }}</td>
+        </tr>
+        <tr>
+          <td colspan="7"><pre>{{ entry.changes | tojson(indent=2) }}</pre></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

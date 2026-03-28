@@ -1,0 +1,9 @@
+# Proxy list for scraping (one per line)
+# Format: http://user:pass@host:port
+# Or: socks5://host:port
+# Set SCRAPE_PROXIES env var as alternative (comma-separated)
+#
+# Example:
+# http://user:pass@proxy1.example.com:8080
+# http://user:pass@proxy2.example.com:8080
+# socks5://proxy3.example.com:1080

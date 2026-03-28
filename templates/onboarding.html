@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+{% set hide_tab_strip = True %}
+
+{% block title %}Welcome - Freight Intelligence{% endblock %}
+
+{% block content %}
+<style>
+  .onboarding-shell {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem 3rem;
+    background:
+      radial-gradient(circle at top left, rgba(13, 202, 240, 0.12), transparent 34%),
+      radial-gradient(circle at bottom right, rgba(255, 193, 7, 0.10), transparent 28%);
+  }
+
+  .onboarding-card {
+    width: min(960px, 100%);
+    background: rgba(17, 24, 39, 0.94);
+    border: 1px solid rgba(108, 117, 125, 0.45);
+    border-radius: 1rem;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .onboarding-step {
+    display: none;
+  }
+
+  .onboarding-step.active {
+    display: block;
+  }
+
+  .onboarding-progress-pill {
+    width: 100%;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .onboarding-progress-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #0dcaf0, #ffc107);
+    transition: width 0.25s ease;
+  }
+
+  .workspace-card {
+    height: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(108, 117, 125, 0.35);
+    border-radius: 1rem;
+    padding: 1rem;
+  }
+
+  .workspace-icon {
+    width: 3rem;
+    height: 3rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.85rem;
+    background: rgba(13, 202, 240, 0.12);
+    color: #8bdaf0;
+    font-size: 1.25rem;
+  }
+
+  .tip-item,
+  .import-note {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(108, 117, 125, 0.35);
+    border-radius: 0.85rem;
+  }
+
+  .skip-link {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 2;
+  }
+</style>
+
+<div class="onboarding-shell">
+  <div class="onboarding-card text-light">
+    <a href="#" class="skip-link text-decoration-none small text-secondary" id="skipOnboardingLink">Skip</a>
+
+    <div class="p-4 p-lg-5">
+      <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+        <div>
+          <div class="text-uppercase small text-info fw-semibold mb-2">First-Run Setup</div>
+          <h2 class="h3 mb-1">Get your workspace ready</h2>
+          <p class="text-secondary mb-0" id="onboardingStepLabel">Step 1 of 4</p>
+        </div>
+        <div class="w-100" style="max-width: 320px;">
+          <div class="onboarding-progress-pill">
+            <div class="onboarding-progress-fill" id="onboardingProgressFill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="onboarding-step active" data-step-title="Welcome">
+        <div class="row align-items-center g-4">
+          <div class="col-lg-7">
+            <span class="badge rounded-pill text-bg-info text-dark mb-3">Welcome</span>
+            <h3 class="display-6 fw-semibold mb-3">Welcome to Freight Intelligence</h3>
+            <p class="text-secondary mb-3">
+              Freight Intelligence brings your agent contacts, vessel schedules, rate activity,
+              outreach, and performance tracking into one dashboard. Use it to turn scattered
+              freight data into a single operating view your team can work from every day.
+            </p>
+            <div class="d-flex flex-wrap gap-2">
+              <span class="badge rounded-pill bg-secondary text-light">
+                {{ session.get('user_name', 'User') }}
+              </span>
+              <span class="badge rounded-pill bg-info text-dark">
+                {{ session.get('user_role', 'user')|capitalize }}
+              </span>
+            </div>
+          </div>
+          <div class="col-lg-5">
+            <div class="tip-item p-4 h-100">
+              <div class="text-uppercase small text-secondary fw-semibold mb-2">What happens next</div>
+              <div class="d-flex flex-column gap-3">
+                <div>
+                  <div class="fw-semibold">Understand the workspace</div>
+                  <div class="text-secondary small">See what each main section is for.</div>
+                </div>
+                <div>
+                  <div class="fw-semibold">Import contact data</div>
+                  <div class="text-secondary small">Admins can load CSV files right away.</div>
+                </div>
+                <div>
+                  <div class="fw-semibold">Pick up quick habits</div>
+                  <div class="text-secondary small">Start with the features that matter on day one.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="onboarding-step" data-step-title="Your Workspace">
+        <div class="mb-4">
+          <span class="badge rounded-pill text-bg-info text-dark mb-3">Your Workspace</span>
+          <h3 class="h2 mb-2">What each tab does</h3>
+          <p class="text-secondary mb-0">These are the main areas you will use most often.</p>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6 col-xl-4">
+            <div class="workspace-card">
+              <div class="workspace-icon mb-3"><i class="bi bi-people-fill"></i></div>
+              <div class="fw-semibold mb-1">Contacts</div>
+              <div class="text-secondary small">Search and manage your global freight agent network.</div>
+            </div>
+          </div>
+          <div class="col-md-6 col-xl-4">
+            <div class="workspace-card">
+              <div class="workspace-icon mb-3"><i class="bi bi-ship"></i></div>
+              <div class="fw-semibold mb-1">Schedules</div>
+              <div class="text-secondary small">Track vessel sailings, ETAs, and carrier reliability across all major lanes.</div>
+            </div>
+          </div>
+          <div class="col-md-6 col-xl-4">
+            <div class="workspace-card">
+              <div class="workspace-icon mb-3"><i class="bi bi-currency-dollar"></i></div>
+              <div class="fw-semibold mb-1">Rates</div>
+              <div class="text-secondary small">Request, parse, and benchmark freight rates from your agent network.</div>
+            </div>
+          </div>
+          <div class="col-md-6 col-xl-4">
+            <div class="workspace-card">
+              <div class="workspace-icon mb-3"><i class="bi bi-send"></i></div>
+              <div class="fw-semibold mb-1">Outreach</div>
+              <div class="text-secondary small">Track email campaigns and agent responses.</div>
+            </div>
+          </div>
+          {% if session.get('user_role') == 'admin' %}
+          <div class="col-md-6 col-xl-4">
+            <div class="workspace-card">
+              <div class="workspace-icon mb-3"><i class="bi bi-globe2"></i></div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <div class="fw-semibold">Agents</div>
+                <span class="badge bg-info text-dark">Admin</span>
+              </div>
+              <div class="text-secondary small">Score agent performance and monitor rate benchmarks.</div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if session.get('user_role') == 'admin' %}
+      <div class="onboarding-step" data-step-title="Import Your Data">
+        <div class="mb-4">
+          <span class="badge rounded-pill text-bg-warning text-dark mb-3">Import Your Data</span>
+          <h3 class="h2 mb-2">Load your first contact list</h3>
+          <p class="text-secondary mb-0">
+            Import CSV files from the yellow <strong class="text-light">Import CSV</strong> button in the top-right navbar.
+            The dashboard maps the most common freight contact columns automatically.
+          </p>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-lg-7">
+            <div class="import-note p-4 h-100">
+              <div class="text-uppercase small text-secondary fw-semibold mb-2">Supported CSV formats</div>
+              <p class="mb-2">Any CSV with columns like <code>company_name</code>, <code>email</code>, <code>phone</code>, <code>country</code>, <code>city</code>, and <code>website</code>.</p>
+              <div class="small text-secondary">You can import now or skip and do it later from the navbar.</div>
+            </div>
+          </div>
+          <div class="col-lg-5">
+            <div class="tip-item p-4 h-100">
+              <div class="text-uppercase small text-secondary fw-semibold mb-3">Import now</div>
+              <button class="btn btn-warning w-100 mb-3" id="onboardingImportNowBtn">
+                <i class="bi bi-upload me-1"></i> Choose CSV File
+              </button>
+              <div id="importStatus" class="small text-secondary">No file selected yet.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="onboarding-step" data-step-title="Quick Tips">
+        <div class="mb-4">
+          <span class="badge rounded-pill text-bg-success text-dark mb-3">Quick Tips</span>
+          <h3 class="h2 mb-2">A few habits that save time</h3>
+          <p class="text-secondary mb-0">These are the shortcuts most new users benefit from first.</p>
+        </div>
+        <div class="d-flex flex-column gap-3">
+          <div class="tip-item p-3">
+            <div class="fw-semibold">Use the search bar on Contacts to find agents by name, country, or network.</div>
+          </div>
+          <div class="tip-item p-3">
+            <div class="fw-semibold">Click any carrier badge on Schedules to filter by that carrier.</div>
+          </div>
+          <div class="tip-item p-3">
+            <div class="fw-semibold">The Learn button in the top nav starts interactive training sessions.</div>
+          </div>
+          {% if session.get('user_role') == 'admin' %}
+          <div class="tip-item p-3">
+            <div class="fw-semibold">Admins can invite team members with the Add User button.</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center justify-content-between gap-3 mt-4 pt-4 border-top border-secondary">
+        <button class="btn btn-outline-secondary" id="onboardingBackBtn" type="button">
+          <i class="bi bi-arrow-left me-1"></i> Back
+        </button>
+        <button class="btn btn-primary" id="onboardingNextBtn" type="button">
+          Get Started <i class="bi bi-arrow-right ms-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const steps = Array.from(document.querySelectorAll('.onboarding-step'));
+    const stepLabel = document.getElementById('onboardingStepLabel');
+    const progressFill = document.getElementById('onboardingProgressFill');
+    const backBtn = document.getElementById('onboardingBackBtn');
+    const nextBtn = document.getElementById('onboardingNextBtn');
+    const skipLink = document.getElementById('skipOnboardingLink');
+    const csvFileInput = document.getElementById('csvFileInput');
+    const importStatus = document.getElementById('importStatus');
+    const importBtn = document.getElementById('importCsvBtn');
+    const importIcon = document.getElementById('importIcon');
+    const localImportBtn = document.getElementById('onboardingImportNowBtn');
+    let currentStep = 0;
+
+    function showStep(index) {
+      currentStep = Math.max(0, Math.min(index, steps.length - 1));
+      steps.forEach(function (step, idx) {
+        step.classList.toggle('active', idx === currentStep);
+      });
+
+      stepLabel.textContent = 'Step ' + (currentStep + 1) + ' of ' + steps.length;
+      progressFill.style.width = (((currentStep + 1) / steps.length) * 100) + '%';
+      backBtn.disabled = currentStep === 0;
+
+      if (currentStep === 0) {
+        nextBtn.innerHTML = 'Get Started <i class="bi bi-arrow-right ms-1"></i>';
+      } else if (currentStep === steps.length - 1) {
+        nextBtn.innerHTML = 'Finish Setup <i class="bi bi-check2 ms-1"></i>';
+      } else {
+        nextBtn.innerHTML = 'Next <i class="bi bi-arrow-right ms-1"></i>';
+      }
+    }
+
+    async function finishOnboarding(stepName) {
+      nextBtn.disabled = true;
+      skipLink.classList.add('disabled');
+      try {
+        await fetch('/api/onboarding/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ step: stepName || 'complete' })
+        });
+      } catch (err) {
+        // Redirect anyway so users are not trapped in the wizard.
+      }
+      window.location.href = '/dashboard';
+    }
+
+    async function uploadCsv(file) {
+      if (!file) return;
+      if (!importStatus) return;
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        importStatus.textContent = 'Please choose a CSV file.';
+        importStatus.className = 'small text-warning';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      if (importBtn) importBtn.disabled = true;
+      if (localImportBtn) localImportBtn.disabled = true;
+      if (importIcon) importIcon.className = 'bi bi-upload spin';
+      importStatus.textContent = 'Importing ' + file.name + '...';
+      importStatus.className = 'small text-info';
+
+      try {
+        const response = await fetch('/api/upload-csv', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.ok) {
+          importStatus.textContent = data.network + ' imported. ' + Number(data.imported || 0).toLocaleString() + ' contacts loaded.';
+          importStatus.className = 'small text-success';
+        } else {
+          importStatus.textContent = 'Import failed: ' + (data.error || 'Unknown error');
+          importStatus.className = 'small text-danger';
+        }
+      } catch (err) {
+        importStatus.textContent = 'Import failed. Check that the app is still running and try again.';
+        importStatus.className = 'small text-danger';
+      } finally {
+        if (importBtn) importBtn.disabled = false;
+        if (localImportBtn) localImportBtn.disabled = false;
+        if (importIcon) importIcon.className = 'bi bi-upload';
+        if (csvFileInput) csvFileInput.value = '';
+      }
+    }
+
+    backBtn.addEventListener('click', function () {
+      showStep(currentStep - 1);
+    });
+
+    nextBtn.addEventListener('click', function () {
+      if (currentStep === steps.length - 1) {
+        finishOnboarding('complete');
+        return;
+      }
+      showStep(currentStep + 1);
+    });
+
+    skipLink.addEventListener('click', function (event) {
+      event.preventDefault();
+      finishOnboarding('skipped');
+    });
+
+    if (importBtn && csvFileInput && importStatus) {
+      importBtn.addEventListener('click', function () {
+        csvFileInput.click();
+      });
+    }
+
+    if (localImportBtn && csvFileInput && importStatus) {
+      localImportBtn.addEventListener('click', function () {
+        csvFileInput.click();
+      });
+    }
+
+    if (csvFileInput && importStatus) {
+      csvFileInput.addEventListener('change', function () {
+        uploadCsv(csvFileInput.files[0]);
+      });
+    }
+
+    showStep(0);
+  })();
+</script>
+{% endblock %}

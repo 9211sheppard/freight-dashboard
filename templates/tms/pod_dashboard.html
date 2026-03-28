@@ -1,0 +1,130 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}POD Inbox{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+  .pod-stat-val { font-size: 1.6rem; font-weight: 700; }
+</style>
+{% endblock %}
+{% block tms_content %}
+
+{% set submitted   = pods | selectattr('status','equalto','Submitted')         | list %}
+{% set reviewed    = pods | selectattr('status','equalto','Reviewed')          | list %}
+{% set sent_acc    = pods | selectattr('status','equalto','Sent to Accounting') | list %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0"><i class="bi bi-card-image me-2"></i>POD Inbox</h2>
+  <a href="/tms/billing-queue" class="btn btn-sm btn-outline-warning">
+    <i class="bi bi-receipt me-1"></i>Billing Queue
+  </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="pod-stat-val text-warning">{{ submitted|length }}</div>
+      <div class="text-muted small">Awaiting Review</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="pod-stat-val text-info">{{ reviewed|length }}</div>
+      <div class="text-muted small">Reviewed</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="pod-stat-val text-success">{{ sent_acc|length }}</div>
+      <div class="text-muted small">Sent to Accounting</div>
+    </div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-list-ul me-2"></i>All POD Submissions</span>
+    <span class="text-muted small">{{ pods|length }} total</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover mb-0 align-middle">
+      <thead class="table-secondary text-dark">
+        <tr>
+          <th>Shipment</th>
+          <th>Recipient</th>
+          <th>BOLs</th>
+          <th>Delivered At</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pod in pods %}
+        <tr>
+          <td>
+            <a href="/tms/shipments/{{ pod.shipment_ref }}" class="text-info text-decoration-none fw-semibold">
+              {{ pod.shipment_ref }}
+            </a>
+            {% if pod.cargo_description %}
+            <div class="small text-muted">{{ pod.cargo_description[:50] }}{% if pod.cargo_description|length > 50 %}…{% endif %}</div>
+            {% endif %}
+          </td>
+          <td>{{ pod.recipient_name or '—' }}</td>
+          <td>
+            {% if pod.bol_numbers %}
+            <span class="badge bg-secondary">{{ pod.bol_numbers.split(',')|length }} BOL(s)</span>
+            <div class="small text-muted">{{ pod.bol_numbers[:40] }}{% if pod.bol_numbers|length > 40 %}…{% endif %}</div>
+            {% else %}
+            <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td>{{ pod.delivered_at[:16] if pod.delivered_at else '—' }}</td>
+          <td>
+            {% if pod.status == 'Submitted' %}
+            <span class="tms-status tms-status-draft">Submitted</span>
+            {% elif pod.status == 'Reviewed' %}
+            <span class="tms-status tms-status-active">Reviewed</span>
+            {% elif pod.status == 'Sent to Accounting' %}
+            <span class="tms-status tms-status-delivered">Sent to Accounting</span>
+            {% else %}
+            <span class="tms-status tms-status-draft">{{ pod.status }}</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            {% if pod.pod_image_path %}
+            <a href="/static/pods/{{ pod.pod_image_path.split('/')[-1] }}" target="_blank"
+               class="btn btn-sm btn-outline-info py-0 px-2">
+              <i class="bi bi-image"></i>
+            </a>
+            {% endif %}
+            {% if pod.status == 'Submitted' %}
+            <button class="btn btn-sm btn-outline-success py-0 px-2 ms-1"
+                    onclick="releaseToBilling({{ pod.id }}, this)"
+                    title="Release to Billing">
+              <i class="bi bi-send-check"></i>
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No POD submissions yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+function releaseToBilling(podId, btn) {
+  if (!confirm('Release this POD to the billing queue?')) return;
+  btn.disabled = true;
+  fetch('/tms/pods/' + podId + '/release', {method: 'POST'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.ok) { location.reload(); }
+      else { alert(d.message || 'Error'); btn.disabled = false; }
+    })
+    .catch(function(){ btn.disabled = false; });
+}
+</script>
+{% endblock %}

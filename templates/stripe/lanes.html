@@ -1,0 +1,97 @@
+{% extends "stripe/base.html" %}
+{% set active_tab = 'schedules' %}
+
+{% block title %}Shipping Lanes{% endblock %}
+
+{% block content %}
+<div class="s-fade-in">
+
+  <div class="s-page-header">
+    <div>
+      <h1 class="s-page-title">Shipping Lanes</h1>
+      <div class="s-page-subtitle">Vessel schedules and sailing information</div>
+    </div>
+  </div>
+
+  <div class="s-stats-grid">
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-calendar-week"></i> Total Sailings</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-check-circle"></i> Active</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-geo-alt"></i> Origins</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-pin-map"></i> Destinations</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+  </div>
+
+  <div class="s-card" style="margin-bottom:16px;">
+    <div class="s-card-header">
+      <span class="s-card-title">Lane Filters</span>
+    </div>
+    <div class="s-card-body s-filter-grid">
+      <div class="s-input-group" style="min-width:0;">
+        <label class="s-label">Lane</label>
+        <select class="s-select" style="width:100%;" disabled>
+          <option>All Lanes</option>
+        </select>
+      </div>
+      <div class="s-input-group" style="min-width:0;">
+        <label class="s-label">Origin</label>
+        <select class="s-select" style="width:100%;" disabled>
+          <option>All Origins</option>
+        </select>
+      </div>
+      <div class="s-input-group" style="min-width:0;">
+        <label class="s-label">Destination</label>
+        <select class="s-select" style="width:100%;" disabled>
+          <option>All Destinations</option>
+        </select>
+      </div>
+      <div class="s-input-group" style="min-width:0;">
+        <label class="s-label">Carrier</label>
+        <select class="s-select" style="width:100%;" disabled>
+          <option>All Carriers</option>
+        </select>
+      </div>
+      <div class="s-input-group" style="min-width:0;">
+        <label class="s-label">Vessel / Service</label>
+        <div class="s-input-icon-wrap">
+          <i class="bi bi-search"></i>
+          <input type="text" class="s-input" placeholder="Search vessel..." disabled>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="s-card">
+    <div class="s-card-header">
+      <span class="s-card-title">Sailings</span>
+    </div>
+    <div class="s-card-body s-card-body--flush">
+      <table class="s-table">
+        <thead>
+          <tr>
+            <th>Origin</th><th>Destination</th><th>Carrier</th>
+            <th>Service / Vessel</th><th>ETD</th><th>ETA</th><th>Transit</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="7" class="s-table-empty">
+            <i class="bi bi-ship"></i>
+            Sailing data will populate here.
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

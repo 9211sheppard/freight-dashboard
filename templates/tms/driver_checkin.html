@@ -1,0 +1,166 @@
+{% if driver %}
+{% set page_title = "Driver Check-In" %}
+{% else %}
+{% set page_title = "Invalid Driver Link" %}
+{% endif %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: #f5f7fb;
+      background:
+        radial-gradient(circle at top, rgba(61, 130, 255, 0.2), transparent 30%),
+        linear-gradient(180deg, #0f1725 0%, #08111b 45%, #05090e 100%);
+      font-family: Aptos, "Segoe UI", sans-serif;
+    }
+    .shell {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+    .panel {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+    }
+    .muted {
+      color: rgba(255, 255, 255, 0.64);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .log-card {
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      padding: 0.9rem 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="panel p-4 p-md-5">
+      {% if driver %}
+      <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-4">
+        <div>
+          <div class="text-uppercase muted small mb-2">Driver Mobile</div>
+          <h1 class="h3 mb-1">{{ driver.name }}</h1>
+          <div class="muted">{{ shipment.shipment_ref if shipment else 'No active shipment assigned' }}</div>
+        </div>
+        <span class="pill">{{ driver.status }}</span>
+      </div>
+
+      {% if saved %}
+      <div class="alert alert-success">Check-in saved.</div>
+      {% endif %}
+      {% if form_error %}
+      <div class="alert alert-danger">{{ form_error }}</div>
+      {% endif %}
+
+      <div class="row g-3 mb-4">
+        <div class="col-sm-6">
+          <div class="log-card h-100">
+            <div class="muted small">Shipment</div>
+            <div class="fw-semibold">{{ shipment.shipment_ref if shipment else 'Unassigned' }}</div>
+            <div class="muted small mt-2">{{ shipment.origin_port if shipment else '-' }}{% if shipment %} &rarr; {{ shipment.destination_port }}{% endif %}</div>
+          </div>
+        </div>
+        <div class="col-sm-6">
+          <div class="log-card h-100">
+            <div class="muted small">Vehicle</div>
+            <div class="fw-semibold">{{ shipment.truck_number if shipment else 'Pending' }}</div>
+            <div class="muted small mt-2">{{ shipment.vehicle_type if shipment else 'No vehicle assigned' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <form method="POST" action="{{ url_for('tms.driver_checkin', token=driver.checkin_token) }}">
+        <div class="mb-3">
+          <label class="form-label muted">Driver Status</label>
+          <select name="status" class="form-select bg-dark text-white border-secondary">
+            {% for status in driver_statuses %}
+            <option value="{{ status }}" {% if form_values.get('status', driver.status) == status %}selected{% endif %}>{{ status }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label muted">Current Location</label>
+          <input type="text" name="location" value="{{ form_values.get('location', driver.last_location or '') }}" class="form-control bg-dark text-white border-secondary" placeholder="Dallas, TX">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label muted">Issue</label>
+          <input type="text" name="issue" value="{{ form_values.get('issue', '') }}" class="form-control bg-dark text-white border-secondary" placeholder="Leave blank if no issue">
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label muted">Duty Status</label>
+            <select name="duty_status" class="form-select bg-dark text-white border-secondary">
+              {% for duty_status in duty_statuses %}
+              <option value="{{ duty_status }}" {% if form_values.get('duty_status', 'Driving') == duty_status %}selected{% endif %}>{{ duty_status }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label muted">Duty Start</label>
+            <input type="datetime-local" name="duty_start" value="{{ form_values.get('duty_start', '') }}" class="form-control bg-dark text-white border-secondary">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label muted">Duty End</label>
+            <input type="datetime-local" name="duty_end" value="{{ form_values.get('duty_end', '') }}" class="form-control bg-dark text-white border-secondary">
+          </div>
+        </div>
+
+        <div class="form-text muted mt-2 mb-4">Driving logs over 11 hours are flagged automatically.</div>
+
+        <button type="submit" class="btn btn-primary w-100 btn-lg">Submit Check-In</button>
+      </form>
+
+      <div class="mt-4">
+        <div class="muted small mb-2">Recent Duty Logs</div>
+        <div class="d-grid gap-2">
+          {% for log in duty_logs %}
+          <div class="log-card">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+              <div>
+                <div class="fw-semibold">{{ log.duty_status }}{% if log.shipment_ref %} · {{ log.shipment_ref }}{% endif %}</div>
+                <div class="muted small">{{ log.start_time_display }} to {{ log.end_time_display }}</div>
+                <div class="muted small">{{ log.location or 'Location pending' }}</div>
+              </div>
+              <div class="text-end">
+                <div class="fw-semibold">{{ "{:,.2f}".format(log.hours_logged) }}h</div>
+                {% if log.exceeds_driving_limit %}
+                <span class="badge bg-danger">Over 11h</span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <div class="log-card muted">No duty logs yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <h1 class="h3 mb-3">Driver check-in unavailable</h1>
+      <p class="muted mb-0">{{ form_error }}</p>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

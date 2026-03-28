@@ -1,0 +1,112 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Global Trade Management{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-globe2 me-2 text-primary"></i>Global Trade Management</h2>
+    <div class="text-muted small">Customs, sanctions screening, trade lane intelligence</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/tms/compliance" class="btn btn-outline-warning btn-sm">Compliance</a>
+    <a href="/tms/" class="btn btn-outline-secondary btn-sm">back</a>
+  </div>
+</div>
+
+<!-- Customs Summary -->
+<div class="row g-3 mb-4">
+  {% for status,cls,label in [
+    ('pending','warning','Pending Clearance'),
+    ('cleared','success','Cleared'),
+    ('flagged','danger','Flagged / Hold'),
+    ('rejected','danger','Rejected')] %}
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-{{ cls }} text-center p-3">
+      <div class="fs-3 fw-bold text-{{ cls }}">{{ customs_summary.get(status,0) }}</div>
+      <div class="text-muted small">{{ label }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3">
+  <!-- Pending Customs Clearance -->
+  <div class="col-md-6">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between">
+        <span><i class="bi bi-file-earmark-check me-2"></i>Pending Customs Clearance</span>
+        <a href="/tms/compliance" class="btn btn-sm btn-outline-warning py-0">View All</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-sm table-hover mb-0">
+          <thead class="table-secondary text-dark"><tr><th>Ref</th><th>Route</th><th>HS Code</th><th>DPS</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for s in pending_customs %}
+            {% set dc={'clear':'success','flagged':'danger','pending':'warning'} %}
+            <tr>
+              <td><a href="/tms/shipments/{{ s.ref }}" class="text-light">{{ s.ref }}</a></td>
+              <td class="small">{{ s.origin_port }} to {{ s.destination_port }}</td>
+              <td class="text-muted small">{{ s.hs_code or "--" }}</td>
+              <td><span class="badge bg-{{ dc.get(s.dps_status,'secondary') }}">{{ s.dps_status or 'N/A' }}</span></td>
+              <td><span class="badge bg-warning">{{ s.customs_status }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">No pending customs</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Trade Lanes (90 days) -->
+  <div class="col-md-6">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-map me-2"></i>Top Trade Lanes ({{ cutoff_label }})</div>
+      <div class="table-responsive">
+        <table class="table table-dark table-sm table-hover mb-0">
+          <thead class="table-secondary text-dark"><tr><th>Origin</th><th></th><th>Dest</th><th>Mode</th><th>Shipments</th><th>Avg Rate</th></tr></thead>
+          <tbody>
+            {% for l in trade_lanes %}
+            <tr>
+              <td class="fw-bold small">{{ l.origin_port }}</td>
+              <td class="text-muted">to</td>
+              <td class="fw-bold small">{{ l.destination_port }}</td>
+              <td><span class="badge bg-secondary">{{ l.mode or "ocean" }}</span></td>
+              <td><span class="badge bg-primary">{{ l.shipments }}</span></td>
+              <td class="text-success">${{ "{:,.0f}".format(l.avg_rate or 0) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-3">No trade data yet</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trade Intelligence Cards -->
+  <div class="col-12">
+    <div class="card bg-dark border-secondary">
+      <div class="card-body">
+        <h6 class="text-primary mb-3"><i class="bi bi-info-circle me-2"></i>Global Trade Compliance Resources</h6>
+        <div class="row g-3">
+          {% for title,desc,link,icon in [
+            ('HS Code Lookup','Harmonized System codes for customs classification','https://www.trade.gov/harmonized-system-hs-codes','bi-search'),
+            ('OFAC Sanctions','US Treasury sanctions list screening','https://sanctionssearch.ofac.treas.gov/','bi-shield-lock'),
+            ('Trade Finance','Letter of credit, documentary collections','https://www.icc.org','bi-bank'),
+            ('Incoterms 2020','ICC rules for domestic and international trade','https://iccwbo.org/resources-for-business/incoterms-rules/','bi-book')
+          ] %}
+          <div class="col-md-3">
+            <div class="p-3 border border-secondary rounded">
+              <div class="fw-bold text-info mb-1"><i class="bi {{ icon }} me-1"></i>{{ title }}</div>
+              <div class="text-muted small mb-2">{{ desc }}</div>
+              <a href="{{ link }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0">Open <i class="bi bi-box-arrow-up-right ms-1"></i></a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

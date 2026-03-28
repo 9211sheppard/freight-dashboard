@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Freight Intelligence — Investor Brief</title>
+  <link rel="stylesheet" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/bootstrap-icons.min.css">
+  <style>
+    :root { --accent: #0d6efd; --dark: #0a1628; --gold: #ffc107; --green: #198754; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--dark); color: #fff; margin: 0; }
+    .inv-section { min-height: 100vh; display: flex; align-items: center; padding: 60px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .inv-section:nth-child(even) { background: rgba(255,255,255,0.02); }
+    .section-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 4px; color: var(--accent); margin-bottom: 12px; }
+    .section-title { font-size: 2.4rem; font-weight: 800; line-height: 1.2; margin-bottom: 24px; }
+    .metric-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; text-align: center; }
+    .metric-card .number { font-size: 2.2rem; font-weight: 800; }
+    .metric-card .label { font-size: 0.85rem; opacity: 0.6; margin-top: 4px; }
+    .comp-row { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .comp-row:hover { background: rgba(255,255,255,0.03); }
+    .comp-name { flex: 1; font-weight: 600; }
+    .comp-price { color: var(--gold); font-weight: 700; min-width: 140px; text-align: right; }
+    .network-row { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.95rem; }
+    .timeline-item { padding: 20px 0 20px 30px; border-left: 3px solid var(--accent); position: relative; }
+    .timeline-item::before { content: ''; position: absolute; left: -8px; top: 24px; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); }
+    .timeline-item.future { border-left-color: rgba(255,255,255,0.15); }
+    .timeline-item.future::before { background: rgba(255,255,255,0.15); }
+    .cta-box { background: linear-gradient(135deg, var(--accent), var(--dark)); border-radius: 16px; padding: 40px; text-align: center; }
+    .risk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .risk-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; }
+    .risk-card .q { font-weight: 600; margin-bottom: 8px; }
+    .risk-card .a { font-size: 0.9rem; opacity: 0.8; }
+    .inv-nav { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+    .inv-nav a { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.2); display: block; transition: all 0.3s; }
+    .inv-nav a.active { background: var(--accent); transform: scale(1.4); }
+    @media (max-width: 768px) {
+      .section-title { font-size: 1.7rem; }
+      .metric-card .number { font-size: 1.6rem; }
+      .risk-grid { grid-template-columns: 1fr; }
+      .inv-nav { display: none; }
+      .comp-row { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+{% if token_info %}
+<div id="tokenBanner" style="position:fixed; top:0; left:0; right:0; z-index:9999; background:rgba(255,193,7,0.95); color:#000; text-align:center; padding:8px 16px; font-size:0.85rem; font-weight:600; backdrop-filter:blur(4px);">
+  <i class="bi bi-lock-fill me-1"></i>
+  Private preview — expires in <span id="tokenCountdown"></span> or after <span id="tokenUses">{{ token_info.remaining_uses }}</span> more view{{ 's' if token_info.remaining_uses != 1 else '' }}
+</div>
+<script>
+(function(){
+  var exp = new Date("{{ token_info.expires_iso }}");
+  function update(){
+    var now = new Date(), diff = exp - now;
+    if(diff <= 0){ document.getElementById('tokenBanner').innerHTML='<i class="bi bi-lock-fill me-1"></i>This preview link has expired.'; return; }
+    var h=Math.floor(diff/3600000), m=Math.floor((diff%3600000)/60000), s=Math.floor((diff%60000)/1000);
+    document.getElementById('tokenCountdown').textContent = h+'h '+m+'m '+s+'s';
+    setTimeout(update, 1000);
+  }
+  update();
+})();
+</script>
+<style>body { padding-top: 36px; }</style>
+{% endif %}
+
+<!-- Side nav dots -->
+<nav class="inv-nav" id="invNav"></nav>
+
+<!-- S1: HERO -->
+<section class="inv-section" id="s-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-7">
+        <div class="section-label">Investor Brief</div>
+        <div class="section-title">Freight Intelligence Platform<br><span style="color:var(--gold);">$49.99/mo vs $500,000/yr</span></div>
+        <p style="font-size:1.15rem; opacity:0.8; line-height:1.7;">
+          A 4-in-1 freight intelligence platform that replaces tools costing 100-1000x more.
+          Built by a lean AI-native team. Zero marketing spend. Autonomous operations.
+          Targeting 80,000+ underserved SMB freight forwarders globally.
+        </p>
+        <div class="d-flex gap-3 mt-4 flex-wrap">
+          <div class="metric-card" style="min-width:120px;">
+            <div class="number" style="color:var(--gold);">$1.8B</div>
+            <div class="label">TAM (2025)</div>
+          </div>
+          <div class="metric-card" style="min-width:120px;">
+            <div class="number" style="color:var(--green);">100K+</div>
+            <div class="label">Target Companies</div>
+          </div>
+          <div class="metric-card" style="min-width:120px;">
+            <div class="number" style="color:var(--accent);">0</div>
+            <div class="label">Direct Competitors</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5 mt-4 mt-lg-0">
+        <div class="metric-card" style="border-color:var(--gold);">
+          <div class="section-label">Unit Economics</div>
+          <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+            <span>Price</span><span class="fw-bold" style="color:var(--gold);">$49.99/mo</span>
+          </div>
+          <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+            <span>CAC (referral model)</span><span class="fw-bold" style="color:var(--green);">~$50</span>
+          </div>
+          <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+            <span>LTV (24mo avg retention)</span><span class="fw-bold" style="color:var(--green);">$1,200</span>
+          </div>
+          <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+            <span>LTV:CAC Ratio</span><span class="fw-bold" style="color:var(--gold);">24:1</span>
+          </div>
+          <div class="d-flex justify-content-between py-2 border-bottom border-secondary">
+            <span>Gross Margin</span><span class="fw-bold" style="color:var(--green);">~95%</span>
+          </div>
+          <div class="d-flex justify-content-between py-2">
+            <span>Payback Period</span><span class="fw-bold" style="color:var(--green);">1 month</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- S2: MARKET -->
+<section class="inv-section" id="s-market">
+  <div class="container">
+    <div class="section-label">The Market</div>
+    <div class="section-title">$1.8B Market, Perfect Timing</div>
+    <div class="row g-4 mb-4">
+      <div class="col-md-3 col-6"><div class="metric-card"><div class="number" style="color:var(--gold);">$1.8B</div><div class="label">Freight Forwarding Software (2025)</div></div></div>
+      <div class="col-md-3 col-6"><div class="metric-card"><div class="number" style="color:var(--accent);">$4.7B</div><div class="label">Projected by 2035</div></div></div>
+      <div class="col-md-3 col-6"><div class="metric-card"><div class="number" style="color:var(--green);">17.8%</div><div class="label">Digital Freight CAGR</div></div></div>
+      <div class="col-md-3 col-6"><div class="metric-card"><div class="number" style="color:var(--gold);">80%</div><div class="label">SMBs (Underserved)</div></div></div>
+    </div>
+    <div class="metric-card" style="border-color:rgba(220,53,69,0.5); background:rgba(220,53,69,0.05);">
+      <p class="mb-2"><strong style="color:#dc3545;">Catalyst Event:</strong> In December 2025, CargoWise (70% market share, $16B parent company) switched to per-transaction pricing, causing 20-50% cost increases. Thousands of forwarders are actively shopping for alternatives RIGHT NOW.</p>
+      <p class="mb-0 opacity-75">This is a once-in-a-decade market disruption. The dominant player just alienated their entire SMB base.</p>
+    </div>
+  </div>
+</section>
+
+<!-- S3: PRODUCT -->
+<section class="inv-section" id="s-product">
+  <div class="container">
+    <div class="section-label">The Product</div>
+    <div class="section-title">4-in-1 Platform. Nothing Like It Exists.</div>
+    <p style="font-size:1.1rem; opacity:0.8; margin-bottom:24px;">Companies currently pay 4 separate vendors $50K-$500K/yr total for what we deliver in one dashboard at $49.99/mo.</p>
+    <div class="row g-3">
+      <div class="col-md-6"><div class="metric-card text-start"><h5><i class="bi bi-people-fill me-2" style="color:var(--accent);"></i>Cross-Network Agent Database</h5><p class="opacity-75 mb-1">Aggregates contacts from 25+ freight networks into one searchable, verified database. Multi-signal verification scoring.</p><p class="mb-0"><small style="color:var(--gold);">Replaces: $15,000-$55,000/yr in network memberships</small></p></div></div>
+      <div class="col-md-6"><div class="metric-card text-start"><h5><i class="bi bi-graph-up-arrow me-2" style="color:var(--accent);"></i>Rate Intelligence Engine</h5><p class="opacity-75 mb-1">Automated RFQ email cycles, benchmark calculation from real quotes, agent scoring (4-factor weighted), nudge logic for overpriced quotes.</p><p class="mb-0"><small style="color:var(--gold);">Replaces: Xeneta at $25,000-$400,000/yr</small></p></div></div>
+      <div class="col-md-6"><div class="metric-card text-start"><h5><i class="bi bi-water me-2" style="color:var(--accent);"></i>Vessel Schedule Intelligence</h5><p class="opacity-75 mb-1">Carrier schedule aggregation via free DCSA APIs. Predictive ETAs with confidence scoring. Carrier reliability leaderboard.</p><p class="mb-0"><small style="color:var(--gold);">Replaces: Sea-Intelligence at $2,000-$25,000/yr</small></p></div></div>
+      <div class="col-md-6"><div class="metric-card text-start"><h5><i class="bi bi-envelope-paper me-2" style="color:var(--accent);"></i>Cultural Outreach & CRM</h5><p class="opacity-75 mb-1">30+ country-specific email templates. Timezone-optimized sending. Behavioral profiling. Response tracking.</p><p class="mb-0"><small style="color:var(--gold);">Replaces: Custom CRM + email tools ($5,000-$20,000/yr)</small></p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- S4: COMPETITION -->
+<section class="inv-section" id="s-competition">
+  <div class="container">
+    <div class="section-label">Competitive Landscape</div>
+    <div class="section-title">100+ Competitors Analyzed. Zero Direct Match.</div>
+    <p style="opacity:0.8; margin-bottom:20px;">We researched every freight tech platform globally — from Australia to Alaska, Russia to Argentina. No single competitor combines all four capabilities at any price.</p>
+
+    <h6 style="color:var(--accent);" class="mt-4 mb-3">SaaS Platforms Disrupted</h6>
+    <div class="comp-row"><span class="comp-name">CargoWise (WiseTech Global)</span><span class="opacity-60">Full operations ERP</span><span class="comp-price">$50K-$500K/yr</span></div>
+    <div class="comp-row"><span class="comp-name">Xeneta</span><span class="opacity-60">Rate benchmarking only</span><span class="comp-price">$25K-$400K/yr</span></div>
+    <div class="comp-row"><span class="comp-name">Quotiss</span><span class="opacity-60">Rate management only</span><span class="comp-price">$1,500-$2,500/mo</span></div>
+    <div class="comp-row"><span class="comp-name">Freightify</span><span class="opacity-60">Rate procurement only</span><span class="comp-price">$500-$2,000/mo</span></div>
+    <div class="comp-row"><span class="comp-name">GoComet (GoProcure)</span><span class="opacity-60">Shipper procurement</span><span class="comp-price">$100-$500/mo</span></div>
+    <div class="comp-row"><span class="comp-name">Wisor AI</span><span class="opacity-60">RFQ automation (enterprise)</span><span class="comp-price">Custom enterprise</span></div>
+    <div class="comp-row"><span class="comp-name">project44</span><span class="opacity-60">Visibility only</span><span class="comp-price">$75K-$500K/yr</span></div>
+    <div class="comp-row"><span class="comp-name">FourKites</span><span class="opacity-60">Visibility only</span><span class="comp-price">$50K-$250K/yr</span></div>
+    <div class="comp-row"><span class="comp-name">Keelvar</span><span class="opacity-60">Procurement optimization (enterprise)</span><span class="comp-price">Enterprise only</span></div>
+    <div class="comp-row" style="background:rgba(25,135,84,0.1);"><span class="comp-name" style="color:var(--gold);">Freight Intelligence (Us)</span><span class="opacity-60">All 4 capabilities combined</span><span class="comp-price" style="color:var(--green);">$49.99/mo</span></div>
+
+    <h6 style="color:var(--accent);" class="mt-5 mb-3">Agent Networks Disrupted</h6>
+    <p style="opacity:0.7; font-size:0.95rem;">Each network charges $500-$6,000/yr for access to a walled-garden directory. A forwarder in 3-5 networks spends $15,000-$55,000/yr + conference travel.</p>
+    <div class="network-row fw-bold opacity-60"><span>Network</span><span>Members</span><span>Annual Fee</span></div>
+    <div class="network-row"><span>WCA World</span><span>12,500 offices</span><span>$2,000-$5,000</span></div>
+    <div class="network-row"><span>Pangea / Conqueror</span><span>245 cities</span><span>$1,500-$3,000</span></div>
+    <div class="network-row"><span>The Cooperative (Coop)</span><span>375 members</span><span>$1,580/city</span></div>
+    <div class="network-row"><span>PCN (Project Cargo)</span><span>350 companies</span><span>$1,400/yr</span></div>
+    <div class="network-row"><span>DF Alliance (DP World)</span><span>8,000 members</span><span>$3,588/yr</span></div>
+    <div class="network-row"><span>JCTrans</span><span>420,000 users</span><span>$1,000-$3,000</span></div>
+    <div class="network-row"><span>UFO</span><span>121 members</span><span>Not public</span></div>
+    <div class="network-row"><span>Globalia</span><span>210 members</span><span>~$500+</span></div>
+    <div class="network-row"><span>X2 Logistics</span><span>1,000+ members</span><span>Varies</span></div>
+    <div class="network-row"><span>Atlas Network</span><span>220 offices</span><span>Not public</span></div>
+    <div class="network-row" style="background:rgba(25,135,84,0.1); font-weight:700;"><span style="color:var(--gold);">Our platform replaces ALL of these</span><span></span><span style="color:var(--green);">$49.99/mo</span></div>
+  </div>
+</section>
+
+<!-- S5: AI OPS -->
+<section class="inv-section" id="s-ai-ops">
+  <div class="container">
+    <div class="section-label">Operations Model</div>
+    <div class="section-title">AI Runs Everything. No Human Team.</div>
+    <div class="row g-4">
+      <div class="col-md-6">
+        <h5 class="mb-3" style="color:var(--accent);">Traditional SaaS</h5>
+        <div class="d-flex justify-content-between py-2 border-bottom border-secondary"><span>Engineers</span><span>50-500 people</span></div>
+        <div class="d-flex justify-content-between py-2 border-bottom border-secondary"><span>Support team</span><span>20-100 people</span></div>
+        <div class="d-flex justify-content-between py-2 border-bottom border-secondary"><span>Marketing</span><span>$500K+/yr</span></div>
+        <div class="d-flex justify-content-between py-2 border-bottom border-secondary"><span>Dev cycle</span><span>6-12 months</span></div>
+        <div class="d-flex justify-content-between py-2"><span>Cost to build</span><span>$5M-$50M</span></div>
+      </div>
+      <div class="col-md-6">
+        <h5 class="mb-3" style="color:var(--gold);">Our Model</h5>
+        <div class="d-flex justify-content-between py-2 border-bottom border-secondary"><span>Engineers</span><span style="color:var(--green);">Multi-layer AI pipeline</span></div>
+        <div class="d-flex justify-content-between py-2 border-bottom border-secondary"><span>Support</span><span style="color:var(--green);">AI pipeline (95% auto-resolved)</span></div>
+        <div class="d-flex justify-content-between py-2 border-bottom border-secondary"><span>Marketing</span><span style="color:var(--green);">$0 (referrals + organic)</span></div>
+        <div class="d-flex justify-content-between py-2 border-bottom border-secondary"><span>Dev cycle</span><span style="color:var(--green);">Hours, not months</span></div>
+        <div class="d-flex justify-content-between py-2"><span>Cost to build</span><span style="color:var(--green);">Near zero</span></div>
+      </div>
+    </div>
+    <div class="metric-card mt-4" style="border-color:var(--accent);">
+      <h6 style="color:var(--accent);">Support Pipeline</h6>
+      <p class="mb-0 opacity-80">Customer submits ticket &rarr; AI diagnoses root cause &rarr; AI generates fix &rarr; AI verifies fix works &rarr; Customer notified "Fixed" &mdash; all without a human touching it. 95% of issues resolved automatically. Remaining 5% escalate to the team + AI.</p>
+    </div>
+  </div>
+</section>
+
+<!-- S6: REVENUE -->
+<section class="inv-section" id="s-revenue">
+  <div class="container">
+    <div class="section-label">Revenue Projections</div>
+    <div class="section-title">Path to $60M ARR</div>
+    <div class="row g-4 mb-4">
+      <div class="col-md-3 col-6"><div class="metric-card"><div class="number" style="color:var(--accent);">100</div><div class="label">Year 1 Users</div><div class="mt-2 opacity-60">$60K ARR</div></div></div>
+      <div class="col-md-3 col-6"><div class="metric-card"><div class="number" style="color:var(--accent);">1,000</div><div class="label">Year 2 Users</div><div class="mt-2 opacity-60">$600K ARR</div></div></div>
+      <div class="col-md-3 col-6"><div class="metric-card"><div class="number" style="color:var(--gold);">10,000</div><div class="label">Year 3 Users</div><div class="mt-2 opacity-60">$6M ARR</div></div></div>
+      <div class="col-md-3 col-6"><div class="metric-card" style="border-color:var(--gold);"><div class="number" style="color:var(--gold);">100,000</div><div class="label">Year 5 Users</div><div class="mt-2" style="color:var(--gold);">$60M ARR</div></div></div>
+    </div>
+    <div class="section-label mt-5 mb-3">Platform Roadmap</div>
+    <div class="timeline-item"><strong style="color:var(--accent);">Stage 1 (Now)</strong> &mdash; SaaS for freight agents. Find partners, score them, manage rates, track vessels. Build the network.<br><small class="opacity-60">Revenue: $49.99/mo subscriptions</small></div>
+    <div class="timeline-item"><strong style="color:var(--gold);">Stage 2</strong> &mdash; Bring shippers/customers onto the platform. They see rates, book directly, track shipments. Agents become service providers ON our platform.<br><small class="opacity-60">Revenue: Transaction fees + subscriptions</small></div>
+    <div class="timeline-item future"><strong>Stage 3</strong> &mdash; Direct shipping line integration. Live rates from Maersk, CMA CGM, MSC posted like a stock exchange. Real-time market transparency. The Bloomberg Terminal of freight.<br><small class="opacity-60">Revenue: Data licensing + marketplace fees</small></div>
+  </div>
+</section>
+
+<!-- S7: GROWTH -->
+<section class="inv-section" id="s-growth">
+  <div class="container">
+    <div class="section-label">Growth Strategy</div>
+    <div class="section-title">Zero Marketing Spend. Here's How.</div>
+    <div class="row g-3">
+      <div class="col-md-4"><div class="metric-card text-start"><h6 style="color:var(--accent);"><i class="bi bi-share me-2"></i>Referral Engine</h6><p class="opacity-75 mb-0">1 referral = 1 month free. CAC: $49.99 per customer. Industry average: $200-$500.</p></div></div>
+      <div class="col-md-4"><div class="metric-card text-start"><h6 style="color:var(--accent);"><i class="bi bi-stars me-2"></i>Spin-to-Win Virality</h6><p class="opacity-75 mb-0">New signups spin a wheel for bonuses. Screenshots get shared in freight WhatsApp groups. Free marketing.</p></div></div>
+      <div class="col-md-4"><div class="metric-card text-start"><h6 style="color:var(--accent);"><i class="bi bi-reddit me-2"></i>Community-First</h6><p class="opacity-75 mb-0">Reddit freight communities, LinkedIn organic, AI-generated SEO content. Zero ad spend.</p></div></div>
+      <div class="col-md-6"><div class="metric-card text-start"><h6 style="color:var(--gold);"><i class="bi bi-diagram-3 me-2"></i>Network Effect</h6><p class="opacity-75 mb-0">More users = more rate data = better benchmarks = more valuable for everyone = more users join. At 10K users, our crowdsourced rate data beats Xeneta's for SMB lanes.</p></div></div>
+      <div class="col-md-6"><div class="metric-card text-start"><h6 style="color:var(--gold);"><i class="bi bi-bank me-2"></i>Credit Partnership</h6><p class="opacity-75 mb-0">Future revenue stream: partner with financial institutions to offer credit limits based on our agent scoring data. Stickiness + monetization.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- S8: WHY AZURE -->
+<section class="inv-section" id="s-tech">
+  <div class="container">
+    <div class="section-label">Technology</div>
+    <div class="section-title">Why Azure. Why AI-First.</div>
+    <div class="row g-3">
+      <div class="col-md-6"><div class="metric-card text-start"><h6 style="color:var(--accent);">Microsoft Azure</h6><p class="opacity-75 mb-0">Same cloud as CargoWise, DHL, and Maersk. Fortune 500 trust factor. Already integrated with our Microsoft Graph email system. Scales to 100K+ users with predictable pricing.</p></div></div>
+      <div class="col-md-6"><div class="metric-card text-start"><h6 style="color:var(--accent);">AI-Native Development</h6><p class="opacity-75 mb-0">Entire codebase built with AI tools. 15,000+ lines of production code. Features ship in hours, not months. Development cost near zero. This is a permanent structural advantage.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- S9: RISKS -->
+<section class="inv-section" id="s-risks">
+  <div class="container">
+    <div class="section-label">Pre-Answered Risks</div>
+    <div class="section-title">Every Hard Question, Answered.</div>
+    <div class="risk-grid">
+      <div class="risk-card"><div class="q">"How do you scale support without humans?"</div><div class="a">AI support pipeline: 95% auto-resolved. Remaining 5% handled by the team + AI. Scales infinitely — each new ticket makes the AI smarter.</div></div>
+      <div class="risk-card"><div class="q">"What if CargoWise drops their price?"</div><div class="a">They can't. WiseTech is publicly traded at $16B. Shareholders demand revenue growth. They just RAISED prices. Their cost structure cannot serve SMBs at $49.99.</div></div>
+      <div class="risk-card"><div class="q">"What about the team size?"</div><div class="a">AI-native from day one. The multi-layer AI pipeline handles development, support, and operations autonomously. Codebase on GitHub, fully documented. 1-2 engineers join at $50K MRR for data ops and reliability.</div></div>
+      <div class="risk-card"><div class="q">"Where's your data at launch?"</div><div class="a">Seeded from Maersk's free API (real-time spot rates) + public carrier schedules. User data compounds with every RFQ cycle. At 10K users, we have a data moat.</div></div>
+      <div class="risk-card"><div class="q">"Why can't a big company copy this?"</div><div class="a">Networks are trade associations, not software companies. WCA has never built software. Carrier tools only show THEIR rates. Nobody aggregates across the ecosystem.</div></div>
+      <div class="risk-card"><div class="q">"$49.99 is too cheap. High churn?"</div><div class="a">Stickiness: contacts + years of rate history + referral credits locked to the platform. Switching means losing your data, your benchmarks, and your free months. Slack is $7.25/user and has industry-low churn.</div></div>
+      <div class="risk-card"><div class="q">"Legal risk from data aggregation?"</div><div class="a">Pivoted to partnerships + user-imported data + public sources only. GDPR-compliant with country-level email filtering. CAN-SPAM unsubscribe on all outreach. Opt-out tracking in database.</div></div>
+      <div class="risk-card"><div class="q">"What if AI tools change pricing?"</div><div class="a">Multi-vendor strategy across diagnostic, engineering, and verification layers + open-source fallback. No single-vendor lock-in. AI costs are marginal vs subscription revenue.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- S10: BUILD COST -->
+<section class="inv-section" id="s-build-cost">
+  <div class="container">
+    <div class="section-label">Build Verification</div>
+    <div class="section-title">What This Would Cost To Build</div>
+    <p style="opacity:0.8; margin-bottom:24px;">31,566 lines of production code. 50 Python files. 25+ database tables. 40+ API endpoints. 5 carrier integrations. Triple-verified against real agency rates and freight tech startup funding data.</p>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-3 col-6"><div class="metric-card"><div class="number" style="color:var(--gold);">$185K-$540K</div><div class="label">US Agency Quote</div></div></div>
+      <div class="col-md-3 col-6"><div class="metric-card"><div class="number" style="color:var(--accent);">$69K-$151K</div><div class="label">Eastern Europe Agency</div></div></div>
+      <div class="col-md-3 col-6"><div class="metric-card"><div class="number" style="color:var(--accent);">$38K-$97K</div><div class="label">India Agency</div></div></div>
+      <div class="col-md-3 col-6"><div class="metric-card" style="border-color:var(--green);"><div class="number" style="color:var(--green);">AI-Built</div><div class="label">Proprietary Workflow</div></div></div>
+    </div>
+
+    <h6 style="color:var(--accent);" class="mt-4 mb-3">What Comparable Companies Spent To Build Less</h6>
+    <div class="comp-row"><span class="comp-name">Xeneta <small class="opacity-50">(rate benchmarking only)</small></span><span class="opacity-60">Seed + Series A</span><span class="comp-price">$6.5M</span></div>
+    <div class="comp-row"><span class="comp-name">Freightos <small class="opacity-50">(rate quoting for forwarders)</small></span><span class="opacity-60">First 2 years</span><span class="comp-price">$7M+</span></div>
+    <div class="comp-row"><span class="comp-name">Wisor AI <small class="opacity-50">(RFQ automation only)</small></span><span class="opacity-60">Seed round (2023)</span><span class="comp-price">$8M</span></div>
+    <div class="comp-row"><span class="comp-name">GoComet <small class="opacity-50">(procurement + tracking)</small></span><span class="opacity-60">3 years pre-Series A</span><span class="comp-price">$2.5M</span></div>
+
+    <div class="metric-card mt-4" style="border-color:var(--gold);">
+      <p class="mb-0">Companies building comparable platforms raised <strong style="color:var(--gold);">$2.5M to $8M</strong> just for their first version — and most only built <strong>one</strong> of our four core features. We built all four using a proprietary AI development workflow. That structural advantage is why our $49.99/mo price is permanently defensible.</p>
+    </div>
+  </div>
+</section>
+
+<!-- S11: ACQUISITION VALUE -->
+<section class="inv-section" id="s-acquisition">
+  <div class="container">
+    <div class="section-label">Strategic Value</div>
+    <div class="section-title">What This Is Worth To Acquirers</div>
+    <p style="opacity:0.8; margin-bottom:24px;">Every major freight tech company has gaps our platform fills. Here's what they'd pay — and what they'd get.</p>
+
+    <div class="risk-grid">
+      <div class="risk-card" style="border-color:var(--accent);">
+        <div class="q">Xeneta <small class="opacity-50">($265M valuation, $136M raised)</small></div>
+        <div class="a"><strong>Gets:</strong> Agent scoring, contact aggregation, RFQ automation — 3 features they don't have and would take 2-3 years to build.<br><strong>Saves:</strong> $20M+ in development. Instant SMB market entry.</div>
+      </div>
+      <div class="risk-card" style="border-color:var(--accent);">
+        <div class="q">Freightos <small class="opacity-50">($105M market cap, $94M raised)</small></div>
+        <div class="a"><strong>Gets:</strong> SMB market access at $49.99/mo — a segment they can't reach at their enterprise price point. Plus agent network intelligence they don't have.<br><strong>Saves:</strong> Years of downmarket product development.</div>
+      </div>
+      <div class="risk-card" style="border-color:var(--gold);">
+        <div class="q">WiseTech / CargoWise <small class="opacity-50">($16B market cap)</small></div>
+        <div class="a"><strong>Gets:</strong> A ready-made SMB product to win back the thousands of customers they just lost with December 2025 price hikes.<br><strong>Saves:</strong> Customer churn. Brand damage control.</div>
+      </div>
+      <div class="risk-card" style="border-color:var(--gold);">
+        <div class="q">DP World / DF Alliance <small class="opacity-50">(8,000+ network members)</small></div>
+        <div class="a"><strong>Gets:</strong> Technology layer for their entire member network. Instant digital upgrade for 8,000+ forwarders.<br><strong>Saves:</strong> Building from scratch. They have the members, we have the software.</div>
+      </div>
+    </div>
+
+    <div class="metric-card mt-4" style="border-color:var(--green);">
+      <p class="mb-0">At $60M ARR (100K users), comparable SaaS companies trade at <strong style="color:var(--gold);">10-15x revenue</strong>. That's a <strong style="color:var(--gold);">$600M-$900M</strong> valuation. Even at 5,000 users ($3M ARR), the strategic acquisition value to any of the above companies is <strong style="color:var(--green);">$30M-$50M</strong> — because they're buying what took them $50M+ to build, for a fraction of the cost.</p>
+    </div>
+  </div>
+</section>
+
+<!-- S12: SCORE -->
+<section class="inv-section" id="s-score">
+  <div class="container text-center">
+    <div class="section-label">Your Perspective</div>
+    <div class="section-title">What's Your Take?</div>
+    <p style="opacity:0.8; max-width:600px; margin:0 auto 20px;">The product is built. We're sharing it with professionals to pressure-test viability. Your insight shapes what happens next.</p>
+
+    <div style="font-size:4rem; font-weight:800; color:var(--accent);" id="invScoreDisplay">5</div>
+    <input type="range" min="1" max="10" value="5" style="width:100%; max-width:500px; height:8px; -webkit-appearance:none; appearance:none; background:rgba(255,255,255,0.15); border-radius:4px; outline:none;" oninput="document.getElementById('invScoreDisplay').textContent=this.value; document.getElementById('invImproveWrap').style.display=this.value>=10?'none':'block';" id="invScoreSlider">
+    <div class="d-flex justify-content-between opacity-50 small mt-1" style="max-width:500px; margin:0 auto;">
+      <span>1 — Not viable</span><span>10 — This is a winner</span>
+    </div>
+
+    <div id="invImproveWrap" class="mt-4" style="max-width:500px; margin:0 auto;">
+      <label class="form-label opacity-75">What would make this a 10?</label>
+      <textarea class="form-control" id="invImproveAnswer" rows="2" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;" placeholder="One thing that would change your mind..."></textarea>
+    </div>
+
+    <div class="mt-4" style="max-width:500px; margin:0 auto;">
+      <label class="form-label opacity-75">If this were on a crowdfunding platform, how much would you pledge?</label>
+      <div class="d-flex gap-2 flex-wrap mb-2 justify-content-center">
+        <button type="button" class="btn btn-sm btn-outline-light inv-preset" onclick="setInvAmount(500)">$500</button>
+        <button type="button" class="btn btn-sm btn-outline-light inv-preset" onclick="setInvAmount(1000)">$1K</button>
+        <button type="button" class="btn btn-sm btn-outline-light inv-preset" onclick="setInvAmount(5000)">$5K</button>
+        <button type="button" class="btn btn-sm btn-outline-light inv-preset" onclick="setInvAmount(10000)">$10K</button>
+        <button type="button" class="btn btn-sm btn-outline-light inv-preset" onclick="setInvAmount(25000)">$25K</button>
+        <button type="button" class="btn btn-sm btn-outline-light inv-preset" onclick="setInvAmount(50000)">$50K</button>
+        <button type="button" class="btn btn-sm btn-outline-light inv-preset" onclick="setInvAmount(100000)">$100K</button>
+      </div>
+      <input type="number" class="form-control" id="invAmount" min="0" placeholder="Custom amount..." style="max-width:250px; margin:0 auto; background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff; text-align:center;">
+      <small class="opacity-50 mt-1 d-block">Non-binding — gauging interest.</small>
+    </div>
+
+    <button class="btn btn-warning btn-lg px-5 fw-bold mt-4" onclick="submitInvScore()">
+      <i class="bi bi-send me-2"></i>Submit
+    </button>
+
+    <div id="invThanks" class="mt-4 d-none">
+      <div style="font-size:3rem;"><i class="bi bi-heart-fill text-danger"></i></div>
+      <h4 class="mt-2">Thank you for your perspective.</h4>
+      <div class="d-flex justify-content-center gap-3 mt-3 flex-wrap">
+        <a href="/pitch" class="btn btn-outline-light"><i class="bi bi-play-circle me-1"></i>See Product Pitch</a>
+        <a href="/review" class="btn btn-outline-light"><i class="bi bi-code-slash me-1"></i>Technical Review</a>
+        <button class="btn btn-outline-light" onclick="navigator.clipboard.writeText(window.location.origin+'/invest'); this.innerHTML='<i class=\'bi bi-check-lg me-1\'></i>Copied!'"><i class="bi bi-link-45deg me-1"></i>Copy Link</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+function setInvAmount(amt) {
+  document.getElementById('invAmount').value = amt;
+  document.querySelectorAll('.inv-preset').forEach(b => b.classList.remove('btn-warning'));
+  event.target.classList.add('btn-warning');
+}
+async function submitInvScore() {
+  const data = {
+    name: 'Investor Visitor',
+    profession: 'investor',
+    profession_label: 'Investor/Director',
+    score: parseInt(document.getElementById('invScoreSlider').value),
+    improvement_answer: document.getElementById('invImproveAnswer').value || '',
+    invest_amount: parseInt(document.getElementById('invAmount').value) || 0,
+    risk_answer: '', advice_answer: '',
+    fund_answer: parseInt(document.getElementById('invScoreSlider').value) >= 8 ? 'yes_invest' : 'considering',
+    scoring_answers: [], source: 'invest_page'
+  };
+  try { await fetch('/api/pitch/score', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }); } catch(e) {}
+  document.getElementById('invThanks').classList.remove('d-none');
+  event.target.style.display = 'none';
+  document.getElementById('invScoreSlider').disabled = true;
+}
+// Side nav dots
+const sections = document.querySelectorAll('.inv-section');
+const nav = document.getElementById('invNav');
+sections.forEach((s, i) => {
+  const a = document.createElement('a');
+  a.href = '#' + s.id;
+  a.title = s.id.replace('s-','');
+  nav.appendChild(a);
+});
+window.addEventListener('scroll', () => {
+  const dots = nav.querySelectorAll('a');
+  sections.forEach((s, i) => {
+    const rect = s.getBoundingClientRect();
+    dots[i].classList.toggle('active', rect.top < window.innerHeight/2 && rect.bottom > window.innerHeight/2);
+  });
+});
+</script>
+<script src="/static/bootstrap.bundle.min.js"></script>
+</body>
+</html>

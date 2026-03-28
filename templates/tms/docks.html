@@ -1,0 +1,285 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Dock Scheduling{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-grid-3x3-gap-fill me-2"></i>Dock Scheduling</h2>
+    <div class="text-muted small">Manage dock doors, book appointments, and share carrier self-book links.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/docks/calendar" class="btn btn-outline-info"><i class="bi bi-calendar-week me-1"></i>Calendar</a>
+    <a href="/tms/shipments" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Shipments</a>
+    <a href="/tms" class="btn btn-outline-secondary"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-4">
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small">Dock Doors</div>
+        <div class="fs-3 fw-bold">{{ stats.dock_count }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small">Active Docks</div>
+        <div class="fs-3 fw-bold text-success">{{ stats.active_docks }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small">Scheduled</div>
+        <div class="fs-3 fw-bold text-primary">{{ stats.scheduled }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small">Checked-In / Loading</div>
+        <div class="fs-3 fw-bold text-warning">{{ stats.in_progress }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-door-open me-2"></i>Dock Doors</span>
+        <a href="/tms/docks" class="btn btn-sm btn-outline-secondary">New</a>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for dock in docks %}
+        <a
+          href="/tms/docks?dock_id={{ dock.id }}{% if selected_shipment %}&shipment_ref={{ selected_shipment.shipment_ref }}{% endif %}"
+          class="list-group-item list-group-item-action bg-dark text-white {% if selected_dock and selected_dock.id == dock.id %}border-start border-info border-4{% endif %}"
+        >
+          <div class="d-flex justify-content-between align-items-start gap-3">
+            <div>
+              <div class="fw-semibold">{{ dock.name }}</div>
+              <div class="small text-muted">{{ dock.location or "Location not set" }}</div>
+              <div class="small text-muted">{{ dock.type_label }} · {{ dock.duration_label }}</div>
+            </div>
+            <span class="badge bg-{{ 'success' if dock.active else 'secondary' }}">{{ "Active" if dock.active else "Inactive" }}</span>
+          </div>
+        </a>
+        {% else %}
+        <div class="list-group-item bg-dark text-muted">No dock doors configured yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+      <div class="card-header">
+        <i class="bi bi-pencil-square me-2"></i>{{ "Edit Dock" if dock_form.id else "Add Dock" }}
+      </div>
+      <div class="card-body">
+        <form method="POST" action="/tms/docks" class="row g-3">
+          <input type="hidden" name="action" value="save_dock">
+          <input type="hidden" name="record_id" value="{{ dock_form.id or '' }}">
+          <div class="col-12">
+            <label class="form-label">Door Name</label>
+            <input type="text" name="name" class="form-control bg-dark text-white border-secondary" value="{{ dock_form.name }}" placeholder="Door 1" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Type</label>
+            <select name="dock_type" class="form-select bg-dark text-white border-secondary">
+              {% for dock_type in dock_types %}
+              <option value="{{ dock_type }}" {% if dock_form.dock_type == dock_type %}selected{% endif %}>{{ dock_type.title() }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Default Duration</label>
+            <div class="input-group">
+              <input type="number" min="15" step="15" name="default_duration_minutes" class="form-control bg-dark text-white border-secondary" value="{{ dock_form.default_duration_minutes }}">
+              <span class="input-group-text bg-secondary text-white border-secondary">min</span>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Location</label>
+            <input type="text" name="location" class="form-control bg-dark text-white border-secondary" value="{{ dock_form.location }}" placeholder="Warehouse A">
+          </div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" role="switch" id="dockActiveSwitch" name="active" value="1" {% if dock_form.active %}checked{% endif %}>
+              <label class="form-check-label" for="dockActiveSwitch">Active for booking</label>
+            </div>
+          </div>
+          <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">{{ "Update Dock" if dock_form.id else "Create Dock" }}</button>
+            {% if dock_form.id %}
+            <a href="/tms/docks" class="btn btn-outline-secondary">Clear</a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-calendar-plus me-2"></i>Appointment Booking</span>
+        {% if selected_booking_url %}
+        <a href="{{ selected_booking_url }}" target="_blank" class="btn btn-sm btn-outline-warning">
+          <i class="bi bi-box-arrow-up-right me-1"></i>Open Carrier Link
+        </a>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if selected_shipment %}
+        <div class="alert alert-info d-flex justify-content-between align-items-start flex-wrap gap-2">
+          <div>
+            <div class="fw-semibold">{{ selected_shipment.shipment_ref }}</div>
+            <div class="small">{{ selected_shipment.origin_port or "-" }} -> {{ selected_shipment.destination_port or "-" }}</div>
+            <div class="small text-muted">{{ selected_shipment.shipper_name or "-" }} / {{ selected_shipment.consignee_name or "-" }}</div>
+          </div>
+          {% if selected_appointment %}
+          <span class="tms-status tms-status-{{ {'Scheduled':'booked','Checked In':'active','Loading':'active','Complete':'delivered','Cancelled':'cancelled','No Show':'cancelled'}.get(selected_appointment.status, 'draft') }}">{{ selected_appointment.status }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {% if selected_booking_url %}
+        <div class="mb-3 p-3 rounded border border-warning-subtle bg-warning bg-opacity-10">
+          <div class="small text-warning-emphasis mb-1">Carrier self-booking link</div>
+          <div class="small text-break"><a href="{{ selected_booking_url }}" target="_blank">{{ selected_booking_url }}</a></div>
+        </div>
+        {% endif %}
+
+        <form method="POST" action="/tms/docks" class="row g-3">
+          <input type="hidden" name="action" value="save_appointment">
+          <div class="col-md-6">
+            <label class="form-label">Shipment</label>
+            <select name="shipment_ref" class="form-select bg-dark text-white border-secondary" required>
+              <option value="">Select shipment</option>
+              {% for shipment in shipment_options %}
+              <option value="{{ shipment.shipment_ref }}" {% if appointment_form.shipment_ref == shipment.shipment_ref %}selected{% endif %}>
+                {{ shipment.display_label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Dock Door</label>
+            <select name="dock_id" class="form-select bg-dark text-white border-secondary" {% if not docks %}disabled{% endif %} required>
+              <option value="">Select dock</option>
+              {% for dock in docks if dock.active %}
+              <option value="{{ dock.id }}" {% if appointment_form.dock_id|string == dock.id|string %}selected{% endif %}>
+                {{ dock.name }} · {{ dock.type_label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Appointment Type</label>
+            <select name="appointment_type" class="form-select bg-dark text-white border-secondary">
+              {% for appointment_type in appointment_types %}
+              <option value="{{ appointment_type }}" {% if appointment_form.appointment_type == appointment_type %}selected{% endif %}>{{ appointment_type.title() }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Start Time</label>
+            <input type="datetime-local" name="scheduled_start" class="form-control bg-dark text-white border-secondary" value="{{ appointment_form.scheduled_start }}" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Carrier Contact</label>
+            <input type="text" name="contact_name" class="form-control bg-dark text-white border-secondary" value="{{ appointment_form.contact_name }}" placeholder="Ops contact">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Contact Email</label>
+            <input type="email" name="contact_email" class="form-control bg-dark text-white border-secondary" value="{{ appointment_form.contact_email }}" placeholder="carrier@example.com">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Notes</label>
+            <textarea name="notes" rows="3" class="form-control bg-dark text-white border-secondary" placeholder="Access instructions, trailer details, driver notes">{{ appointment_form.notes }}</textarea>
+          </div>
+          <div class="col-12 d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-primary" {% if not docks %}disabled{% endif %}>Save Appointment</button>
+            {% if selected_shipment %}
+            <a href="/tms/shipments/{{ selected_shipment.shipment_ref }}" class="btn btn-outline-secondary">Open Shipment</a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2"></i>Upcoming Appointments</span>
+        <a href="/tms/docks/calendar" class="btn btn-sm btn-outline-info">Week View</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Shipment</th>
+              <th>Door</th>
+              <th>Type</th>
+              <th>Schedule</th>
+              <th>Status</th>
+              <th>Carrier</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for appointment in appointments %}
+            <tr>
+              <td>
+                <a href="/tms/shipments/{{ appointment.shipment_ref }}" class="text-info text-decoration-none fw-semibold">{{ appointment.shipment_ref }}</a>
+              </td>
+              <td>
+                <div>{{ appointment.dock_name or "-" }}</div>
+                <div class="small text-muted">{{ appointment.dock_location or "" }}</div>
+              </td>
+              <td>{{ appointment.appointment_type_label }}</td>
+              <td>{{ appointment.schedule_label }}</td>
+              <td><span class="tms-status tms-status-{{ {'Scheduled':'booked','Checked In':'active','Loading':'active','Complete':'delivered','Cancelled':'cancelled','No Show':'cancelled'}.get(appointment.status, 'draft') }}">{{ appointment.status }}</span></td>
+              <td>{{ appointment.carrier_display }}</td>
+              <td>
+                <div class="d-flex gap-2 flex-wrap">
+                  <a href="/tms/docks?shipment_ref={{ appointment.shipment_ref }}{% if appointment.dock_id %}&dock_id={{ appointment.dock_id }}{% endif %}" class="btn btn-sm btn-outline-info">Edit</a>
+                  <a href="/tms/docks/book/{{ appointment.booking_token }}" target="_blank" class="btn btn-sm btn-outline-warning">Carrier Link</a>
+                  <form method="POST" action="/tms/docks/appointments/{{ appointment.id }}/status" class="d-flex gap-2">
+                    <input type="hidden" name="shipment_ref" value="{{ appointment.shipment_ref }}">
+                    <select name="status" class="form-select form-select-sm bg-dark text-white border-secondary">
+                      {% for appointment_status in appointment_statuses %}
+                      <option value="{{ appointment_status }}" {% if appointment.status == appointment_status %}selected{% endif %}>{{ appointment_status }}</option>
+                      {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Update</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">No dock appointments scheduled yet.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "stripe/base.html" %}
+{% set active_tab = 'agents' %}
+
+{% block title %}Agents{% endblock %}
+
+{% block content %}
+<div class="s-fade-in">
+
+  <div class="s-page-header">
+    <div>
+      <h1 class="s-page-title">Agents</h1>
+      <div class="s-page-subtitle">Global freight agent network and performance</div>
+    </div>
+    <div class="s-page-actions">
+      <button class="s-btn s-btn-secondary" disabled>
+        <i class="bi bi-funnel"></i> Filter
+      </button>
+      <button class="s-btn s-btn-primary" disabled>
+        <i class="bi bi-person-plus"></i> Add Agent
+      </button>
+    </div>
+  </div>
+
+  <div class="s-stats-grid">
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-people"></i> Total Agents</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-patch-check"></i> Verified</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-globe2"></i> Countries</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-trophy"></i> Top Performer</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Agent Directory</span>
+      </div>
+      <div class="s-card-body s-card-body--flush">
+        <table class="s-table">
+          <thead>
+            <tr><th>Agent</th><th>Country</th><th>Network</th><th>Score</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" class="s-table-empty">
+              <i class="bi bi-people"></i>
+              Agent directory will populate here.
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Performance Leaderboard</span>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-bar-chart-line"></i>
+          <div class="s-empty-title">Leaderboard</div>
+          <div class="s-empty-desc">Agent response times, rate quality, and reliability rankings.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

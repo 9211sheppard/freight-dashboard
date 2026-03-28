@@ -1,0 +1,268 @@
+{% set brand = settings|default({}) %}
+{% set brand_name = brand.get("company_name", "Shipment Tracking") %}
+{% set brand_color = brand.get("primary_color", "#0f766e") %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if shipment %}Driver GPS {{ shipment.shipment_ref }}{% else %}Driver GPS{% endif %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-icons.min.css') }}">
+  <style>
+    :root {
+      --brand: {{ brand_color }};
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: #eef4fa;
+      font-family: Aptos, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #122130 0, #08111a 100%);
+    }
+
+    .driver-shell {
+      padding: 20px 0 32px;
+    }
+
+    .driver-card {
+      background: rgba(9, 16, 26, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
+    }
+
+    .eyebrow {
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 0.76rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .driver-title {
+      font-size: clamp(1.85rem, 4vw, 2.7rem);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+
+    .driver-stat {
+      border-radius: 18px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      height: 100%;
+    }
+
+    .driver-stat-label {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.74rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 0.45rem;
+    }
+
+    .driver-stat-value {
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    .driver-note {
+      color: rgba(255, 255, 255, 0.64);
+      font-size: 0.92rem;
+    }
+
+    .form-control,
+    .form-control:focus {
+      background: #05080d;
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      box-shadow: none;
+    }
+
+    .btn-brand {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .btn-brand:hover {
+      background: var(--brand);
+      border-color: var(--brand);
+      filter: brightness(1.05);
+      color: #fff;
+    }
+
+    .link-box {
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 18px;
+      padding: 0.9rem 1rem;
+      background: rgba(255, 255, 255, 0.03);
+    }
+  </style>
+</head>
+<body>
+  <div class="driver-shell">
+    <main class="container" style="max-width: 760px;">
+      <div class="driver-card p-4 p-lg-5">
+        {% if shipment %}
+        <div class="eyebrow mb-2">Driver GPS page</div>
+        <h1 class="driver-title mb-2">{{ shipment.shipment_ref }}</h1>
+        <p class="driver-note mb-4">
+          Submit the truck's current location. This updates the internal shipment view and the public tracking page.
+        </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="mb-4">
+              {% for category, message in messages %}
+              <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% if form_error %}
+        <div class="alert alert-danger mb-4">{{ form_error }}</div>
+        {% endif %}
+
+        <div class="row g-3 mb-4">
+          <div class="col-md-4">
+            <div class="driver-stat">
+              <div class="driver-stat-label">Carrier</div>
+              <div class="driver-stat-value">{{ shipment.carrier_name or "Unassigned" }}</div>
+              <div class="driver-note mt-2">{{ shipment.origin_port or "-" }} to {{ shipment.destination_port or "-" }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="driver-stat">
+              <div class="driver-stat-label">Latest Ping</div>
+              <div class="driver-stat-value">
+                {% if latest_ping %}
+                {{ latest_ping.timestamp_display }}
+                {% else %}
+                No GPS ping yet
+                {% endif %}
+              </div>
+              <div class="driver-note mt-2">
+                {% if latest_ping %}
+                {{ latest_ping.lat }}, {{ latest_ping.lng }}
+                {% else %}
+                First submission starts the live trail.
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="driver-stat">
+              <div class="driver-stat-label">Public Tracking</div>
+              <div class="driver-stat-value">{{ brand_name }}</div>
+              <div class="driver-note mt-2">
+                <a href="{{ public_tracking_url }}" class="link-info" target="_blank">Open public tracking page</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form method="POST" novalidate>
+          <div class="d-grid gap-2 d-md-flex justify-content-md-between align-items-md-center mb-3">
+            <div class="driver-note" id="locationStatus">Use the button below to fill location from this device.</div>
+            <button type="button" class="btn btn-outline-info" id="useCurrentLocation">
+              <i class="bi bi-crosshair me-1"></i>Use Current Location
+            </button>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="latInput" class="form-label">Latitude</label>
+              <input id="latInput" name="lat" type="number" step="any" required class="form-control" value="{{ form_values.get('lat', '') }}" placeholder="43.653200">
+            </div>
+            <div class="col-md-6">
+              <label for="lngInput" class="form-label">Longitude</label>
+              <input id="lngInput" name="lng" type="number" step="any" required class="form-control" value="{{ form_values.get('lng', '') }}" placeholder="-79.383200">
+            </div>
+            <div class="col-md-6">
+              <label for="speedInput" class="form-label">Speed (km/h, optional)</label>
+              <input id="speedInput" name="speed" type="number" step="any" class="form-control" value="{{ form_values.get('speed', '') }}" placeholder="88">
+            </div>
+            <div class="col-md-6">
+              <label for="timestampInput" class="form-label">Timestamp</label>
+              <input id="timestampInput" name="timestamp" type="text" class="form-control" value="{{ form_values.get('timestamp', '') }}" placeholder="Auto-filled if left blank">
+            </div>
+          </div>
+
+          <div class="d-grid mt-4">
+            <button type="submit" class="btn btn-brand btn-lg">
+              <i class="bi bi-broadcast-pin me-1"></i>Submit GPS Ping
+            </button>
+          </div>
+        </form>
+
+        <div class="link-box mt-4">
+          <div class="driver-stat-label">Tracking link token</div>
+          <div class="driver-note mb-0">{{ token }}</div>
+        </div>
+        {% else %}
+        <div class="eyebrow mb-2">Driver GPS page</div>
+        <h1 class="driver-title mb-3">Link unavailable</h1>
+        <p class="driver-note mb-0">{{ form_error or "This driver tracking link is invalid or expired." }}</p>
+        {% endif %}
+      </div>
+    </main>
+  </div>
+
+  {% if shipment %}
+  <script>
+    (function () {
+      const statusNode = document.getElementById("locationStatus");
+      const latInput = document.getElementById("latInput");
+      const lngInput = document.getElementById("lngInput");
+      const speedInput = document.getElementById("speedInput");
+      const timestampInput = document.getElementById("timestampInput");
+      const useCurrentLocation = document.getElementById("useCurrentLocation");
+
+      const stampNow = () => {
+        if (!timestampInput.value) {
+          timestampInput.value = new Date().toISOString();
+        }
+      };
+
+      stampNow();
+
+      if (!useCurrentLocation) {
+        return;
+      }
+
+      useCurrentLocation.addEventListener("click", function () {
+        if (!navigator.geolocation) {
+          statusNode.textContent = "This browser does not support location sharing.";
+          return;
+        }
+
+        statusNode.textContent = "Getting current location...";
+        navigator.geolocation.getCurrentPosition(
+          function (position) {
+            latInput.value = position.coords.latitude.toFixed(6);
+            lngInput.value = position.coords.longitude.toFixed(6);
+            if (position.coords.speed !== null && position.coords.speed >= 0) {
+              speedInput.value = (position.coords.speed * 3.6).toFixed(1);
+            }
+            timestampInput.value = new Date(position.timestamp).toISOString();
+            statusNode.textContent = "Location captured. Submit when ready.";
+          },
+          function (error) {
+            statusNode.textContent = error && error.message ? error.message : "Could not capture location.";
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
+      });
+    })();
+  </script>
+  {% endif %}
+</body>
+</html>

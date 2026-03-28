@@ -1,0 +1,1107 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}{{ shipment.shipment_ref }}{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style nonce="{{ csp_nonce }}">
+  .tracking-map {
+    min-height: 360px;
+    border-radius: 1rem;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .tracking-metric {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .tracking-metric-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tracking-metric-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .driver-link-box {
+    border: 1px dashed rgba(255, 255, 255, 0.16);
+    border-radius: 1rem;
+    padding: 0.9rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .driver-link-box code {
+    color: #9eeaf9;
+    word-break: break-all;
+  }
+</style>
+{% endblock %}
+{% block tms_content %}
+{% set sm = {'Draft':'draft','Active':'active','Booked':'booked','In Transit':'transit','Delivered':'delivered','Cancelled':'cancelled'} %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-box-seam me-2"></i>{{ shipment.shipment_ref }}</h2>
+    <span class="tms-status tms-status-{{ sm.get(shipment.status,'draft') }} mt-1 d-inline-flex">{{ shipment.status }}</span>
+  </div>
+  <div class="d-flex gap-2 align-items-center flex-wrap">
+    <!-- Documents dropdown -->
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+        <i class="bi bi-file-earmark-text me-1"></i>Documents
+      </button>
+      <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+        {% if documents_enabled %}
+        <li><a class="dropdown-item" href="/tms/shipments/{{ shipment.shipment_ref }}/bol.pdf" target="_blank"><i class="bi bi-file-text me-2"></i>Bill of Lading</a></li>
+        <li><a class="dropdown-item" href="/tms/shipments/{{ shipment.shipment_ref }}/invoice.pdf" target="_blank"><i class="bi bi-receipt me-2"></i>Commercial Invoice</a></li>
+        <li><a class="dropdown-item" href="/tms/shipments/{{ shipment.shipment_ref }}/packing-list.pdf" target="_blank"><i class="bi bi-box-seam me-2"></i>Packing List</a></li>
+        <li><a class="dropdown-item" href="/tms/shipments/{{ shipment.shipment_ref }}/label" target="_blank"><i class="bi bi-tag me-2"></i>Shipping Label</a></li>
+        {% if shipment.mode in ['Air', 'air', 'AIR'] %}
+        <li><a class="dropdown-item" href="/tms/shipments/{{ shipment.shipment_ref }}/awb.pdf" target="_blank"><i class="bi bi-file-earmark-text me-2"></i>Air Waybill (AWB)</a></li>
+        {% endif %}
+        {% if pod_record %}
+        <li><a class="dropdown-item" href="/tms/shipments/{{ shipment.shipment_ref }}/pod.pdf" target="_blank"><i class="bi bi-pen me-2"></i>Proof of Delivery</a></li>
+        {% endif %}
+        <li><hr class="dropdown-divider"></li>
+        {% endif %}
+        <li><a class="dropdown-item" href="/tms/documents?shipment_ref={{ shipment.shipment_ref }}"><i class="bi bi-file-earmark-arrow-up me-2"></i>Upload Document</a></li>
+      </ul>
+    </div>
+    <!-- Actions dropdown -->
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+        <i class="bi bi-three-dots me-1"></i>Actions
+      </button>
+      <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+        <li><button class="dropdown-item" onclick="copyTrackingLink()"><i class="bi bi-share-fill me-2"></i><span id="shareTrackingLabel">Share Tracking Link</span></button></li>
+        <li><a class="dropdown-item" href="{{ dock_booking_url }}" target="_blank"><i class="bi bi-box-arrow-up-right me-2"></i>Carrier Booking Link</a></li>
+        <li><a class="dropdown-item" href="/tms/docks?shipment_ref={{ shipment.shipment_ref }}"><i class="bi bi-grid-3x3-gap me-2"></i>Dock Schedule</a></li>
+        <li><a class="dropdown-item" href="/tms/shipments/{{ shipment.shipment_ref }}/quotes"><i class="bi bi-cash-coin me-2"></i>Quotes</a></li>
+        <li><a class="dropdown-item" href="/tms/invoices?shipment_ref={{ shipment.shipment_ref }}"><i class="bi bi-receipt-cutoff me-2"></i>Customer Invoice</a></li>
+        <li><a class="dropdown-item" href="/tms/shipments/{{ shipment.shipment_ref }}/email"><i class="bi bi-envelope me-2"></i>Send Email</a></li>
+        <li><a class="dropdown-item" href="/tms/tenders"><i class="bi bi-file-earmark-check me-2"></i>Tenders</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><h6 class="dropdown-header">Advanced</h6></li>
+        <li>
+          <form method="POST" action="/tms/edi/shipments/{{ shipment.shipment_ref }}/204" class="d-block">
+            <button type="submit" class="dropdown-item"><i class="bi bi-file-earmark-code me-2"></i>Export EDI 204</button>
+          </form>
+        </li>
+        <li><a class="dropdown-item" href="/tms/edi"><i class="bi bi-diagram-3 me-2"></i>EDI Hub</a></li>
+        <li><a class="dropdown-item" href="/tms/audit?shipment_ref={{ shipment.shipment_ref }}"><i class="bi bi-shield-check me-2"></i>Freight Audit</a></li>
+        <li><a class="dropdown-item" href="/tms/rates"><i class="bi bi-cash-stack me-2"></i>Contract Rates</a></li>
+        <li><a class="dropdown-item" href="/tms/esg"><i class="bi bi-leaf me-2"></i>ESG</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item text-danger" href="/tms/claims?shipment_ref={{ shipment.shipment_ref }}"><i class="bi bi-exclamation-triangle me-2"></i>Claims</a></li>
+      </ul>
+    </div>
+    <!-- Primary actions -->
+    <button class="btn btn-sm btn-outline-info" onclick="navigator.clipboard.writeText(window.location.origin+'/tms/track/{{ shipment.shipment_ref }}').then(()=>alert('Tracking link copied — send to customer'))">
+      <i class="bi bi-share me-1"></i>Track Link
+    </button>
+    <a href="/tms/shipments/{{ shipment.shipment_ref }}/customs" class="btn btn-sm btn-outline-warning">
+      <i class="bi bi-shield-check me-1"></i>Customs
+    </a>
+    <a href="/tms/shipments/{{ shipment.shipment_ref }}/edit" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-pencil me-1"></i>Edit
+    </a>
+    <a href="/tms/shipments" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-4">
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<!-- Quick Status Update -->
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-header">Quick Status Update</div>
+  <div class="card-body d-flex gap-2 flex-wrap">
+    {% for st in ['Draft','Active','Booked','In Transit','Delivered','Cancelled'] %}
+    <button onclick="setStatus('{{ st }}')"
+      class="btn btn-sm btn-{% if shipment.status==st %}{{ sc.get(st,'secondary') }}{% else %}outline-secondary{% endif %}">
+      {{ st }}
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-grid-3x3-gap me-2"></i>Dock Appointment</span>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="/tms/docks?shipment_ref={{ shipment.shipment_ref }}" class="btn btn-sm btn-outline-warning">Manage Dock</a>
+      <a href="{{ dock_booking_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">Open Carrier Link</a>
+    </div>
+  </div>
+  <div class="card-body">
+    {% if dock_appointment and dock_appointment.has_schedule %}
+    <div class="row g-3">
+      <div class="col-md-3">
+        <div class="text-muted small">DOCK DOOR</div>
+        <div class="fw-bold">{{ dock_appointment.dock_name or '-' }}</div>
+        <div class="small text-muted">{{ dock_appointment.dock_location or '' }}</div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-muted small">TYPE</div>
+        <div class="fw-bold">{{ dock_appointment.appointment_type_label }}</div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-muted small">SCHEDULE</div>
+        <div class="fw-bold">{{ dock_appointment.schedule_label }}</div>
+      </div>
+      <div class="col-md-3">
+        <div class="text-muted small">STATUS</div>
+        <span class="badge bg-{{ dock_appointment.status_class }}">{{ dock_appointment.status }}</span>
+      </div>
+    </div>
+    {% else %}
+    <div class="text-muted">No dock appointment booked yet. Use Dock Schedule to assign a door or share the carrier self-book link.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Parties -->
+  <div class="col-md-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-people me-2"></i>Parties</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <div class="text-muted small">SHIPPER</div>
+          <div class="fw-bold">{{ shipment.shipper_name or '-' }}</div>
+          <div class="text-muted small">{{ shipment.shipper_address or '' }}</div>
+        </div>
+        <hr class="border-secondary">
+        <div>
+          <div class="text-muted small">CONSIGNEE</div>
+          <div class="fw-bold">{{ shipment.consignee_name or '-' }}</div>
+          <div class="text-muted small">{{ shipment.consignee_address or '' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Route -->
+  <div class="col-md-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-geo-alt me-2"></i>Route</div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="text-center">
+            <div class="text-muted small">ORIGIN</div>
+            <div class="fw-bold fs-5">{{ shipment.origin_port or '-' }}</div>
+            <div class="text-muted small">ETD: {{ shipment.etd_display }}</div>
+          </div>
+          <div class="text-center text-muted fs-3">→</div>
+          <div class="text-center">
+            <div class="text-muted small">DESTINATION</div>
+            <div class="fw-bold fs-5">{{ shipment.destination_port or '-' }}</div>
+            <div class="text-muted small">{{ tracking.eta_source_label }}: {{ tracking.eta_display }}</div>
+            {% if predicted_eta and predicted_eta.predicted_eta and predicted_eta.confidence != 'none' %}
+            <div class="small mt-1" style="color:#c8a96e;font-weight:600;">
+              <i class="bi bi-cpu me-1"></i>AI ETA: {{ predicted_eta.predicted_eta[:10] }}
+              {% if predicted_eta.delay_hours and predicted_eta.delay_hours > 0 %}
+              <span class="text-muted" style="font-weight:400;"> (+{{ predicted_eta.delay_hours|int }}h · {{ predicted_eta.confidence }})</span>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        <hr class="border-secondary">
+        <div class="row">
+          <div class="col-6">
+            <div class="text-muted small">CARRIER</div>
+            <div class="fw-bold">
+              {% if shipment.carrier_id %}
+              <a href="/tms/carriers/{{ shipment.carrier_id }}" class="text-info text-decoration-none">{{ shipment.carrier_name or '-' }}</a>
+              {% else %}
+              {{ shipment.carrier_name or '-' }}
+              {% endif %}
+            </div>
+            <div class="small mt-2">
+              {% if shipment.carrier_safety_rating %}
+              <span class="badge bg-{{ shipment.carrier_safety_badge_class }}">{{ shipment.carrier_safety_rating }}</span>
+              {% elif shipment.carrier_id %}
+              <span class="text-muted">Safety pending</span>
+              {% endif %}
+            </div>
+            {% if shipment.carrier_insurance_alert %}
+            <div class="small text-warning mt-2">{{ shipment.carrier_insurance_alert }}</div>
+            {% endif %}
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">MODE</div>
+            <div class="fw-bold">{{ shipment.mode or '-' }}</div>
+          </div>
+        </div>
+        <div class="row mt-3">
+          <div class="col-6">
+            <div class="text-muted small">INCOTERM</div>
+            <div class="fw-bold">{{ shipment.incoterm or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">RATE SOURCE</div>
+            <div class="fw-bold">
+              {% if contract_rate %}
+              Contracted Lane
+              {% else %}
+              Manual / Quote
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="row mt-3">
+          <div class="col-6">
+            <div class="text-muted small">DRIVER</div>
+            <div class="fw-bold">
+              {% if shipment.driver_id %}
+              <a href="/tms/drivers?driver_id={{ shipment.driver_id }}" class="text-info text-decoration-none">{{ shipment.driver_name }}</a>
+              {% else %}
+              Unassigned
+              {% endif %}
+            </div>
+            <div class="small text-muted">{{ shipment.driver_phone or shipment.driver_status or 'Assign a driver to enable check-ins' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">VEHICLE</div>
+            <div class="fw-bold">
+              {% if shipment.vehicle_id %}
+              <a href="/tms/fleet?vehicle_id={{ shipment.vehicle_id }}" class="text-info text-decoration-none">{{ shipment.vehicle_truck_number }}</a>
+              {% else %}
+              Unassigned
+              {% endif %}
+            </div>
+            <div class="small text-muted">{{ shipment.vehicle_type or shipment.vehicle_status or 'Assign a vehicle to track fleet usage' }}</div>
+          </div>
+        </div>
+        <div class="row mt-3">
+          <div class="col-6">
+            <div class="text-muted small">LAST PING</div>
+            <div class="fw-bold">{{ tracking.last_ping_display }}</div>
+            <div class="small text-muted">{{ tracking.current_location }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">GPS PINGS</div>
+            <div class="fw-bold">{{ tracking.gps_ping_count }}</div>
+            <div class="small text-muted">
+              {% if tracking.remaining_km is not none %}
+              {{ "{:,.1f}".format(tracking.remaining_km) }} km remaining
+              {% else %}
+              Awaiting route distance
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cargo -->
+  <div class="col-md-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-box me-2"></i>Cargo</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="text-muted small">DESCRIPTION</div>
+            <div>{{ shipment.cargo_description or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">CONTAINERS</div>
+            <div class="fw-bold">{{ shipment.containers or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">WEIGHT</div>
+            <div>{{ "{:,.0f}".format(shipment.weight_kg or 0) }} kg</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">VOLUME</div>
+            <div>{{ "{:,.1f}".format(shipment.volume_cbm or 0) }} CBM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Financials -->
+  <div class="col-md-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-currency-dollar me-2"></i>Financials</div>
+      <div class="card-body">
+        <div class="text-muted small">FREIGHT RATE</div>
+        <div class="fw-bold fs-3 text-success">${{ "{:,.2f}".format(shipment.freight_rate or 0) }} {{ shipment.currency }}</div>
+        <hr class="border-secondary">
+        <div class="text-muted small">CARBON ESTIMATE</div>
+        <div class="fw-bold fs-4 text-info">
+          {% if shipment.co2_kg is not none %}
+          {{ "{:,.2f}".format(shipment.co2_kg or 0) }} kg CO2
+          {% else %}
+          Pending
+          {% endif %}
+        </div>
+        <div class="small text-muted">ISO 14083 / GLEC estimate from route distance, mode, and shipment weight.</div>
+        {% if contract_rate %}
+        <hr class="border-secondary">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <div class="text-muted small">
+              {% if contract_rate.match_source == 'applied' %}
+              APPLIED CONTRACT MATCH
+              {% else %}
+              CURRENT CONTRACT MATCH
+              {% endif %}
+            </div>
+            <div class="fw-bold">{{ contract_rate.matched_rate_label }} @ ${{ "{:,.2f}".format(contract_rate.matched_rate or 0) }} {{ contract_rate.currency }}</div>
+            <div class="small text-muted">{{ contract_rate.origin }} → {{ contract_rate.destination }} · {{ contract_rate.mode }}</div>
+            <div class="small text-muted">Valid {{ contract_rate.valid_from }} to {{ contract_rate.valid_to }}</div>
+          </div>
+          <span class="badge bg-{{ contract_rate.status_class }}">{{ contract_rate.status_label }}</span>
+        </div>
+        {% endif %}
+        {% if shipment.notes %}
+        <hr class="border-secondary">
+        <div class="text-muted small">NOTES</div>
+        <div>{{ shipment.notes }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-pen me-2"></i>Proof of Delivery</span>
+        <div class="d-flex gap-2 flex-wrap">
+          <button type="button" class="btn btn-sm btn-outline-info" onclick="copyPodLink()">
+            <i class="bi bi-link-45deg me-1"></i><span id="copyPodLinkLabel">Copy POD Link</span>
+          </button>
+          <button class="btn btn-sm btn-outline-success" onclick="navigator.clipboard.writeText(window.location.origin+'/tms/shipments/{{ shipment.shipment_ref }}/pod-submit').then(function(){alert('POD link copied — send to driver')})">
+            <i class="bi bi-camera me-1"></i>Send POD Link
+          </button>
+          <a href="{{ pod_capture_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Open POD Form
+          </a>
+          {% if pod_record %}
+          <a href="/tms/shipments/{{ shipment.shipment_ref }}/pod.pdf" target="_blank" class="btn btn-sm btn-outline-warning">
+            <i class="bi bi-file-earmark-pdf me-1"></i>POD PDF
+          </a>
+          {% endif %}
+        </div>
+      </div>
+      <div class="card-body">
+        {% if pod_record %}
+        <div class="row g-3">
+          <div class="col-lg-4">
+            <div class="tracking-metric h-100">
+              <div class="tracking-metric-label">Recipient</div>
+              <div class="tracking-metric-value">{{ pod_record.recipient_name }}</div>
+              <div class="small text-muted mt-2">Delivered {{ pod_record.delivered_at_display }}</div>
+              {% if pod_record.notes %}
+              <div class="small text-muted mt-3">{{ pod_record.notes }}</div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="tracking-metric h-100">
+              <div class="tracking-metric-label">Signature</div>
+              <div class="mt-3">
+                <img src="{{ pod_record.signature_data }}" alt="Recipient signature" class="img-fluid rounded bg-white p-2">
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="tracking-metric h-100">
+              <div class="tracking-metric-label">Delivery Photo</div>
+              {% if pod_photo_url %}
+              <div class="mt-3">
+                <img src="{{ pod_photo_url }}" alt="Delivery photo" class="img-fluid rounded">
+              </div>
+              {% else %}
+              <div class="small text-muted mt-3">Photo unavailable.</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-muted">
+          No POD has been submitted yet. Share the mobile POD link with the consignee or driver to capture signature, photo, and delivery time.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-exclamation-triangle me-2"></i>Freight Claims</span>
+        <a href="/tms/claims/new?shipment_ref={{ shipment.shipment_ref }}" class="btn btn-sm btn-outline-danger">File Claim</a>
+      </div>
+      <div class="card-body">
+        {% if shipment_claims %}
+        <div class="table-responsive">
+          <table class="table table-dark table-hover align-middle mb-0">
+            <thead class="table-secondary text-dark">
+              <tr>
+                <th>Claim</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Claimed</th>
+                <th>Settlement</th>
+                <th>Carrier Response</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for claim in shipment_claims %}
+              <tr>
+                <td>
+                  <div class="fw-bold">#{{ claim.id }}</div>
+                  <div class="small text-muted">{{ claim.created_at_display }}</div>
+                </td>
+                <td>{{ claim.claim_type }}</td>
+                <td><span class="badge bg-{{ claim.status_class }}">{{ claim.status }}</span></td>
+                <td>{{ claim.currency }} {{ claim.claimed_amount_display }}</td>
+                <td>
+                  {% if claim.settlement_amount_display %}
+                  {{ claim.currency }} {{ claim.settlement_amount_display }}
+                  {% else %}
+                  <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if claim.has_carrier_response %}
+                  <span class="text-success">Received</span>
+                  {% if claim.counter_offer_display %}
+                  <div class="small text-warning">Offer {{ claim.currency }} {{ claim.counter_offer_display }}</div>
+                  {% endif %}
+                  {% else %}
+                  <span class="text-muted">Pending</span>
+                  {% endif %}
+                </td>
+                <td><a href="/tms/claims?claim_id={{ claim.id }}" class="btn btn-sm btn-outline-info">Open</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-muted">No freight claims filed for this shipment yet.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-Leg Route -->
+  <div class="col-12">
+    <div class="tms-card mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="mb-0"><i class="bi bi-diagram-3 me-2 text-warning"></i>Route Legs</h6>
+        <button class="btn btn-sm btn-outline-light py-0 px-2" data-bs-toggle="collapse" data-bs-target="#addLegForm">
+          <i class="bi bi-plus-lg me-1"></i>Add Leg
+        </button>
+      </div>
+
+      <!-- Add leg form -->
+      <div class="collapse mb-3" id="addLegForm">
+        <div class="p-3 rounded" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
+          <div class="row g-2">
+            <div class="col-md-3">
+              <select id="legMode" class="form-select form-select-sm bg-dark text-white border-secondary">
+                {% for m in leg_modes %}<option>{{ m }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <input id="legCarrier" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Carrier">
+            </div>
+            <div class="col-md-3">
+              <input id="legOrigin" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Origin">
+            </div>
+            <div class="col-md-3">
+              <input id="legDest" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Destination">
+            </div>
+            <div class="col-md-3">
+              <input id="legEtd" type="date" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="ETD">
+            </div>
+            <div class="col-md-3">
+              <input id="legEta" type="date" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="ETA">
+            </div>
+            <div class="col-md-3">
+              <input id="legRef" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Container/Flight/Truck ref">
+            </div>
+            <div class="col-md-3">
+              <button class="btn btn-sm btn-primary w-100" onclick="addLeg()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legs timeline -->
+      {% if legs %}
+      <div class="d-flex flex-column gap-2" id="legsTimeline">
+        {% for leg in legs %}
+        <div class="d-flex align-items-start gap-3">
+          <!-- connector line -->
+          <div class="d-flex flex-column align-items-center" style="width:24px;flex-shrink:0;">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:24px;height:24px;background:rgba(200,169,110,0.15);border:1px solid rgba(200,169,110,0.4);font-size:0.65rem;font-weight:700;color:#c8a96e;">{{ leg.leg_number }}</div>
+            {% if not loop.last %}<div style="width:1px;height:100%;min-height:24px;background:rgba(255,255,255,0.1);margin-top:2px;"></div>{% endif %}
+          </div>
+          <div class="flex-grow-1 p-2 rounded" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+              <div>
+                <span class="badge bg-secondary me-1" style="font-size:0.65rem;">{{ leg.mode }}</span>
+                <span class="small fw-semibold">{{ leg.origin }} → {{ leg.destination }}</span>
+                {% if leg.carrier_name %}<span class="small text-muted ms-2">{{ leg.carrier_name }}</span>{% endif %}
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <select class="form-select form-select-sm bg-dark text-white border-secondary py-0" style="font-size:0.72rem;width:auto;" onchange="updateLegStatus({{ leg.id }}, this.value)">
+                  {% for s in leg_statuses %}<option {% if leg.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+                </select>
+                <button class="btn btn-sm btn-link text-danger p-0" onclick="deleteLeg('{{ shipment.shipment_ref }}', {{ leg.id }})"><i class="bi bi-x"></i></button>
+              </div>
+            </div>
+            {% if leg.etd or leg.eta %}
+            <div class="mt-1 d-flex gap-3">
+              {% if leg.etd %}<small class="text-muted">ETD: {{ leg.etd }}</small>{% endif %}
+              {% if leg.eta %}<small class="text-muted">ETA: {{ leg.eta }}</small>{% endif %}
+              {% if leg.container_ref %}<small class="text-muted">Ref: {{ leg.container_ref }}</small>{% endif %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-muted small text-center py-3"><i class="bi bi-diagram-3 me-2"></i>No route legs defined — add legs to plan a multi-modal journey</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <script nonce="{{ csp_nonce }}">
+  const SHIP_REF = "{{ shipment.shipment_ref }}";
+  function addLeg() {
+    const data = {
+      mode: document.getElementById('legMode').value,
+      carrier_name: document.getElementById('legCarrier').value,
+      origin: document.getElementById('legOrigin').value,
+      destination: document.getElementById('legDest').value,
+      etd: document.getElementById('legEtd').value,
+      eta: document.getElementById('legEta').value,
+      container_ref: document.getElementById('legRef').value,
+    };
+    fetch(`/tms/shipments/${SHIP_REF}/legs`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    }).then(()=>location.reload());
+  }
+  function updateLegStatus(legId, status) {
+    fetch(`/tms/shipments/${SHIP_REF}/legs/${legId}/status`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({status})
+    });
+  }
+  function deleteLeg(ref, legId) {
+    if(!confirm('Remove this leg?')) return;
+    fetch(`/tms/shipments/${ref}/legs/${legId}`, {method:'DELETE'}).then(()=>location.reload());
+  }
+  </script>
+
+  <div class="col-12">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-geo-alt-fill me-2"></i>Live GPS Tracking</span>
+        <div class="d-flex gap-2 flex-wrap">
+          {% if driver_checkin_url %}
+          <button type="button" class="btn btn-sm btn-outline-warning" onclick="copyDriverCheckinLink()">
+            <i class="bi bi-clipboard-check me-1"></i><span id="copyDriverCheckinLabel">Copy Check-In Link</span>
+          </button>
+          <a href="{{ driver_checkin_url }}" target="_blank" class="btn btn-sm btn-outline-warning">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Open Check-In
+          </a>
+          {% endif %}
+          <button type="button" class="btn btn-sm btn-outline-info" onclick="copyDriverTrackingLink()">
+            <i class="bi bi-phone me-1"></i><span id="copyDriverLinkLabel">Copy Driver Link</span>
+          </button>
+          <a href="{{ driver_tracking_url }}" target="_blank" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Open Driver Page
+          </a>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <div class="tracking-metric">
+              <div class="tracking-metric-label">Last Known Position</div>
+              <div class="tracking-metric-value">{{ tracking.current_location }}</div>
+              <div class="small text-muted mt-2">
+                {% if tracking.has_live_data %}
+                Live GPS
+                {% else %}
+                Waiting for first ping
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="tracking-metric">
+              <div class="tracking-metric-label">Latest Update</div>
+              <div class="tracking-metric-value">{{ tracking.last_ping_display }}</div>
+              <div class="small text-muted mt-2">{{ tracking.gps_ping_count }} ping{% if tracking.gps_ping_count != 1 %}s{% endif %}</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="tracking-metric">
+              <div class="tracking-metric-label">{{ tracking.eta_source_label }}</div>
+              <div class="tracking-metric-value">{{ tracking.eta_display }}</div>
+              <div class="small text-muted mt-2">{{ tracking.eta_summary }}</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="tracking-metric">
+              <div class="tracking-metric-label">Distance Remaining</div>
+              <div class="tracking-metric-value">
+                {% if tracking.remaining_km is not none %}
+                {{ "{:,.1f}".format(tracking.remaining_km) }} km
+                {% else %}
+                Pending
+                {% endif %}
+              </div>
+              <div class="small text-muted mt-2">{{ tracking.progress_percent }}% complete</div>
+            </div>
+          </div>
+        </div>
+
+        {% if tracking_map.has_map_data %}
+        <div id="shipmentLiveMap" class="tracking-map"></div>
+        {% else %}
+        <div class="tracking-metric text-center py-5">
+          <div class="tracking-metric-value">Map unavailable</div>
+          <div class="small text-muted mt-2">Add recognizable origin/destination details or submit the first GPS ping.</div>
+        </div>
+        {% endif %}
+
+        <div class="row g-3 mt-1">
+          <div class="col-lg-8">
+            <div class="small text-muted">
+              {% if tracking.has_live_data %}
+              Showing the full GPS trail with the latest ping highlighted. The public tracking page will use the same live route.
+              {% else %}
+              Share the driver page to start live GPS updates from a phone. The shipment and public tracker will update after the first ping.
+              {% endif %}
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="driver-link-box">
+              <div class="text-muted small">Driver GPS page</div>
+              <code>{{ driver_tracking_url }}</code>
+            </div>
+            {% if driver_checkin_url %}
+            <div class="driver-link-box mt-3">
+              <div class="text-muted small">Driver check-in page</div>
+              <code>{{ driver_checkin_url }}</code>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-diagram-3 me-2"></i>Spot Tendering</span>
+        <a href="/tms/tenders" class="btn btn-sm btn-outline-warning">Open Tender Board</a>
+      </div>
+      <div class="card-body">
+        <div class="row g-4">
+          <div class="col-lg-4">
+            {% if tender_form_error %}
+            <div class="alert alert-danger py-2">{{ tender_form_error }}</div>
+            {% endif %}
+
+            <form method="POST" action="/tms/shipments/{{ shipment.shipment_ref }}/tender">
+              <div class="mb-3">
+                <label class="form-label text-muted">Select Carriers</label>
+                <select name="carrier_ids" multiple size="8" class="form-select bg-black text-white border-secondary" required>
+                  {% for carrier in tender_carriers %}
+                  <option value="{{ carrier.id }}" {% if carrier.id|string in tender_form_values.get('carrier_ids', []) %}selected{% endif %}>
+                    {{ carrier.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+                <div class="form-text text-muted">Hold Ctrl or Cmd to pick multiple carriers.</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label text-muted">Response Deadline</label>
+                <input
+                  type="datetime-local"
+                  name="deadline_at"
+                  class="form-control bg-black text-white border-secondary"
+                  value="{{ tender_form_values.get('deadline_at', default_tender_deadline) }}"
+                  required
+                >
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label text-muted">Notes</label>
+                <textarea
+                  name="notes"
+                  rows="4"
+                  class="form-control bg-black text-white border-secondary"
+                  placeholder="Pickup window, special handling, target lane notes"
+                >{{ tender_form_values.get('notes', '') }}</textarea>
+              </div>
+
+              <button type="submit" class="btn btn-warning w-100">
+                <i class="bi bi-send-check me-1"></i>Send Tender
+              </button>
+            </form>
+          </div>
+
+          <div class="col-lg-8">
+            <div class="table-responsive">
+              <table class="table table-dark table-hover align-middle mb-0">
+                <thead class="table-secondary text-dark">
+                  <tr>
+                    <th>Tender</th>
+                    <th>Deadline</th>
+                    <th>Status</th>
+                    <th>Carrier Responses</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for tender in shipment_tenders %}
+                  <tr>
+                    <td style="min-width: 200px;">
+                      <div class="fw-bold">Tender #{{ tender.id }}</div>
+                      <div class="text-muted small">{{ tender.created_at[:16] if tender.created_at else '-' }}</div>
+                      {% if tender.notes %}
+                      <div class="small text-muted mt-2">{{ tender.notes }}</div>
+                      {% endif %}
+                    </td>
+                    <td style="min-width: 170px;">
+                      <div>{{ tender.deadline_display }}</div>
+                      <span class="badge bg-{{ tender.deadline_class }} mt-1">{{ tender.deadline_label }}</span>
+                    </td>
+                    <td>
+                      <span class="badge bg-{{ tender.status_class }}">{{ tender.status }}</span>
+                      <div class="small text-muted mt-2">
+                        {{ tender.submitted_count }} submitted | {{ tender.pending_count }} pending
+                      </div>
+                    </td>
+                    <td style="min-width: 360px;">
+                      {% for response in tender.responses %}
+                      <div class="border border-secondary rounded p-2 mb-2">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                          <div>
+                            <div class="fw-semibold">{{ response.carrier_name or 'Carrier' }}</div>
+                            <div class="small text-muted">{{ response.submitted_at_display }}</div>
+                          </div>
+                          <span class="badge bg-{{ response.response_status_class }}">{{ response.response_status }}</span>
+                        </div>
+                        <div class="small mt-2">
+                          {% if response.applied_rate is not none %}
+                          Applied {{ response.applied_rate_label }} rate: <span class="text-success fw-semibold">${{ "{:,.2f}".format(response.applied_rate) }}</span>
+                          {% else %}
+                          <span class="text-muted">No submitted rate yet.</span>
+                          {% endif %}
+                        </div>
+                        <div class="small text-muted mt-1">
+                          <a href="{{ response.response_link }}" class="text-info" target="_blank">{{ response.response_link }}</a>
+                        </div>
+                      </div>
+                      {% else %}
+                      <div class="text-muted small">No carrier invitations yet.</div>
+                      {% endfor %}
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr>
+                    <td colspan="4" class="text-center text-muted py-5">
+                      No tenders yet. Select carriers and send the first spot tender from this shipment.
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Events Timeline -->
+  <div class="col-12">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2"></i>Shipment Timeline</span>
+        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#addEvent">
+          <i class="bi bi-plus-lg me-1"></i>Add Event
+        </button>
+      </div>
+      <div class="collapse" id="addEvent">
+        <div class="card-body border-bottom border-secondary">
+          <form method="POST" action="/tms/shipments/{{ shipment.shipment_ref }}/event" class="row g-2">
+            <div class="col-md-3">
+              <select name="event_type" class="form-select bg-black text-white border-secondary">
+                {% for et in ['Booking Confirmed','Cargo Received','Loaded','Departed','Arrived','Customs Cleared','Delivered','Exception'] %}
+                <option>{{ et }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <input type="text" name="description" placeholder="Description" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-3">
+              <input type="text" name="location" placeholder="Location" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-primary w-100">Add</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="card-body">
+        {% for e in events %}
+        <div class="d-flex gap-3 mb-3">
+          <div class="text-muted small" style="min-width:140px">{{ e.event_date[:16] if e.event_date else '-' }}</div>
+          <div>
+            <span class="badge bg-primary me-2">{{ e.event_type }}</span>
+            {{ e.description or '' }}
+            {% if e.location %}<span class="text-muted ms-2"><i class="bi bi-geo-alt"></i> {{ e.location }}</span>{% endif %}
+          </div>
+        </div>
+        {% else %}
+        <div class="text-muted text-center py-3">No events yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete -->
+<div class="mt-4 text-end">
+  <form method="POST" action="/tms/shipments/{{ shipment.shipment_ref }}/delete"
+        onsubmit="return confirm('Delete this shipment?')">
+    <button type="submit" class="btn btn-outline-danger btn-sm">
+      <i class="bi bi-trash me-1"></i>Delete Shipment
+    </button>
+  </form>
+</div>
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script nonce="{{ csp_nonce }}">
+function setStatus(status) {
+  fetch('/tms/shipments/{{ shipment.shipment_ref }}/status', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status: status})
+  }).then(() => location.reload());
+}
+
+async function copyTrackingLink() {
+  const trackingUrl = {{ tracking_url|tojson }};
+  const label = document.getElementById('shareTrackingLabel');
+
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: '{{ shipment.shipment_ref }} tracking',
+        url: trackingUrl
+      });
+    } else if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(trackingUrl);
+    } else {
+      const tempInput = document.createElement('input');
+      tempInput.value = trackingUrl;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+    }
+
+    if (label) {
+      label.textContent = 'Link Ready';
+      window.setTimeout(() => {
+        label.textContent = 'Share Tracking';
+      }, 2200);
+    }
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      return;
+    }
+    if (label) {
+      label.textContent = 'Copy Failed';
+    }
+  }
+}
+
+async function copyDriverTrackingLink() {
+  const driverUrl = {{ driver_tracking_url|tojson }};
+  const label = document.getElementById('copyDriverLinkLabel');
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(driverUrl);
+    } else {
+      const tempInput = document.createElement('input');
+      tempInput.value = driverUrl;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+    }
+
+    if (label) {
+      label.textContent = 'Driver Link Ready';
+      window.setTimeout(() => {
+        label.textContent = 'Copy Driver Link';
+      }, 2200);
+    }
+  } catch (error) {
+    if (label) {
+      label.textContent = 'Copy Failed';
+    }
+  }
+}
+
+async function copyDriverCheckinLink() {
+  const checkinUrl = {{ driver_checkin_url|tojson }};
+  const label = document.getElementById('copyDriverCheckinLabel');
+  if (!checkinUrl) {
+    return;
+  }
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(checkinUrl);
+    } else {
+      const tempInput = document.createElement('input');
+      tempInput.value = checkinUrl;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+    }
+
+    if (label) {
+      label.textContent = 'Check-In Link Ready';
+      window.setTimeout(() => {
+        label.textContent = 'Copy Check-In Link';
+      }, 2200);
+    }
+  } catch (error) {
+    if (label) {
+      label.textContent = 'Copy Failed';
+    }
+  }
+}
+
+async function copyPodLink() {
+  const podUrl = {{ pod_capture_url|tojson }};
+  const label = document.getElementById('copyPodLinkLabel');
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(podUrl);
+    } else {
+      const tempInput = document.createElement('input');
+      tempInput.value = podUrl;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+    }
+
+    if (label) {
+      label.textContent = 'POD Link Ready';
+      window.setTimeout(() => {
+        label.textContent = 'Copy POD Link';
+      }, 2200);
+    }
+  } catch (error) {
+    if (label) {
+      label.textContent = 'Copy Failed';
+    }
+  }
+}
+
+(function renderShipmentMap() {
+  const mapData = {{ tracking_map|tojson }};
+  const mapNode = document.getElementById('shipmentLiveMap');
+  if (!mapNode || !mapData || !mapData.has_map_data || typeof L === 'undefined') {
+    return;
+  }
+
+  const map = L.map(mapNode, { scrollWheelZoom: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const bounds = [];
+  const addPoint = (point) => {
+    if (point) {
+      bounds.push([point.lat, point.lng]);
+    }
+  };
+
+  if (mapData.origin) {
+    L.marker([mapData.origin.lat, mapData.origin.lng]).addTo(map).bindPopup('Origin: ' + mapData.origin.label);
+    addPoint(mapData.origin);
+  }
+
+  if (mapData.destination) {
+    L.marker([mapData.destination.lat, mapData.destination.lng]).addTo(map).bindPopup('Destination: ' + mapData.destination.label);
+    addPoint(mapData.destination);
+  }
+
+  if (mapData.trail && mapData.trail.length) {
+    const trail = mapData.trail.map((point) => [point.lat, point.lng]);
+    L.polyline(trail, {
+      color: '#0dcaf0',
+      weight: 4,
+      opacity: 0.9
+    }).addTo(map);
+    trail.forEach((point) => bounds.push(point));
+
+    const lastPing = mapData.last_ping;
+    if (lastPing) {
+      L.circleMarker([lastPing.lat, lastPing.lng], {
+        radius: 8,
+        color: '#ffc107',
+        fillColor: '#ffc107',
+        fillOpacity: 1
+      }).addTo(map).bindPopup('Last ping<br>' + lastPing.timestamp_display);
+    }
+  }
+
+  if (bounds.length === 1) {
+    map.setView(bounds[0], 9);
+  } else if (bounds.length > 1) {
+    map.fitBounds(bounds, { padding: [28, 28] });
+  } else if (mapData.center) {
+    map.setView(mapData.center, 6);
+  }
+})();
+</script>
+{% endblock %}
+{% endblock %}

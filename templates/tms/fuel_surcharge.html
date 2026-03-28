@@ -1,0 +1,297 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Fuel Surcharge Calculator{% endblock %}
+{% block tms_content %}
+
+<style nonce="{{ csp_nonce }}">
+.fsc-banner {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2000 100%);
+  border: 1px solid #ffc107;
+  border-radius: 0.5rem;
+  padding: 1.75rem 2rem;
+  margin-bottom: 1.5rem;
+}
+.fsc-banner .doe-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #adb5bd;
+}
+.fsc-banner .doe-price {
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: #ffc107;
+  line-height: 1;
+}
+.fsc-banner .fsc-pct {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffc107;
+}
+.fsc-banner .effective-date {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+.bracket-row.active-bracket {
+  background: rgba(255, 193, 7, 0.12) !important;
+  color: #ffc107 !important;
+  font-weight: 700;
+}
+.bracket-row.active-bracket td {
+  color: #ffc107 !important;
+}
+.calc-result {
+  background: #1a1a1a;
+  border: 1px solid #2d3748;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+}
+.calc-result .calc-total {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #ffc107;
+}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-fuel-pump-fill me-2"></i>Fuel Surcharge Calculator</h2>
+    <div class="text-muted small">DOE index-based FSC — updated weekly</div>
+  </div>
+</div>
+
+<!-- Current Rate Banner -->
+<div class="fsc-banner">
+  <div class="row align-items-center g-3">
+    <div class="col-md-5">
+      <div class="doe-label mb-1">DOE National Diesel Average</div>
+      <div class="doe-price">${{ "{:.2f}".format(latest.doe_price) }}<span class="fs-5 fw-normal text-muted">/gal</span></div>
+      <div class="effective-date mt-1">As of {{ latest.effective_date }}</div>
+    </div>
+    <div class="col-md-3">
+      <div class="doe-label mb-1">Current FSC</div>
+      <div class="fsc-pct">{{ "{:.1f}".format(latest.fsc_pct) }}%</div>
+    </div>
+    <div class="col-md-4">
+      <div class="doe-label mb-2">Update DOE Price</div>
+      <div class="d-flex gap-2 flex-wrap">
+        <input type="date" class="form-control form-control-sm bg-dark border-secondary text-white" id="upd_date"
+               value="{{ latest.effective_date if latest.effective_date != 'Not set' else '' }}" style="max-width:140px">
+        <input type="number" class="form-control form-control-sm bg-dark border-secondary text-white" id="upd_price"
+               placeholder="$/gal" step="0.001" min="0" style="max-width:110px">
+        <button class="btn btn-sm btn-warning" onclick="updateDOE()">
+          <i class="bi bi-arrow-clockwise me-1"></i>Update
+        </button>
+      </div>
+      <input type="text" class="form-control form-control-sm bg-dark border-secondary text-white mt-2" id="upd_notes" placeholder="Notes (optional)">
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- Live Calculator -->
+  <div class="col-lg-4">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header border-secondary">
+        <i class="bi bi-calculator me-2"></i>Live Calculator
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label text-muted small">Base Freight Rate ($)</label>
+          <input type="number" class="form-control bg-dark border-secondary text-white" id="calc_base"
+                 placeholder="0.00" step="0.01" min="0" oninput="calcFSC()">
+        </div>
+        <div class="mb-3">
+          <label class="form-label text-muted small">Override DOE Price (optional)</label>
+          <input type="number" class="form-control bg-dark border-secondary text-white" id="calc_doe"
+                 placeholder="Use current" step="0.001" min="0" oninput="calcFSC()">
+        </div>
+        <div class="calc-result" id="calcResult" style="display:none">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <div class="text-muted small">Base Rate</div>
+              <div class="fw-semibold" id="res_base">—</div>
+            </div>
+            <div class="col-6">
+              <div class="text-muted small">FSC %</div>
+              <div class="fw-semibold text-warning" id="res_pct">—</div>
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <div class="text-muted small">FSC Amount</div>
+              <div class="fw-semibold text-warning" id="res_fsc">—</div>
+            </div>
+            <div class="col-6">
+              <div class="text-muted small">Total</div>
+              <div class="calc-total" id="res_total">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Price History -->
+  <div class="col-lg-8">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header border-secondary">
+        <i class="bi bi-graph-up me-2"></i>Price History
+      </div>
+      <div class="card-body">
+        {% if history %}
+        <canvas id="fscChart" style="height:180px"></canvas>
+        <div class="table-responsive mt-3" style="max-height:200px; overflow-y:auto">
+          <table class="table table-dark table-sm align-middle mb-0">
+            <thead class="text-muted small sticky-top bg-dark">
+              <tr>
+                <th>Date</th>
+                <th class="text-end">DOE Price</th>
+                <th class="text-end">FSC %</th>
+                <th class="text-end">Per Mile</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for h in history %}
+              <tr>
+                <td class="font-monospace small">{{ h.effective_date }}</td>
+                <td class="text-end">${{ "{:.3f}".format(h.doe_price) }}</td>
+                <td class="text-end text-warning">{{ "{:.1f}".format(h.fsc_pct) }}%</td>
+                <td class="text-end text-secondary small">${{ "{:.4f}".format(h.fsc_per_mile) }}</td>
+                <td class="text-muted small">{{ h.notes or '' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+          <i class="bi bi-graph-up fs-1 d-block mb-2"></i>
+          No price history yet. Update the DOE price to begin tracking.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- FSC Bracket Table -->
+  <div class="col-12">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header border-secondary">
+        <i class="bi bi-table me-2"></i>FSC Bracket Table
+        <span class="text-muted small ms-2">— Active bracket highlighted in gold</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-dark table-hover align-middle mb-0">
+            <thead class="text-muted small">
+              <tr>
+                <th>DOE Price Min ($/gal)</th>
+                <th>DOE Price Max ($/gal)</th>
+                <th class="text-end">FSC %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in brackets %}
+              <tr class="bracket-row {% if latest.doe_price >= b.price_min and latest.doe_price < b.price_max %}active-bracket{% endif %}">
+                <td>${{ "{:.2f}".format(b.price_min) }}</td>
+                <td>${{ "{:.2f}".format(b.price_max) }}</td>
+                <td class="text-end fw-semibold">{{ "{:.1f}".format(b.fsc_pct) }}%</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script nonce="{{ csp_nonce }}">
+var calcDebounce = null;
+function calcFSC() {
+  clearTimeout(calcDebounce);
+  calcDebounce = setTimeout(function() {
+    var base = parseFloat(document.getElementById('calc_base').value);
+    var doe  = document.getElementById('calc_doe').value;
+    if (!base || base <= 0) { document.getElementById('calcResult').style.display = 'none'; return; }
+    var url = '/tms/fuel-surcharge/calculate?base_rate=' + base;
+    if (doe) url += '&doe_price=' + doe;
+    fetch(url).then(r => r.json()).then(d => {
+      document.getElementById('res_base').textContent = '$' + base.toFixed(2);
+      document.getElementById('res_pct').textContent  = d.fsc_pct.toFixed(1) + '%';
+      document.getElementById('res_fsc').textContent  = '$' + d.fsc_amount.toFixed(2);
+      document.getElementById('res_total').textContent = '$' + d.total.toFixed(2);
+      document.getElementById('calcResult').style.display = 'block';
+    });
+  }, 350);
+}
+
+function updateDOE() {
+  var price = document.getElementById('upd_price').value;
+  var date  = document.getElementById('upd_date').value;
+  var notes = document.getElementById('upd_notes').value;
+  if (!price || parseFloat(price) <= 0) { alert('Enter a valid DOE price.'); return; }
+  var form = new FormData();
+  form.append('doe_price', price);
+  form.append('effective_date', date);
+  form.append('notes', notes);
+  fetch('/tms/fuel-surcharge/update', {method: 'POST', body: form})
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) location.reload();
+      else alert('Error updating price.');
+    });
+}
+
+{% if history %}
+(function() {
+  var labels = {{ history | map(attribute='effective_date') | list | reverse | tojson }};
+  var doePrices = {{ history | map(attribute='doe_price') | list | reverse | tojson }};
+  var fscPcts   = {{ history | map(attribute='fsc_pct') | list | reverse | tojson }};
+
+  var ctx = document.getElementById('fscChart');
+  if (!ctx) return;
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'DOE Price ($/gal)',
+          data: doePrices,
+          borderColor: '#ffc107',
+          backgroundColor: 'rgba(255,193,7,0.08)',
+          yAxisID: 'y',
+          tension: 0.35,
+          pointRadius: 3,
+        },
+        {
+          label: 'FSC %',
+          data: fscPcts,
+          borderColor: '#0dcaf0',
+          backgroundColor: 'rgba(13,202,240,0.05)',
+          yAxisID: 'y1',
+          tension: 0.35,
+          pointRadius: 3,
+          borderDash: [5,3],
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#adb5bd', font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#6c757d', maxRotation: 45, font: { size: 10 } }, grid: { color: '#2d3748' } },
+        y: { ticks: { color: '#ffc107', font: { size: 10 } }, grid: { color: '#2d3748' }, position: 'left', title: { display: true, text: '$/gal', color: '#ffc107', font: { size: 10 } } },
+        y1: { ticks: { color: '#0dcaf0', font: { size: 10 } }, grid: { display: false }, position: 'right', title: { display: true, text: 'FSC %', color: '#0dcaf0', font: { size: 10 } } }
+      }
+    }
+  });
+})();
+{% endif %}
+</script>
+{% endblock %}

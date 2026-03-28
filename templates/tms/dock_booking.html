@@ -1,0 +1,170 @@
+{% set shipment = appointment if appointment else {} %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book Dock Appointment</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-icons.min.css') }}">
+  <style>
+    body {
+      background: #0b1520;
+      color: #f5f7fb;
+    }
+    .booking-shell {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 2rem 1rem 3rem;
+    }
+    .slot-radio {
+      display: none;
+    }
+    .slot-card {
+      display: block;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 0.9rem;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.75rem;
+      background: rgba(255,255,255,0.03);
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .slot-radio:checked + .slot-card {
+      border-color: #4cc9f0;
+      background: rgba(76, 201, 240, 0.12);
+    }
+  </style>
+</head>
+<body>
+  <div class="booking-shell">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+      <div>
+        <div class="text-uppercase small text-info">Carrier Self-Booking</div>
+        <h1 class="h3 mb-1">Dock appointment</h1>
+        <div class="text-secondary">Choose an available dock slot for shipment {{ shipment.shipment_ref or "" }}.</div>
+      </div>
+      {% if appointment and appointment.has_schedule %}
+      <span class="badge bg-{{ appointment.status_class }} fs-6">{{ appointment.status }}</span>
+      {% endif %}
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-4">
+          {% for category, message in messages %}
+          <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% if not appointment %}
+    <div class="alert alert-danger">{{ form_error }}</div>
+    {% else %}
+    <div class="row g-4">
+      <div class="col-lg-4">
+        <div class="card bg-dark border-secondary mb-4">
+          <div class="card-header">Shipment</div>
+          <div class="card-body">
+            <div class="fw-semibold">{{ appointment.shipment_ref }}</div>
+            <div class="small text-muted mt-2">{{ appointment.shipper_name or "-" }} -> {{ appointment.consignee_name or "-" }}</div>
+            <div class="small text-muted">{{ appointment.carrier_display }}</div>
+          </div>
+        </div>
+
+        <div class="card bg-dark border-secondary">
+          <div class="card-header">Current Booking</div>
+          <div class="card-body">
+            {% if appointment.has_schedule %}
+            <div class="fw-semibold">{{ appointment.dock_name or "Dock" }}</div>
+            <div class="small text-muted">{{ appointment.schedule_label }}</div>
+            <div class="small text-muted mt-2">{{ appointment.appointment_type_label }} appointment</div>
+            {% else %}
+            <div class="text-muted">No slot booked yet.</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-8">
+        <div class="card bg-dark border-secondary">
+          <div class="card-header">Book a Slot</div>
+          <div class="card-body">
+            {% if form_error %}
+            <div class="alert alert-danger">{{ form_error }}</div>
+            {% endif %}
+            <form method="POST" action="">
+              <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                  <label class="form-label">Appointment Type</label>
+                  <select name="appointment_type" class="form-select bg-dark text-white border-secondary">
+                    {% for appointment_type in appointment_types %}
+                    <option value="{{ appointment_type }}" {% if form_values.appointment_type == appointment_type %}selected{% endif %}>{{ appointment_type.title() }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Contact Name</label>
+                  <input type="text" name="contact_name" class="form-control bg-dark text-white border-secondary" value="{{ form_values.contact_name }}" placeholder="Dispatch contact">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Contact Email</label>
+                  <input type="email" name="contact_email" class="form-control bg-dark text-white border-secondary" value="{{ form_values.contact_email }}" placeholder="ops@example.com">
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Notes</label>
+                  <textarea name="notes" rows="3" class="form-control bg-dark text-white border-secondary" placeholder="Special handling or arrival notes">{{ form_values.notes }}</textarea>
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div class="fw-semibold">Available slots</div>
+                <button type="submit" name="action" value="refresh" class="btn btn-sm btn-outline-secondary">Refresh Slots</button>
+              </div>
+
+              {% set ns = namespace(total_slots=0) %}
+              {% for day in availability %}
+              <div class="border border-secondary rounded p-3 mb-3">
+                <div class="fw-semibold mb-3">{{ day.label }}</div>
+                {% for dock in day.docks %}
+                  {% if dock.slots %}
+                    {% set ns.total_slots = ns.total_slots + dock.slot_count %}
+                    <div class="mb-3">
+                      <div class="small text-info mb-2">{{ dock.name }} · {{ dock.type_label }} · {{ dock.duration_label }}</div>
+                      {% for slot in dock.slots %}
+                      {% set slot_value = slot.dock_id|string ~ '|' ~ slot.start_value %}
+                      <input class="slot-radio" type="radio" name="slot" id="slot-{{ day.iso }}-{{ dock.id }}-{{ loop.index }}" value="{{ slot_value }}" {% if form_values.slot == slot_value %}checked{% endif %}>
+                      <label class="slot-card" for="slot-{{ day.iso }}-{{ dock.id }}-{{ loop.index }}">
+                        <div class="d-flex justify-content-between align-items-center gap-3">
+                          <div>
+                            <div class="fw-semibold">{{ slot.slot_label }}</div>
+                            <div class="small text-muted">{{ dock.name }} · {{ dock.type_label }}</div>
+                          </div>
+                          <i class="bi bi-chevron-right text-muted"></i>
+                        </div>
+                      </label>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+                {% if not day.docks or day.docks|sum(attribute='slot_count') == 0 %}
+                <div class="small text-muted">No slots available for this day.</div>
+                {% endif %}
+              </div>
+              {% endfor %}
+
+              {% if ns.total_slots == 0 %}
+              <div class="alert alert-warning mb-0">No available slots were found for the selected appointment type in the next 7 days.</div>
+              {% else %}
+              <button type="submit" name="action" value="book" class="btn btn-primary">Confirm Booking</button>
+              {% endif %}
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>

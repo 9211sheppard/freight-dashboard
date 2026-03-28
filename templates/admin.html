@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-shield-lock-fill me-2"></i>Admin Panel</h2>
+    <span class="badge bg-danger fs-6">Admin Only</span>
+  </div>
+
+  <!-- Revenue Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card bg-success text-white">
+        <div class="card-body text-center">
+          <div class="fs-2 fw-bold">${{ "%.2f"|format(metrics.mrr) }}</div>
+          <div class="small opacity-75">Monthly Recurring Revenue</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-primary text-white">
+        <div class="card-body text-center">
+          <div class="fs-2 fw-bold">${{ "%.0f"|format(metrics.arr) }}</div>
+          <div class="small opacity-75">Annual Run Rate</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-info text-white">
+        <div class="card-body text-center">
+          <div class="fs-2 fw-bold">{{ metrics.active_subscriptions }}</div>
+          <div class="small opacity-75">Paying Customers</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card bg-warning text-dark">
+        <div class="card-body text-center">
+          <div class="fs-2 fw-bold">{{ metrics.trialing }}</div>
+          <div class="small opacity-75">Active Trials</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Secondary Metrics -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-2">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="fs-4 fw-bold">{{ metrics.total_users }}</div>
+          <div class="small text-muted">Total Users</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="fs-4 fw-bold">{{ metrics.total_tenants }}</div>
+          <div class="small text-muted">Total Workspaces</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="fs-4 fw-bold">{{ metrics.new_this_week }}</div>
+          <div class="small text-muted">New This Week</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="fs-4 fw-bold">{{ metrics.new_this_month }}</div>
+          <div class="small text-muted">New This Month</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="fs-4 fw-bold">{{ metrics.conversion_rate }}%</div>
+          <div class="small text-muted">Trial → Paid</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-2">
+      <div class="card">
+        <div class="card-body text-center">
+          <div class="fs-4 fw-bold text-danger">{{ metrics.churned_30d }}</div>
+          <div class="small text-muted">Churned (30d)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs for detailed sections -->
+  <ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-tenants">
+        <i class="bi bi-building me-1"></i>Tenants
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-users">
+        <i class="bi bi-people me-1"></i>Users
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-spins">
+        <i class="bi bi-stars me-1"></i>Spin Wheel
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-referrals">
+        <i class="bi bi-share me-1"></i>Referrals
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pitch">
+        <i class="bi bi-megaphone me-1"></i>Pitch Scores
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-tickets">
+        <i class="bi bi-ticket me-1"></i>Support
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-health">
+        <i class="bi bi-heart-pulse me-1"></i>Health
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+    <!-- Tenants Tab -->
+    <div class="tab-pane fade show active" id="tab-tenants">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover">
+          <thead><tr>
+            <th>ID</th><th>Company</th><th>Plan</th><th>Status</th>
+            <th>Users</th><th>Created</th><th>Actions</th>
+          </tr></thead>
+          <tbody>
+            {% for t in tenants %}
+            <tr>
+              <td>{{ t.id }}</td>
+              <td><strong>{{ t.name }}</strong><br><small class="text-muted">{{ t.slug }}</small></td>
+              <td><span class="badge bg-secondary">{{ t.plan }}</span></td>
+              <td>
+                {% if t.subscription_status == 'active' %}
+                  <span class="badge bg-success">Active</span>
+                {% elif t.subscription_status == 'trialing' %}
+                  <span class="badge bg-info">Trial</span>
+                {% elif t.subscription_status == 'cancelled' %}
+                  <span class="badge bg-danger">Cancelled</span>
+                {% else %}
+                  <span class="badge bg-warning">{{ t.subscription_status }}</span>
+                {% endif %}
+              </td>
+              <td>{{ t.user_count }}</td>
+              <td><small>{{ t.created_at[:10] if t.created_at else 'N/A' }}</small></td>
+              <td>
+                <button class="btn btn-xs btn-outline-primary" onclick="viewTenant({{ t.id }})">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Users Tab -->
+    <div class="tab-pane fade" id="tab-users">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover">
+          <thead><tr>
+            <th>ID</th><th>Name</th><th>Email</th><th>Role</th>
+            <th>Company</th><th>Logins</th><th>Last Login</th>
+          </tr></thead>
+          <tbody>
+            {% for u in users %}
+            <tr>
+              <td>{{ u.id }}</td>
+              <td>{{ u.name }}</td>
+              <td><small>{{ u.email }}</small></td>
+              <td>
+                {% if u.role == 'admin' %}
+                  <span class="badge bg-danger">Admin</span>
+                {% elif u.role == 'internal' %}
+                  <span class="badge bg-primary">Internal</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ u.role }}</span>
+                {% endif %}
+              </td>
+              <td><small>{{ u.tenant_name or 'N/A' }}</small></td>
+              <td>{{ u.login_count }}</td>
+              <td><small>{{ u.last_login[:10] if u.last_login else 'Never' }}</small></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Spin Wheel Tab -->
+    <div class="tab-pane fade" id="tab-spins">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold">{{ spin_stats.total_spins }}</div>
+              <div class="small text-muted">Total Spins</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold">{{ spin_stats.total_free_months_given }}</div>
+              <div class="small text-muted">Free Months Given</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold text-danger">${{ "%.0f"|format(spin_stats.estimated_cost) }}</div>
+              <div class="small text-muted">Cost of Free Months</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h6>Prize Distribution</h6>
+      <table class="table table-sm">
+        <thead><tr><th>Prize</th><th>Count</th></tr></thead>
+        <tbody>
+          {% for p in spin_stats.by_prize %}
+          <tr><td>{{ p.prize_value }}</td><td>{{ p.cnt }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Referrals Tab -->
+    <div class="tab-pane fade" id="tab-referrals">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold">{{ referral_stats.total_codes }}</div>
+              <div class="small text-muted">Total Referral Codes</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold text-success">{{ referral_stats.converted }}</div>
+              <div class="small text-muted">Converted</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold">{{ referral_stats.conversion_rate }}%</div>
+              <div class="small text-muted">Conversion Rate</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold text-success">${{ "%.0f"|format(referral_stats.revenue_from_referrals) }}</div>
+              <div class="small text-muted">Revenue from Referrals</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pitch Scores Tab -->
+    <div class="tab-pane fade" id="tab-pitch">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold">{{ pitch_scores|length }}</div>
+              <div class="small text-muted">Total Responses</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold text-primary">
+                {% if pitch_scores %}{{ (pitch_scores|map(attribute='score')|list|sum / pitch_scores|length)|round(1) }}{% else %}0{% endif %}
+              </div>
+              <div class="small text-muted">Average Score /10</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold text-success">
+                {{ pitch_scores|selectattr('fund_answer', 'equalto', 'yes_100')|list|length }}
+              </div>
+              <div class="small text-muted">Would Fund</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h6>Individual Scores</h6>
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>Profession</th><th>Score</th><th>Would Fund?</th><th>#1 Risk</th><th>Advice</th><th>Date</th></tr></thead>
+        <tbody>
+          {% for p in pitch_scores %}
+          <tr>
+            <td>{{ p.visitor_name }}</td>
+            <td><span class="badge bg-secondary">{{ p.profession_label }}</span></td>
+            <td><strong class="{% if p.score >= 8 %}text-success{% elif p.score >= 5 %}text-primary{% else %}text-danger{% endif %}">{{ p.score }}/10</strong></td>
+            <td>{{ p.fund_answer }}</td>
+            <td><small>{{ p.risk_answer[:80] }}{% if p.risk_answer|length > 80 %}...{% endif %}</small></td>
+            <td><small>{{ p.advice_answer[:80] }}{% if p.advice_answer|length > 80 %}...{% endif %}</small></td>
+            <td><small>{{ p.created_at[:10] if p.created_at else '' }}</small></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Support Tab -->
+    <div class="tab-pane fade" id="tab-tickets">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold">{{ ticket_stats.total }}</div>
+              <div class="small text-muted">Total Tickets</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold text-warning">{{ ticket_stats.open }}</div>
+              <div class="small text-muted">Open</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card">
+            <div class="card-body text-center">
+              <div class="fs-3 fw-bold text-success">{{ ticket_stats.auto_resolve_rate }}%</div>
+              <div class="small text-muted">Auto-Resolved</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h6>Recent Tickets</h6>
+      <table class="table table-sm">
+        <thead><tr><th>ID</th><th>User</th><th>Category</th><th>Subject</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>
+          {% for t in ticket_stats.recent %}
+          <tr>
+            <td>#{{ t.id }}</td>
+            <td>{{ t.user_name or 'Unknown' }}</td>
+            <td><span class="badge bg-secondary">{{ t.category }}</span></td>
+            <td>{{ t.subject }}</td>
+            <td>
+              {% if t.status == 'open' %}<span class="badge bg-warning">Open</span>
+              {% elif t.status == 'auto_resolved' %}<span class="badge bg-info">Auto</span>
+              {% else %}<span class="badge bg-success">{{ t.status }}</span>{% endif %}
+            </td>
+            <td><small>{{ t.created_at[:16] if t.created_at else '' }}</small></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Health Tab -->
+    <div class="tab-pane fade" id="tab-health">
+      <div class="row g-3">
+        {% for key, val in health.items() %}
+        {% if key not in ('overall', 'checked_at') %}
+        <div class="col-md-4">
+          <div class="card">
+            <div class="card-body">
+              <div class="d-flex justify-content-between">
+                <strong>{{ key }}</strong>
+                {% if val.status == 'ok' %}
+                  <span class="badge bg-success">OK</span>
+                {% elif val.status == 'warning' %}
+                  <span class="badge bg-warning">Warning</span>
+                {% else %}
+                  <span class="badge bg-danger">Error</span>
+                {% endif %}
+              </div>
+              <small class="text-muted">{{ val.detail }}</small>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      <p class="text-muted mt-3 small">Last checked: {{ health.checked_at }}</p>
+    </div>
+  </div>
+</div>
+
+<script>
+function viewTenant(id) { alert('Tenant detail view coming soon — ID: ' + id); }
+</script>
+{% endblock %}

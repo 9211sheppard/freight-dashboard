@@ -1,0 +1,193 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Messages — {{ driver.name }}{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+  .msg-window {
+    height: 480px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    background: rgba(255,255,255,0.02);
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .msg-bubble {
+    max-width: 72%;
+    padding: 0.65rem 1rem;
+    border-radius: 1.1rem;
+    line-height: 1.4;
+    position: relative;
+  }
+  .msg-bubble.outbound {
+    align-self: flex-end;
+    background: #1a4480;
+    color: #e8f1ff;
+    border-bottom-right-radius: 0.25rem;
+  }
+  .msg-bubble.inbound {
+    align-self: flex-start;
+    background: #2c2c2e;
+    color: #e5e5e7;
+    border-bottom-left-radius: 0.25rem;
+  }
+  .msg-meta {
+    font-size: 0.7rem;
+    opacity: 0.55;
+    margin-top: 0.3rem;
+  }
+  .msg-bubble.outbound .msg-meta { text-align: right; }
+  .msg-input-area {
+    display: flex;
+    gap: 0.6rem;
+    margin-top: 1rem;
+  }
+  .msg-input-area input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #fff;
+    border-radius: 2rem;
+    padding: 0.55rem 1rem;
+    outline: none;
+  }
+  .msg-input-area input:focus {
+    border-color: rgba(99,179,237,0.5);
+  }
+  .empty-state {
+    text-align: center;
+    color: rgba(255,255,255,0.3);
+    padding: 3rem 0;
+    font-size: 0.9rem;
+  }
+</style>
+{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-chat-dots me-2"></i>{{ driver.name }}</h2>
+    <div class="small text-muted mt-1">Driver Messaging</div>
+  </div>
+  <a href="/tms/drivers" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back to Drivers
+  </a>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-chat-text me-2"></i>Conversation</span>
+        <span class="text-muted small">{{ messages|length }} messages</span>
+      </div>
+      <div class="card-body p-3">
+        <div class="msg-window" id="msgWindow">
+          {% if messages %}
+            {% for m in messages|sort(attribute='created_at') %}
+            <div>
+              <div class="msg-bubble {{ 'outbound' if m.direction == 'to_driver' else 'inbound' }}">
+                {{ m.message }}
+                <div class="msg-meta">
+                  {{ m.sent_by }} &middot; {{ m.created_at[:16] if m.created_at else '' }}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="empty-state">
+            <i class="bi bi-chat-square-dots d-block fs-2 mb-2"></i>
+            No messages yet. Send the first message below.
+          </div>
+          {% endif %}
+        </div>
+        <div class="msg-input-area">
+          <input type="text" id="msgInput" placeholder="Type a message…" autocomplete="off">
+          <button class="btn btn-primary rounded-pill px-4" id="msgSendBtn">
+            <i class="bi bi-send-fill"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-person-badge me-2"></i>Driver Info</div>
+      <div class="card-body">
+        <div class="mb-2">
+          <div class="text-muted small">Name</div>
+          <div class="fw-semibold">{{ driver.name }}</div>
+        </div>
+        <div class="mb-2">
+          <div class="text-muted small">Status</div>
+          <span class="tms-status tms-status-{{ {'Active':'active','Inactive':'cancelled','On Trip':'transit'}.get(driver.status, 'draft') }}">{{ driver.status }}</span>
+        </div>
+        {% if driver.phone %}
+        <div class="mb-2">
+          <div class="text-muted small">Phone</div>
+          <div>{{ driver.phone }}</div>
+        </div>
+        {% endif %}
+        {% if driver.last_location %}
+        <div class="mb-2">
+          <div class="text-muted small">Last Location</div>
+          <div class="small">{{ driver.last_location }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+(function(){
+  var driverId = {{ driver.id }};
+  var window_  = document.getElementById('msgWindow');
+  var input    = document.getElementById('msgInput');
+  var sendBtn  = document.getElementById('msgSendBtn');
+
+  // Auto-scroll to bottom on load
+  window_.scrollTop = window_.scrollHeight;
+
+  function appendBubble(text, direction, sentBy) {
+    var wrapper = document.createElement('div');
+    var cls = direction === 'to_driver' ? 'outbound' : 'inbound';
+    var now = new Date().toISOString().slice(0,16).replace('T',' ');
+    wrapper.innerHTML = '<div class="msg-bubble ' + cls + '">' +
+      escHtml(text) +
+      '<div class="msg-meta">' + escHtml(sentBy) + ' &middot; ' + now + '</div>' +
+      '</div>';
+    window_.appendChild(wrapper);
+    window_.scrollTop = window_.scrollHeight;
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function sendMessage() {
+    var msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    sendBtn.disabled = true;
+    fetch('/tms/drivers/' + driverId + '/messages/send', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: msg, shipment_ref: ''})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.ok) appendBubble(msg, 'to_driver', 'Dispatcher');
+    })
+    .catch(function(){ appendBubble(msg, 'to_driver', 'Dispatcher'); })
+    .finally(function(){ sendBtn.disabled = false; });
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  input.addEventListener('keydown', function(e){
+    if (e.key === 'Enter') sendMessage();
+  });
+})();
+</script>
+{% endblock %}

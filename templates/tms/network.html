@@ -1,0 +1,271 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Freight Network{% endblock %}
+
+{% block tms_content %}
+<div class="tms-page-header">
+  <div>
+    <h1 class="tms-page-title"><i class="bi bi-hexagon-fill me-2" style="color:#c8a96e;"></i>Freight Network</h1>
+    <p class="tms-page-subtitle">Your internal freight community &mdash; post loads, offer capacity, transact directly with other TMS users</p>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#postCapacityModal">
+      <i class="bi bi-truck me-1"></i>Post Capacity
+    </button>
+    <button class="btn btn-sm" style="background:#c8a96e;color:#000;font-weight:600;border:none;padding:8px 18px;border-radius:7px;font-size:0.82rem;" data-bs-toggle="modal" data-bs-target="#postLoadModal">
+      <i class="bi bi-plus-lg me-1"></i>Post Load
+    </button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-4">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value" style="color:#c8a96e;">{{ stats.total_loads }}</div>
+      <div class="tms-stat-label">Open Loads</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value" style="color:#60a5fa;">{{ stats.total_capacity }}</div>
+      <div class="tms-stat-label">Available Capacity</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value" style="color:#4ade80;">{{ stats.countries }}</div>
+      <div class="tms-stat-label">Countries Active</div>
+    </div>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<div class="tms-card mb-4">
+  <form method="get" class="d-flex gap-2 p-3 align-items-end flex-wrap">
+    <div style="flex:1;min-width:140px;">
+      <label style="font-size:0.7rem;color:#707070;display:block;margin-bottom:4px;">ORIGIN</label>
+      <input name="origin" value="{{ filter_origin }}" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="City or country">
+    </div>
+    <div style="flex:1;min-width:140px;">
+      <label style="font-size:0.7rem;color:#707070;display:block;margin-bottom:4px;">DESTINATION</label>
+      <input name="dest" value="{{ filter_dest }}" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="City or country">
+    </div>
+    <div style="min-width:120px;">
+      <label style="font-size:0.7rem;color:#707070;display:block;margin-bottom:4px;">MODE</label>
+      <select name="mode" class="form-select form-select-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;">
+        <option value="">All modes</option>
+        <option value="ocean" {% if filter_mode=='ocean' %}selected{% endif %}>Ocean</option>
+        <option value="air" {% if filter_mode=='air' %}selected{% endif %}>Air</option>
+        <option value="road" {% if filter_mode=='road' %}selected{% endif %}>Road</option>
+        <option value="rail" {% if filter_mode=='rail' %}selected{% endif %}>Rail</option>
+        <option value="any" {% if filter_mode=='any' %}selected{% endif %}>Any</option>
+      </select>
+    </div>
+    <button class="btn btn-sm" style="background:rgba(255,255,255,0.06);color:#aaa;border:none;height:31px;">Search</button>
+    {% if filter_origin or filter_dest or filter_mode %}
+    <a href="/tms/network" style="font-size:0.75rem;color:#707070;align-self:center;text-decoration:none;">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+<div class="row g-4">
+  <!-- LOADS -->
+  <div class="col-12 col-xl-6">
+    <div class="tms-card">
+      <div class="tms-card-header">
+        <span><i class="bi bi-box-seam me-2" style="color:#c8a96e;"></i>Open Loads</span>
+        <span style="color:#666;font-size:0.7rem;text-transform:none;letter-spacing:0;">{{ loads|length }} shown</span>
+      </div>
+      {% if loads %}
+      <div class="table-responsive">
+        <table class="table table-dark mb-0" style="font-size:0.78rem;">
+          <thead style="border-bottom:1px solid rgba(255,255,255,0.06);">
+            <tr style="color:#666;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;">
+              <th style="padding:9px 16px;background:#1c1c1c;font-weight:500;">Route</th>
+              <th style="padding:9px 8px;background:#1c1c1c;font-weight:500;">Cargo</th>
+              <th style="padding:9px 8px;background:#1c1c1c;font-weight:500;">Ready</th>
+              <th style="padding:9px 8px;background:#1c1c1c;font-weight:500;">Rate</th>
+              <th style="padding:9px 8px;background:#1c1c1c;font-weight:500;">Company</th>
+              <th style="padding:9px 8px;background:#1c1c1c;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for l in loads %}
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.03);" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+              <td style="padding:10px 16px;">
+                <div style="font-weight:600;color:#e2e8f0;">{{ l.origin_city }}{% if l.origin_country %}, {{ l.origin_country }}{% endif %}</div>
+                <div style="color:#707070;font-size:0.7rem;">&#8594; {{ l.dest_city }}{% if l.dest_country %}, {{ l.dest_country }}{% endif %}</div>
+                {% if l.mode and l.mode != 'any' %}<span style="font-size:0.6rem;color:#666;background:rgba(255,255,255,0.04);border-radius:3px;padding:1px 5px;">{{ l.mode }}</span>{% endif %}
+              </td>
+              <td style="padding:10px 8px;color:#888;">
+                <div>{{ l.cargo_type or '—' }}</div>
+                <div style="font-size:0.7rem;color:#707070;">{% if l.weight_kg %}{{ l.weight_kg|int }}kg{% endif %}</div>
+              </td>
+              <td style="padding:10px 8px;color:#666;font-family:'JetBrains Mono',monospace;font-size:0.72rem;">{{ l.ready_date or '—' }}</td>
+              <td style="padding:10px 8px;">
+                {% if l.rate_usd > 0 %}
+                  <span style="color:#c8a96e;font-weight:600;">${{ "{:,.0f}".format(l.rate_usd) }}</span>
+                {% else %}
+                  <span style="color:#707070;">Neg.</span>
+                {% endif %}
+              </td>
+              <td style="padding:10px 8px;color:#888;font-size:0.72rem;">{{ l.company_name or '—' }}</td>
+              <td style="padding:10px 8px;">
+                <a href="mailto:?subject=Re: Load {{ l.id }} — {{ l.origin_city }} to {{ l.dest_city }}" style="font-size:0.7rem;color:#707070;text-decoration:none;">Contact</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:48px;color:#666;">
+        <i class="bi bi-box-seam" style="font-size:2rem;display:block;margin-bottom:12px;"></i>
+        No open loads yet.<br>
+        <button class="btn btn-sm mt-3" style="background:rgba(200,169,110,0.1);color:#c8a96e;border:none;" data-bs-toggle="modal" data-bs-target="#postLoadModal">Post the first load</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- CAPACITY -->
+  <div class="col-12 col-xl-6">
+    <div class="tms-card">
+      <div class="tms-card-header">
+        <span><i class="bi bi-truck me-2" style="color:#60a5fa;"></i>Available Capacity</span>
+        <span style="color:#666;font-size:0.7rem;text-transform:none;letter-spacing:0;">{{ capacity|length }} shown</span>
+      </div>
+      {% if capacity %}
+      <div class="table-responsive">
+        <table class="table table-dark mb-0" style="font-size:0.78rem;">
+          <thead style="border-bottom:1px solid rgba(255,255,255,0.06);">
+            <tr style="color:#666;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;">
+              <th style="padding:9px 16px;background:#1c1c1c;font-weight:500;">Route</th>
+              <th style="padding:9px 8px;background:#1c1c1c;font-weight:500;">Equipment</th>
+              <th style="padding:9px 8px;background:#1c1c1c;font-weight:500;">Available</th>
+              <th style="padding:9px 8px;background:#1c1c1c;font-weight:500;">Rate</th>
+              <th style="padding:9px 8px;background:#1c1c1c;font-weight:500;">Company</th>
+              <th style="padding:9px 8px;background:#1c1c1c;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in capacity %}
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.03);" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+              <td style="padding:10px 16px;">
+                <div style="font-weight:600;color:#e2e8f0;">{{ c.origin_city }}{% if c.origin_country %}, {{ c.origin_country }}{% endif %}</div>
+                <div style="color:#707070;font-size:0.7rem;">&#8594; {{ c.dest_city }}{% if c.dest_country %}, {{ c.dest_country }}{% endif %}</div>
+                {% if c.mode %}<span style="font-size:0.6rem;color:#60a5fa;background:rgba(96,165,250,0.08);border-radius:3px;padding:1px 5px;">{{ c.mode }}</span>{% endif %}
+              </td>
+              <td style="padding:10px 8px;color:#888;">
+                <div>{{ c.equipment_type or '—' }}</div>
+                <div style="font-size:0.7rem;color:#707070;">{% if c.capacity_kg %}{{ c.capacity_kg|int }}kg{% endif %}</div>
+              </td>
+              <td style="padding:10px 8px;color:#666;font-family:'JetBrains Mono',monospace;font-size:0.72rem;">{{ c.available_date or '—' }}</td>
+              <td style="padding:10px 8px;">
+                {% if c.rate_usd > 0 %}
+                  <span style="color:#60a5fa;font-weight:600;">${{ "{:,.0f}".format(c.rate_usd) }}</span>
+                {% else %}
+                  <span style="color:#707070;">Neg.</span>
+                {% endif %}
+              </td>
+              <td style="padding:10px 8px;color:#888;font-size:0.72rem;">{{ c.company_name or '—' }}</td>
+              <td style="padding:10px 8px;">
+                <a href="mailto:?subject=Re: Capacity {{ c.id }} — {{ c.origin_city }} to {{ c.dest_city }}" style="font-size:0.7rem;color:#707070;text-decoration:none;">Contact</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align:center;padding:48px;color:#666;">
+        <i class="bi bi-truck" style="font-size:2rem;display:block;margin-bottom:12px;"></i>
+        No capacity posted yet.<br>
+        <button class="btn btn-sm mt-3" style="background:rgba(96,165,250,0.1);color:#60a5fa;border:none;" data-bs-toggle="modal" data-bs-target="#postCapacityModal">Post available capacity</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+
+<!-- Post Load Modal -->
+<div class="modal fade" id="postLoadModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="background:#1c1c1c;border:1px solid rgba(255,255,255,0.1);">
+      <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+        <h5 class="modal-title text-light"><i class="bi bi-box-seam me-2" style="color:#c8a96e;"></i>Post a Load</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post">
+        <input type="hidden" name="post_type" value="load">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label small text-muted">Company Name</label><input name="company_name" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-6"><label class="form-label small text-muted">Your Name / Contact</label><input name="posted_by" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-3"><label class="form-label small text-muted">Origin City</label><input name="origin_city" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="Los Angeles"></div>
+            <div class="col-md-3"><label class="form-label small text-muted">Origin Country</label><input name="origin_country" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="US"></div>
+            <div class="col-md-3"><label class="form-label small text-muted">Dest City</label><input name="dest_city" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="Sydney"></div>
+            <div class="col-md-3"><label class="form-label small text-muted">Dest Country</label><input name="dest_country" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="AU"></div>
+            <div class="col-md-4"><label class="form-label small text-muted">Cargo Type</label><input name="cargo_type" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="Electronics, Chemicals..."></div>
+            <div class="col-md-2"><label class="form-label small text-muted">Weight (kg)</label><input name="weight_kg" type="number" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-2"><label class="form-label small text-muted">Volume (CBM)</label><input name="volume_cbm" type="number" step="0.01" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-2"><label class="form-label small text-muted">Ready Date</label><input name="ready_date" type="date" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-2"><label class="form-label small text-muted">Mode</label>
+              <select name="mode" class="form-select form-select-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;">
+                <option value="any">Any</option><option value="ocean">Ocean</option><option value="air">Air</option><option value="road">Road</option><option value="rail">Rail</option>
+              </select>
+            </div>
+            <div class="col-md-3"><label class="form-label small text-muted">Target Rate (USD)</label><input name="rate_usd" type="number" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="0 = negotiable"></div>
+            <div class="col-md-9"><label class="form-label small text-muted">Notes</label><input name="notes" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="Hazmat, temperature, special handling..."></div>
+          </div>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.07);">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm" style="background:#c8a96e;color:#000;font-weight:600;border:none;">Post Load to Freight Network</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Post Capacity Modal -->
+<div class="modal fade" id="postCapacityModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="background:#1c1c1c;border:1px solid rgba(255,255,255,0.1);">
+      <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.07);">
+        <h5 class="modal-title text-light"><i class="bi bi-truck me-2" style="color:#60a5fa;"></i>Post Available Capacity</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post">
+        <input type="hidden" name="post_type" value="capacity">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label small text-muted">Company Name</label><input name="company_name" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-6"><label class="form-label small text-muted">Your Name / Contact</label><input name="posted_by" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-3"><label class="form-label small text-muted">Origin City</label><input name="origin_city" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-3"><label class="form-label small text-muted">Origin Country</label><input name="origin_country" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-3"><label class="form-label small text-muted">Dest City</label><input name="dest_city" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-3"><label class="form-label small text-muted">Dest Country</label><input name="dest_country" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-4"><label class="form-label small text-muted">Equipment Type</label><input name="equipment_type" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="20ft, 40ft HC, Flatbed, LCL..."></div>
+            <div class="col-md-2"><label class="form-label small text-muted">Capacity (kg)</label><input name="capacity_kg" type="number" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-2"><label class="form-label small text-muted">Volume (CBM)</label><input name="capacity_cbm" type="number" step="0.01" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-2"><label class="form-label small text-muted">Available Date</label><input name="available_date" type="date" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+            <div class="col-md-2"><label class="form-label small text-muted">Mode</label>
+              <select name="mode" class="form-select form-select-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;">
+                <option value="road">Road</option><option value="ocean">Ocean</option><option value="air">Air</option><option value="rail">Rail</option>
+              </select>
+            </div>
+            <div class="col-md-3"><label class="form-label small text-muted">Rate (USD)</label><input name="rate_usd" type="number" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;" placeholder="0 = negotiable"></div>
+            <div class="col-md-9"><label class="form-label small text-muted">Notes</label><input name="notes" class="form-control form-control-sm" style="background:#181818;border:1px solid rgba(255,255,255,0.08);color:#e2e8f0;"></div>
+          </div>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.07);">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm" style="background:#60a5fa;color:#000;font-weight:600;border:none;">Post Capacity to Freight Network</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

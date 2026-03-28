@@ -1,0 +1,71 @@
+{% extends "stripe/base.html" %}
+{% set active_tab = 'outreach' %}
+
+{% block title %}Outreach{% endblock %}
+
+{% block content %}
+<div class="s-fade-in">
+
+  <div class="s-page-header">
+    <div>
+      <h1 class="s-page-title">Outreach</h1>
+      <div class="s-page-subtitle">Email campaigns, introductions, and follow-ups</div>
+    </div>
+    <div class="s-page-actions">
+      <button class="s-btn s-btn-secondary" disabled>
+        <i class="bi bi-envelope-plus"></i> New Campaign
+      </button>
+      <button class="s-btn s-btn-primary" disabled>
+        <i class="bi bi-send"></i> Send Batch
+      </button>
+    </div>
+  </div>
+
+  <div class="s-stats-grid">
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-send"></i> Emails Sent</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-reply"></i> Replies</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-percent"></i> Response Rate</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-exclamation-triangle"></i> Bounces</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Campaign Queue</span>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-envelope-paper"></i>
+          <div class="s-empty-title">No active campaigns</div>
+          <div class="s-empty-desc">Create a campaign to start sending intro emails to your agent network.</div>
+        </div>
+      </div>
+    </div>
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Reply Inbox</span>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-inbox"></i>
+          <div class="s-empty-title">No replies yet</div>
+          <div class="s-empty-desc">Agent replies and lane confirmations will appear here.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

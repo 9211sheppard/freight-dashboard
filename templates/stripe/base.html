@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() if csrf_token is defined else '' }}">
+  <title>{% block title %}Dashboard{% endblock %} — Freight Intelligence</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-icons.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='stripe/stripe.css') }}?v={{ sv|default('1') }}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- Mobile Header -->
+<div class="s-mobile-header">
+  <button class="s-mobile-toggle" onclick="document.querySelector('.s-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <span style="font-weight:600;font-size:15px;">Freight Intelligence</span>
+  <a href="{{ url_for('logout') }}" class="s-mobile-toggle" title="Logout">
+    <i class="bi bi-box-arrow-right"></i>
+  </a>
+</div>
+
+<!-- Sidebar -->
+{% block sidebar %}
+<aside class="s-sidebar">
+  <div class="s-sidebar-brand">
+    <div class="s-sidebar-brand-icon">
+      <i class="bi bi-truck"></i>
+    </div>
+    <div class="s-sidebar-brand-text">Freight Intel</div>
+  </div>
+
+  <nav class="s-sidebar-nav">
+    <div class="s-nav-section">Core</div>
+    <a href="/dashboard" class="s-nav-link {% if active_tab == 'contacts' %}active{% endif %}">
+      <i class="bi bi-people"></i> Contacts
+    </a>
+    <a href="/schedules" class="s-nav-link {% if active_tab == 'schedules' %}active{% endif %}">
+      <i class="bi bi-calendar-week"></i> Schedules
+    </a>
+    <a href="/rates" class="s-nav-link {% if active_tab == 'rates' %}active{% endif %}">
+      <i class="bi bi-currency-dollar"></i> Rates
+    </a>
+    <a href="/outreach" class="s-nav-link {% if active_tab == 'outreach' %}active{% endif %}">
+      <i class="bi bi-send"></i> Outreach
+    </a>
+
+    <div class="s-nav-section">Operations</div>
+    <a href="/tms-overview" class="s-nav-link {% if active_tab == 'tms' %}active{% endif %}">
+      <i class="bi bi-box-seam"></i> TMS
+    </a>
+    {% if session.get('user_role') == 'admin' %}
+    <a href="/agents" class="s-nav-link {% if active_tab == 'agents' %}active{% endif %}">
+      <i class="bi bi-globe2"></i> Agents
+    </a>
+    {% endif %}
+
+    <div class="s-nav-section">Account</div>
+    <a href="/billing" class="s-nav-link {% if active_tab == 'billing' %}active{% endif %}">
+      <i class="bi bi-credit-card"></i> Billing
+    </a>
+    {% if session.get('user_role') == 'admin' %}
+    <a href="/admin" class="s-nav-link {% if active_tab == 'admin' %}active{% endif %}">
+      <i class="bi bi-shield-lock"></i> Admin
+    </a>
+    {% endif %}
+    <a href="/help" class="s-nav-link {% if active_tab == 'help' %}active{% endif %}">
+      <i class="bi bi-question-circle"></i> Help
+    </a>
+  </nav>
+
+  <div class="s-sidebar-footer">
+    <div class="s-user-pill">
+      <div class="s-user-avatar">
+        {{ (session.get('user_name', 'U') or 'U')[0] | upper }}
+      </div>
+      <div class="s-user-info">
+        <div class="s-user-name">{{ session.get('user_name', 'User') }}</div>
+        <div class="s-user-role">{{ session.get('user_role', 'user') | title }}</div>
+      </div>
+      <a href="{{ url_for('logout') }}" style="color:var(--s-text-3);font-size:16px;" title="Logout">
+        <i class="bi bi-box-arrow-right"></i>
+      </a>
+    </div>
+  </div>
+</aside>
+{% endblock %}
+
+<!-- Main Content -->
+<main class="s-main">
+  {% block content %}{% endblock %}
+</main>
+
+<!-- Toast -->
+<div class="s-toast" id="sToast"></div>
+
+<script>
+// Global CSRF token for all fetch calls
+(function(){
+  var ct = document.querySelector('meta[name="csrf-token"]');
+  var token = ct ? ct.getAttribute('content') : '';
+  var _f = window.fetch;
+  window.fetch = function(url, opts){
+    opts = opts || {};
+    var m = (opts.method || 'GET').toUpperCase();
+    if (['POST','PUT','PATCH','DELETE'].indexOf(m) >= 0) {
+      opts.headers = opts.headers || {};
+      if (!opts.headers['X-CSRF-Token']) opts.headers['X-CSRF-Token'] = token;
+    }
+    return _f.call(this, url, opts);
+  };
+})();
+
+// Toast utility
+window.sToast = function(msg, duration) {
+  var t = document.getElementById('sToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, duration || 3000);
+};
+
+// Mobile sidebar close on link click
+document.querySelectorAll('.s-nav-link').forEach(function(link){
+  link.addEventListener('click', function(){
+    document.querySelector('.s-sidebar').classList.remove('open');
+  });
+});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

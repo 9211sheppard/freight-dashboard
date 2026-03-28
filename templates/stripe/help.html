@@ -1,0 +1,54 @@
+{% extends "stripe/base.html" %}
+{% set active_tab = 'help' %}
+
+{% block title %}Help{% endblock %}
+
+{% block content %}
+<div class="s-fade-in">
+
+  <div class="s-page-header">
+    <div>
+      <h1 class="s-page-title">Help</h1>
+      <div class="s-page-subtitle">Documentation, guides, and support</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="s-card" style="cursor:pointer;">
+      <div class="s-card-body" style="text-align:center;padding:32px 20px;">
+        <i class="bi bi-book" style="font-size:32px;color:var(--s-primary);margin-bottom:12px;display:block;"></i>
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Getting Started</div>
+        <div style="font-size:13px;color:var(--s-text-2);">Learn the basics of the platform and set up your account.</div>
+      </div>
+    </div>
+    <div class="s-card" style="cursor:pointer;">
+      <div class="s-card-body" style="text-align:center;padding:32px 20px;">
+        <i class="bi bi-play-circle" style="font-size:32px;color:var(--s-primary);margin-bottom:12px;display:block;"></i>
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Video Tutorials</div>
+        <div style="font-size:13px;color:var(--s-text-2);">Step-by-step walkthroughs of every feature.</div>
+      </div>
+    </div>
+    <div class="s-card" style="cursor:pointer;">
+      <div class="s-card-body" style="text-align:center;padding:32px 20px;">
+        <i class="bi bi-headset" style="font-size:32px;color:var(--s-primary);margin-bottom:12px;display:block;"></i>
+        <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Contact Support</div>
+        <div style="font-size:13px;color:var(--s-text-2);">Reach our team for technical help or account questions.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="s-card">
+    <div class="s-card-header">
+      <span class="s-card-title">Frequently Asked Questions</span>
+    </div>
+    <div class="s-card-body">
+      <div class="s-empty">
+        <i class="bi bi-question-circle"></i>
+        <div class="s-empty-title">FAQ</div>
+        <div class="s-empty-desc">Common questions and answers will be listed here.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

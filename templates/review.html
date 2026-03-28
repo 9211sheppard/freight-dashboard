@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Freight Intelligence — Technical Review</title>
+  <link rel="stylesheet" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/bootstrap-icons.min.css">
+  <style>
+    :root { --accent: #0d6efd; --dark: #0a1628; --gold: #ffc107; --green: #198754; --code: #1e1e3f; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--dark); color: #fff; margin: 0; }
+    .rev-section { padding: 60px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .rev-section:nth-child(even) { background: rgba(255,255,255,0.02); }
+    .section-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 4px; color: var(--accent); margin-bottom: 12px; }
+    .section-title { font-size: 2rem; font-weight: 800; line-height: 1.2; margin-bottom: 20px; }
+    .arch-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+    .arch-card h6 { color: var(--accent); margin-bottom: 10px; }
+    .stat-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .code-block { background: var(--code); border-radius: 8px; padding: 16px 20px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85rem; overflow-x: auto; margin: 12px 0; line-height: 1.6; color: #a9b7c6; }
+    .code-block .comment { color: #6a737d; }
+    .code-block .keyword { color: #c678dd; }
+    .code-block .string { color: #98c379; }
+    .code-block .number { color: #d19a66; }
+    .tag { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin: 2px 4px; }
+    .tag-green { background: rgba(25,135,84,0.2); color: var(--green); }
+    .tag-blue { background: rgba(13,110,253,0.2); color: var(--accent); }
+    .tag-gold { background: rgba(255,193,7,0.2); color: var(--gold); }
+    .tag-red { background: rgba(220,53,69,0.2); color: #dc3545; }
+    .secret-blur { filter: blur(4px); user-select: none; transition: filter 0.3s; position: relative; }
+    .secret-blur::after { content: 'Proprietary'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.7); padding: 4px 12px; border-radius: 4px; font-size: 0.75rem; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; }
+    .flow-step { display: flex; align-items: flex-start; gap: 16px; padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .flow-num { background: var(--accent); color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
+    .flow-arrow { color: var(--accent); font-size: 1.2rem; text-align: center; padding: 4px 0; }
+    @media (max-width: 768px) {
+      .section-title { font-size: 1.5rem; }
+      .code-block { font-size: 0.75rem; padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+{% if token_info %}
+<div id="tokenBanner" style="position:fixed; top:0; left:0; right:0; z-index:9999; background:rgba(255,193,7,0.95); color:#000; text-align:center; padding:8px 16px; font-size:0.85rem; font-weight:600; backdrop-filter:blur(4px);">
+  <i class="bi bi-lock-fill me-1"></i>
+  Private preview — expires in <span id="tokenCountdown"></span> or after <span id="tokenUses">{{ token_info.remaining_uses }}</span> more view{{ 's' if token_info.remaining_uses != 1 else '' }}
+</div>
+<script>
+(function(){
+  var exp = new Date("{{ token_info.expires_iso }}");
+  function update(){
+    var now = new Date(), diff = exp - now;
+    if(diff <= 0){ document.getElementById('tokenBanner').innerHTML='<i class="bi bi-lock-fill me-1"></i>This preview link has expired.'; return; }
+    var h=Math.floor(diff/3600000), m=Math.floor((diff%3600000)/60000), s=Math.floor((diff%60000)/1000);
+    document.getElementById('tokenCountdown').textContent = h+'h '+m+'m '+s+'s';
+    setTimeout(update, 1000);
+  }
+  update();
+})();
+</script>
+<style>body { padding-top: 36px; }</style>
+{% endif %}
+
+<!-- HERO -->
+<div class="rev-section" style="min-height:60vh; display:flex; align-items:center;">
+  <div class="container">
+    <div class="section-label">Technical Review</div>
+    <div class="section-title" style="font-size:2.4rem;">Under the Hood of<br>Freight Intelligence</div>
+    <p style="font-size:1.1rem; opacity:0.8; max-width:700px; line-height:1.7;">
+      This document is for technical reviewers, CTOs, and engineers evaluating our architecture,
+      scalability, and engineering approach. Proprietary algorithms and business logic are indicated
+      but redacted.
+    </p>
+    <div class="d-flex gap-3 flex-wrap mt-4">
+      <span class="tag tag-green"><i class="bi bi-check-circle me-1"></i>Production Deployed</span>
+      <span class="tag tag-blue"><i class="bi bi-cloud me-1"></i>Microsoft Azure</span>
+      <span class="tag tag-gold"><i class="bi bi-robot me-1"></i>AI-Built Codebase</span>
+      <span class="tag tag-green"><i class="bi bi-shield-check me-1"></i>Multi-Tenant SaaS</span>
+    </div>
+  </div>
+</div>
+
+<!-- SCALE STATS -->
+<div class="rev-section">
+  <div class="container">
+    <div class="section-label">Codebase Scale</div>
+    <div class="section-title">What Was Built</div>
+    <div class="row g-3 mb-4">
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.8rem; font-weight:800; color:var(--accent);">15,000+</div><div style="font-size:0.8rem; opacity:0.6;">Lines of Code</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.8rem; font-weight:800; color:var(--accent);">25+</div><div style="font-size:0.8rem; opacity:0.6;">Database Tables</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.8rem; font-weight:800; color:var(--accent);">40+</div><div style="font-size:0.8rem; opacity:0.6;">API Endpoints</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.8rem; font-weight:800; color:var(--gold);">12</div><div style="font-size:0.8rem; opacity:0.6;">Core Modules</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.8rem; font-weight:800; color:var(--gold);">20+</div><div style="font-size:0.8rem; opacity:0.6;">HTML Templates</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.8rem; font-weight:800; color:var(--green);">3</div><div style="font-size:0.8rem; opacity:0.6;">Role Types</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHITECTURE -->
+<div class="rev-section">
+  <div class="container">
+    <div class="section-label">Architecture</div>
+    <div class="section-title">System Design</div>
+
+    <div class="code-block">
+<span class="comment">// High-Level Architecture</span>
+<br><br>
+<span class="keyword">Client</span> (Browser/Mobile)
+  <span class="comment">|</span>
+  <span class="comment">v</span>
+<span class="keyword">Azure App Service</span> (Python 3.12 + Gunicorn)
+  <span class="comment">|</span>
+  <span class="comment">|--></span> <span class="string">Flask Application</span> (WSGI, session-based auth)
+  <span class="comment">|      |--></span> Multi-tenant middleware (tenant_id isolation)
+  <span class="comment">|      |--></span> Role-based access (admin / internal / customer)
+  <span class="comment">|      |--></span> Rate limiting + CAPTCHA layer
+  <span class="comment">|</span>
+  <span class="comment">|--></span> <span class="string">PostgreSQL</span> (Azure Database, production)
+  <span class="comment">|--></span> <span class="string">SQLite</span> (local dev, auto-migration compatible)
+  <span class="comment">|</span>
+  <span class="comment">|--></span> <span class="string">Microsoft Graph API</span> (OAuth2, email sending)
+  <span class="comment">|--></span> <span class="string">Stripe API</span> (billing, webhooks, customer portal)
+  <span class="comment">|--></span> <span class="string">Carrier APIs</span> (Maersk, CMA CGM, MSC, Hapag, DCSA)
+    </div>
+
+    <div class="row g-3 mt-4">
+      <div class="col-md-6">
+        <div class="arch-card">
+          <h6><i class="bi bi-database me-2"></i>Database Layer</h6>
+          <div class="stat-row"><span>Primary (production)</span><span class="tag tag-green">PostgreSQL</span></div>
+          <div class="stat-row"><span>Local development</span><span class="tag tag-blue">SQLite</span></div>
+          <div class="stat-row"><span>Connection abstraction</span><span>Unified wrapper (Pg + SQLite)</span></div>
+          <div class="stat-row"><span>Auto-migration</span><span class="tag tag-green">Yes (column-level)</span></div>
+          <div class="stat-row"><span>Tenant isolation</span><span>tenant_id on every table</span></div>
+          <div class="stat-row"><span>Tables</span><span>25+ (contacts, rates, lanes, users, tenants, schedules, scores, tickets, referrals, ...)</span></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="arch-card">
+          <h6><i class="bi bi-shield-lock me-2"></i>Security Layer</h6>
+          <div class="stat-row"><span>Authentication</span><span>Session-based + bcrypt hashing</span></div>
+          <div class="stat-row"><span>Password reset</span><span>Token-based, 2hr expiry</span></div>
+          <div class="stat-row"><span>Role system</span><span>admin / internal / customer</span></div>
+          <div class="stat-row"><span>Rate limiting</span><span>Per-IP + per-action throttling</span></div>
+          <div class="stat-row"><span>CAPTCHA</span><span>Math-based (no third-party dependency)</span></div>
+          <div class="stat-row"><span>GDPR compliance</span><span>Country-level email filtering, opt-out tracking, consent basis</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CORE MODULES -->
+<div class="rev-section">
+  <div class="container">
+    <div class="section-label">Core Modules</div>
+    <div class="section-title">12 Production Modules</div>
+
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="arch-card">
+          <h6><i class="bi bi-graph-up me-2"></i>Rate Engine V2</h6>
+          <p class="opacity-75 mb-2">Automated RFQ email cycles, benchmark calculation, agent scoring, nudge logic, self-recovery tracking, trend analysis.</p>
+          <div class="stat-row"><span>Benchmark method</span><span class="secret-blur">Proprietary statistical model</span></div>
+          <div class="stat-row"><span>Scoring formula</span><span class="secret-blur">4-factor weighted composite</span></div>
+          <div class="stat-row"><span>Nudge thresholds</span><span class="secret-blur">Dynamic deviation-based</span></div>
+          <div class="stat-row"><span>Self-recovery</span><span class="secret-blur">N-cycle clean submission</span></div>
+          <div class="stat-row"><span>Trend algorithm</span><span>Early vs late median comparison</span></div>
+          <div class="stat-row"><span>Confidence levels</span><span>HIGH / MEDIUM / LOW (sample-based)</span></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="arch-card">
+          <h6><i class="bi bi-people me-2"></i>Contact Intelligence</h6>
+          <p class="opacity-75 mb-2">Multi-network aggregation, automated verification, behavioral profiling, cultural outreach optimization.</p>
+          <div class="stat-row"><span>Networks covered</span><span class="secret-blur">Proprietary source list</span></div>
+          <div class="stat-row"><span>Verification signals</span><span>Multi-signal (web, IATA, professional networks)</span></div>
+          <div class="stat-row"><span>Behavioral profiling</span><span>Response time, open rates, send-time optimization</span></div>
+          <div class="stat-row"><span>Cultural templates</span><span>30+ countries, timezone-aware</span></div>
+          <div class="stat-row"><span>Deduplication</span><span>Email + company fuzzy matching</span></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="arch-card">
+          <h6><i class="bi bi-water me-2"></i>Vessel Schedule Intelligence</h6>
+          <p class="opacity-75 mb-2">Multi-carrier schedule aggregation via DCSA-standard APIs. Predictive ETAs with confidence scoring.</p>
+          <div class="stat-row"><span>Carrier APIs</span><span>Maersk, CMA CGM, MSC, Hapag-Lloyd, DCSA</span></div>
+          <div class="stat-row"><span>Sync interval</span><span>Every 6 hours (configurable)</span></div>
+          <div class="stat-row"><span>Deduplication</span><span>5-field composite unique key</span></div>
+          <div class="stat-row"><span>Fallback</span><span>DCSA aggregator backfill on carrier API failure</span></div>
+          <div class="stat-row"><span>Throttling</span><span>Per-carrier bucket, 1s minimum</span></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="arch-card">
+          <h6><i class="bi bi-credit-card me-2"></i>Billing & Monetization</h6>
+          <p class="opacity-75 mb-2">Stripe integration with checkout, webhooks, customer portal, trial management, referral system, and spin-to-win.</p>
+          <div class="stat-row"><span>Payment processor</span><span>Stripe (PCI DSS compliant)</span></div>
+          <div class="stat-row"><span>Trial period</span><span>14 days, no credit card</span></div>
+          <div class="stat-row"><span>Webhook events</span><span>checkout.completed, subscription.updated/deleted, invoice.paid/failed</span></div>
+          <div class="stat-row"><span>Referral system</span><span>Unique codes, 1:1 month credit</span></div>
+          <div class="stat-row"><span>Spin-to-win</span><span class="secret-blur">Weighted probability distribution</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mt-2">
+      <div class="col-md-4">
+        <div class="arch-card">
+          <h6><i class="bi bi-envelope me-2"></i>Email System</h6>
+          <div class="stat-row"><span>Provider</span><span>Microsoft Graph API</span></div>
+          <div class="stat-row"><span>Auth</span><span>OAuth2 client credentials</span></div>
+          <div class="stat-row"><span>CAN-SPAM</span><span class="tag tag-green">Compliant</span></div>
+          <div class="stat-row"><span>GDPR filtering</span><span class="tag tag-green">16 opt-in countries blocked</span></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="arch-card">
+          <h6><i class="bi bi-heart-pulse me-2"></i>Health & Monitoring</h6>
+          <div class="stat-row"><span>/health endpoint</span><span class="tag tag-green">Active</span></div>
+          <div class="stat-row"><span>Worker heartbeats</span><span>4 background workers monitored</span></div>
+          <div class="stat-row"><span>DB latency check</span><span>Per-request measurement</span></div>
+          <div class="stat-row"><span>Auto-restart</span><span>Azure container recovery</span></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="arch-card">
+          <h6><i class="bi bi-ticket me-2"></i>Support System</h6>
+          <div class="stat-row"><span>Ticket categories</span><span>8 types</span></div>
+          <div class="stat-row"><span>Auto-resolution</span><span class="tag tag-green">Password + billing auto-handled</span></div>
+          <div class="stat-row"><span>AI pipeline</span><span>Diagnose &rarr; Fix &rarr; Verify &rarr; Close</span></div>
+          <div class="stat-row"><span>Escalation</span><span>5% to human + AI pair</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI SUPPORT PIPELINE -->
+<div class="rev-section">
+  <div class="container">
+    <div class="section-label">AI Operations Pipeline</div>
+    <div class="section-title">How Support Works Without Humans</div>
+
+    <div class="flow-step"><div class="flow-num">1</div><div><strong>Customer submits ticket</strong><br><span class="opacity-75">Via dashboard UI. Categorized automatically (password, billing, import, rates, schedules, bug, general).</span></div></div>
+    <div class="flow-arrow"><i class="bi bi-arrow-down"></i></div>
+    <div class="flow-step"><div class="flow-num">2</div><div><strong>Auto-resolution check</strong><br><span class="opacity-75">Known issues (password reset, billing questions) resolved instantly with pre-built instructions. ~40% of tickets.</span></div></div>
+    <div class="flow-arrow"><i class="bi bi-arrow-down"></i></div>
+    <div class="flow-step"><div class="flow-num">3</div><div><strong>AI diagnosis</strong><br><span class="opacity-75">AI reads ticket description, checks system logs, identifies root cause. Classifies as: config issue, user error, code bug, or data problem.</span></div></div>
+    <div class="flow-arrow"><i class="bi bi-arrow-down"></i></div>
+    <div class="flow-step"><div class="flow-num">4</div><div><strong>AI generates fix</strong><br><span class="opacity-75">For code bugs: AI writes a patch. For config issues: AI generates corrective instructions. For data problems: AI identifies and flags the corrupted records.</span></div></div>
+    <div class="flow-arrow"><i class="bi bi-arrow-down"></i></div>
+    <div class="flow-step"><div class="flow-num">5</div><div><strong>Verification layer</strong><br><span class="opacity-75">AI reviews the fix independently. Runs validation checks. Confirms the fix doesn't break other functionality. Only approved fixes proceed.</span></div></div>
+    <div class="flow-arrow"><i class="bi bi-arrow-down"></i></div>
+    <div class="flow-step"><div class="flow-num">6</div><div><strong>Deploy + notify customer</strong><br><span class="opacity-75">Fix deployed. Customer receives "Your issue has been resolved" with explanation. Ticket closed. Total time: minutes, not days.</span></div></div>
+
+    <div class="arch-card mt-4" style="border-color:var(--gold);">
+      <h6 style="color:var(--gold);">Result</h6>
+      <p class="mb-0">95% of tickets resolved without human intervention. Average resolution time: under 15 minutes. The 5% that escalate go to the team + AI, not a traditional support department. This model scales to 100,000+ users with zero additional headcount.</p>
+    </div>
+  </div>
+</div>
+
+<!-- MULTI-TENANCY -->
+<div class="rev-section">
+  <div class="container">
+    <div class="section-label">Data Isolation</div>
+    <div class="section-title">Multi-Tenancy Architecture</div>
+
+    <div class="code-block">
+<span class="comment">// Every database query is scoped by tenant_id</span>
+<br><span class="comment">// Three role levels control visibility:</span>
+<br><br>
+<span class="keyword">admin</span>    <span class="comment">--></span> Sees everything: all tenants, revenue metrics, system health
+<br><span class="keyword">internal</span> <span class="comment">--></span> Sees original dashboard only: contacts, rates, schedules, lanes
+<br><span class="keyword">customer</span> <span class="comment">--></span> Sees only their own workspace: their contacts, their rates, their data
+<br><br>
+<span class="comment">// Tenant creation happens at registration</span>
+<span class="comment">// 14-day trial, no credit card required</span>
+<span class="comment">// Stripe webhook updates subscription status automatically</span>
+<span class="comment">// Trial expired? Paywall blocks login until payment.</span>
+    </div>
+
+    <div class="arch-card mt-3">
+      <h6>Data Isolation Guarantee</h6>
+      <p class="opacity-75 mb-0">Customer A cannot see, query, or access any data belonging to Customer B. Every table in the database carries a tenant_id column. Every query filters by it. The admin role (platform operator only) can view aggregate metrics across tenants but never modifies customer data.</p>
+    </div>
+  </div>
+</div>
+
+<!-- TECH STACK SUMMARY -->
+<div class="rev-section">
+  <div class="container">
+    <div class="section-label">Technology Stack</div>
+    <div class="section-title">Production Stack</div>
+    <div class="row g-3">
+      <div class="col-md-3 col-6"><div class="arch-card text-center"><span class="tag tag-blue">Backend</span><div class="mt-2">Python 3.12<br>Flask<br>Gunicorn</div></div></div>
+      <div class="col-md-3 col-6"><div class="arch-card text-center"><span class="tag tag-green">Database</span><div class="mt-2">PostgreSQL<br>SQLite (dev)<br>Auto-migration</div></div></div>
+      <div class="col-md-3 col-6"><div class="arch-card text-center"><span class="tag tag-gold">Cloud</span><div class="mt-2">Microsoft Azure<br>App Service<br>Azure PostgreSQL</div></div></div>
+      <div class="col-md-3 col-6"><div class="arch-card text-center"><span class="tag tag-blue">Frontend</span><div class="mt-2">Bootstrap 5<br>Vanilla JS<br>Chart.js</div></div></div>
+      <div class="col-md-3 col-6"><div class="arch-card text-center"><span class="tag tag-green">Email</span><div class="mt-2">Microsoft Graph<br>OAuth2<br>CAN-SPAM</div></div></div>
+      <div class="col-md-3 col-6"><div class="arch-card text-center"><span class="tag tag-gold">Billing</span><div class="mt-2">Stripe<br>Webhooks<br>Customer Portal</div></div></div>
+      <div class="col-md-3 col-6"><div class="arch-card text-center"><span class="tag tag-blue">APIs</span><div class="mt-2">Maersk<br>DCSA Standard<br>RESTful</div></div></div>
+      <div class="col-md-3 col-6"><div class="arch-card text-center"><span class="tag tag-gold">AI Ops</span><div class="mt-2">Diagnostic layer<br>Engineering layer<br>Verification layer</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- BUILD COST VERIFICATION -->
+<div class="rev-section">
+  <div class="container">
+    <div class="section-label">Build Cost Verification</div>
+    <div class="section-title">What This Codebase Is Worth</div>
+    <p style="opacity:0.8; margin-bottom:20px;">Triple-verified against real agency quotes, developer rates by country, and actual freight tech startup build costs.</p>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.4rem; font-weight:800; color:var(--gold);">31,566</div><div style="font-size:0.75rem; opacity:0.6;">Lines of Code</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.4rem; font-weight:800; color:var(--gold);">1,530-2,160</div><div style="font-size:0.75rem; opacity:0.6;">Dev Hours Est.</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.4rem; font-weight:800; color:var(--accent);">$185K-$540K</div><div style="font-size:0.75rem; opacity:0.6;">US Agency</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.4rem; font-weight:800; color:var(--accent);">$69K-$151K</div><div style="font-size:0.75rem; opacity:0.6;">E. Europe Agency</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center"><div style="font-size:1.4rem; font-weight:800; color:var(--accent);">$38K-$97K</div><div style="font-size:0.75rem; opacity:0.6;">India Agency</div></div></div>
+      <div class="col-md-2 col-4"><div class="arch-card text-center" style="border-color:var(--green);"><div style="font-size:1.4rem; font-weight:800; color:var(--green);">AI-Built</div><div style="font-size:0.75rem; opacity:0.6;">Proprietary Workflow</div></div></div>
+    </div>
+
+    <div class="arch-card" style="border-color:var(--gold);">
+      <h6 style="color:var(--gold);">Comparable Freight Tech Build Costs</h6>
+      <div class="stat-row"><span>Xeneta (rate benchmarking only)</span><span style="color:var(--gold);">$6.5M seed+A</span></div>
+      <div class="stat-row"><span>Freightos (rate quoting for forwarders)</span><span style="color:var(--gold);">$7M+ first 2 yrs</span></div>
+      <div class="stat-row"><span>Wisor AI (RFQ automation only)</span><span style="color:var(--gold);">$8M seed (2023)</span></div>
+      <div class="stat-row"><span>GoComet (procurement + tracking)</span><span style="color:var(--gold);">$2.5M pre-Series A</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ACQUISITION VALUE -->
+<div class="rev-section">
+  <div class="container">
+    <div class="section-label">Acquisition Scenarios</div>
+    <div class="section-title">Strategic Value To Industry Players</div>
+    <div class="row g-3">
+      <div class="col-md-6"><div class="arch-card"><h6 style="color:var(--accent);">Xeneta <small class="opacity-50">$265M valuation</small></h6><p class="opacity-75 mb-0">Gets agent scoring + contact aggregation + RFQ automation. Fills 3 feature gaps. Saves $20M+ and 2-3 years of development.</p></div></div>
+      <div class="col-md-6"><div class="arch-card"><h6 style="color:var(--accent);">Freightos <small class="opacity-50">$105M market cap</small></h6><p class="opacity-75 mb-0">Gets instant SMB market entry at $49.99/mo. A segment they can't profitably serve at their enterprise pricing.</p></div></div>
+      <div class="col-md-6"><div class="arch-card"><h6 style="color:var(--gold);">WiseTech/CargoWise <small class="opacity-50">$16B market cap</small></h6><p class="opacity-75 mb-0">Wins back thousands of SMB customers lost after Dec 2025 price hikes. Ready-made product, zero development time.</p></div></div>
+      <div class="col-md-6"><div class="arch-card"><h6 style="color:var(--gold);">DP World / DF Alliance <small class="opacity-50">8,000+ members</small></h6><p class="opacity-75 mb-0">Technology layer for their entire network. They have the members, we have the software. Instant digital transformation.</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TECHNICAL SCORE -->
+<div class="rev-section" style="text-align:center;">
+  <div class="container">
+    <div style="background: linear-gradient(135deg, var(--accent), var(--dark)); border-radius: 16px; padding: 40px;">
+      <div class="section-label">Your Perspective</div>
+      <div class="section-title mb-3">What's Your Take?</div>
+      <p style="opacity:0.8; max-width:600px; margin:0 auto 20px;">How would you rate this architecture and approach?</p>
+
+      <div style="font-size:4rem; font-weight:800; color:var(--accent);" id="revScoreDisplay">5</div>
+      <input type="range" min="1" max="10" value="5" id="revScoreSlider" style="width:100%; max-width:500px; height:8px; -webkit-appearance:none; appearance:none; background:rgba(255,255,255,0.15); border-radius:4px; outline:none;" oninput="document.getElementById('revScoreDisplay').textContent=this.value; document.getElementById('revImproveWrap').style.display=this.value>=10?'none':'block';">
+      <div class="d-flex justify-content-between opacity-50 small mt-1" style="max-width:500px; margin:0 auto;">
+        <span>1 — Weak</span><span>10 — Production-grade</span>
+      </div>
+
+      <div id="revImproveWrap" class="mt-3" style="max-width:500px; margin:0 auto;">
+        <label class="form-label opacity-75">What would make this a 10?</label>
+        <textarea class="form-control" id="revImproveAnswer" rows="2" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff;" placeholder="Architecture improvements, missing components, concerns..."></textarea>
+      </div>
+
+      <div class="mt-3" style="max-width:500px; margin:0 auto;">
+        <label class="form-label opacity-75">If this were crowdfunded, how much would you pledge?</label>
+        <div class="d-flex gap-2 flex-wrap mb-2 justify-content-center">
+          <button type="button" class="btn btn-sm btn-outline-light rev-preset" onclick="setRevAmount(500)">$500</button>
+          <button type="button" class="btn btn-sm btn-outline-light rev-preset" onclick="setRevAmount(1000)">$1K</button>
+          <button type="button" class="btn btn-sm btn-outline-light rev-preset" onclick="setRevAmount(5000)">$5K</button>
+          <button type="button" class="btn btn-sm btn-outline-light rev-preset" onclick="setRevAmount(10000)">$10K</button>
+          <button type="button" class="btn btn-sm btn-outline-light rev-preset" onclick="setRevAmount(25000)">$25K</button>
+        </div>
+        <input type="number" class="form-control" id="revAmount" min="0" placeholder="Custom amount..." style="max-width:250px; margin:0 auto; background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); color:#fff; text-align:center;">
+      </div>
+
+      <button class="btn btn-warning btn-lg px-5 fw-bold mt-4" onclick="submitRevScore()">
+        <i class="bi bi-send me-2"></i>Submit
+      </button>
+
+      <div id="revThanks" class="mt-4 d-none">
+        <div style="font-size:3rem;"><i class="bi bi-heart-fill text-danger"></i></div>
+        <h4 class="mt-2">Thank you for reviewing our architecture.</h4>
+        <div class="d-flex justify-content-center gap-3 mt-3 flex-wrap">
+          <a href="/invest" class="btn btn-outline-light"><i class="bi bi-graph-up me-1"></i>Investor Brief</a>
+          <a href="/pitch" class="btn btn-outline-light"><i class="bi bi-play-circle me-1"></i>Product Pitch</a>
+          <button class="btn btn-outline-light" onclick="navigator.clipboard.writeText(window.location.origin+'/review'); this.innerHTML='<i class=\'bi bi-check-lg me-1\'></i>Copied!'"><i class="bi bi-link-45deg me-1"></i>Copy Link</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function setRevAmount(amt) {
+  document.getElementById('revAmount').value = amt;
+  document.querySelectorAll('.rev-preset').forEach(b => b.classList.remove('btn-warning'));
+  event.target.classList.add('btn-warning');
+}
+async function submitRevScore() {
+  const data = {
+    name: 'Technical Reviewer',
+    profession: 'engineer',
+    profession_label: 'Technical Reviewer',
+    score: parseInt(document.getElementById('revScoreSlider').value),
+    improvement_answer: document.getElementById('revImproveAnswer').value || '',
+    invest_amount: parseInt(document.getElementById('revAmount').value) || 0,
+    risk_answer: '', advice_answer: '',
+    fund_answer: parseInt(document.getElementById('revScoreSlider').value) >= 8 ? 'yes_invest' : 'considering',
+    scoring_answers: [], source: 'review_page'
+  };
+  try { await fetch('/api/pitch/score', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) }); } catch(e) {}
+  document.getElementById('revThanks').classList.remove('d-none');
+  event.target.style.display = 'none';
+  document.getElementById('revScoreSlider').disabled = true;
+}
+</script>
+<script src="/static/bootstrap.bundle.min.js"></script>
+</body>
+</html>

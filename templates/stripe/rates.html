@@ -1,0 +1,97 @@
+{% extends "stripe/base.html" %}
+{% set active_tab = 'rates' %}
+
+{% block title %}Rates{% endblock %}
+
+{% block content %}
+<div class="s-fade-in">
+
+  <div class="s-page-header">
+    <div>
+      <h1 class="s-page-title">Rates</h1>
+      <div class="s-page-subtitle">Freight rate collection, comparison, and management</div>
+    </div>
+    <div class="s-page-actions">
+      <button class="s-btn s-btn-secondary" disabled>
+        <i class="bi bi-envelope-open"></i> Parse Reply
+      </button>
+      <button class="s-btn s-btn-primary" disabled>
+        <i class="bi bi-send"></i> Send Requests
+      </button>
+    </div>
+  </div>
+
+  <div class="s-stats-grid">
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-currency-dollar"></i> Rates Collected</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-check-circle"></i> Agents Responded</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-hourglass-split"></i> Pending</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-graph-up"></i> Avg Response</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:16px;">
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Rate Records</span>
+      </div>
+      <div class="s-card-body s-card-body--flush">
+        <table class="s-table">
+          <thead>
+            <tr><th>Origin</th><th>Destination</th><th>Carrier</th><th>20ft</th><th>40ft</th><th>Valid</th><th>Agent</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="s-table-empty">
+              <i class="bi bi-currency-dollar"></i>
+              Rate records will populate here.
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Outreach Status</span>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-people"></i>
+          <div class="s-empty-title">No active cycle</div>
+          <div class="s-empty-desc">Create a rate cycle to start collecting quotes from agents.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="s-card">
+    <div class="s-card-header">
+      <span class="s-card-title">Gap Report</span>
+      <span style="font-size:12px;color:var(--s-text-3);">Missing data informs next outreach</span>
+    </div>
+    <div class="s-card-body s-card-body--flush">
+      <table class="s-table">
+        <thead>
+          <tr><th>Region</th><th>Missing Field</th><th>Times Seen</th><th>Last Seen</th></tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="4" class="s-table-empty">
+            <i class="bi bi-patch-check"></i>
+            No gaps recorded yet.
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

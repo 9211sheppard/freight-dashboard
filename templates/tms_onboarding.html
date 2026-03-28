@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TMS Sandbox Setup</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-icons.min.css') }}">
+  <style>
+    :root {
+      --brand-color: {{ setup.settings.primary_color or '#0f766e' }};
+      --brand-ink: #031b16;
+      --page-ink: #f6f5ef;
+      --page-muted: rgba(246, 245, 239, 0.72);
+      --panel-dark: rgba(8, 18, 20, 0.86);
+      --panel-light: rgba(255, 248, 235, 0.92);
+      --line-soft: rgba(255, 255, 255, 0.12);
+      --shadow-heavy: 0 30px 70px rgba(0, 0, 0, 0.26);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Bahnschrift", "Trebuchet MS", sans-serif;
+      color: var(--page-ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 214, 10, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.22), transparent 30%),
+        linear-gradient(140deg, #071014 0%, #102228 46%, #18363a 100%);
+    }
+
+    .setup-shell {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .setup-frame {
+      width: min(1180px, 100%);
+      display: grid;
+      grid-template-columns: 1.08fr 1fr;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: var(--shadow-heavy);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-pane {
+      position: relative;
+      padding: 2.25rem;
+      background:
+        linear-gradient(180deg, rgba(3, 12, 14, 0.2), rgba(3, 12, 14, 0.68)),
+        linear-gradient(155deg, color-mix(in srgb, var(--brand-color) 40%, #031014) 0%, #071014 100%);
+    }
+
+    .hero-pane::after {
+      content: "";
+      position: absolute;
+      inset: auto -12% -18% 22%;
+      height: 320px;
+      background: radial-gradient(circle, rgba(255, 214, 10, 0.22), transparent 62%);
+      pointer-events: none;
+    }
+
+    .wizard-pane {
+      padding: 2rem;
+      background: rgba(255, 252, 245, 0.98);
+      color: #132124;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .hero-title {
+      font-size: clamp(2.4rem, 4vw, 4rem);
+      line-height: 0.95;
+      margin: 1.5rem 0 1rem;
+      max-width: 10ch;
+    }
+
+    .hero-copy {
+      max-width: 42rem;
+      color: var(--page-muted);
+      font-size: 1.05rem;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.9rem;
+      margin-top: 2rem;
+    }
+
+    .hero-stat,
+    .hero-card,
+    .lane-card,
+    .carrier-card,
+    .shipment-row,
+    .confirm-card,
+    .status-banner,
+    .preview-card {
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .hero-stat,
+    .hero-card,
+    .preview-card {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(8px);
+    }
+
+    .hero-stat {
+      padding: 1rem;
+    }
+
+    .hero-stat-number {
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
+    .hero-card {
+      padding: 1.25rem;
+      margin-top: 1rem;
+    }
+
+    .preview-card {
+      margin-top: 1.5rem;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .preview-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(125deg, color-mix(in srgb, var(--brand-color) 55%, transparent) 0%, transparent 58%),
+        radial-gradient(circle at bottom right, rgba(255, 214, 10, 0.22), transparent 35%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .preview-content {
+      position: relative;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .preview-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      background: rgba(3, 27, 22, 0.6);
+      width: fit-content;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .brand-logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      object-fit: cover;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      display: none;
+    }
+
+    .brand-logo.visible {
+      display: block;
+    }
+
+    .brand-swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--brand-color);
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
+    }
+
+    .step-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .step-indicators {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin: 1.25rem 0 1.75rem;
+    }
+
+    .step-pill {
+      padding: 0.85rem 0.95rem;
+      border-radius: 16px;
+      background: rgba(7, 16, 20, 0.05);
+      border: 1px solid rgba(7, 16, 20, 0.08);
+      color: rgba(19, 33, 36, 0.58);
+      transition: 0.2s ease;
+    }
+
+    .step-pill.active {
+      border-color: color-mix(in srgb, var(--brand-color) 45%, transparent);
+      background: color-mix(in srgb, var(--brand-color) 10%, #ffffff);
+      color: #102528;
+      transform: translateY(-2px);
+    }
+
+    .step-pill.done {
+      color: #102528;
+      background: rgba(255, 214, 10, 0.14);
+      border-color: rgba(255, 214, 10, 0.28);
+    }
+
+    .wizard-step {
+      display: none;
+    }
+
+    .wizard-step.active {
+      display: block;
+    }
+
+    .soft-label {
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(19, 33, 36, 0.58);
+      margin-bottom: 0.35rem;
+    }
+
+    .form-control,
+    .form-control:focus,
+    .form-control-color,
+    .form-control-color:focus {
+      border-color: rgba(7, 16, 20, 0.12);
+      box-shadow: none;
+    }
+
+    .form-control,
+    .form-control-color {
+      border-radius: 14px;
+      padding: 0.85rem 0.95rem;
+      background: #fff;
+    }
+
+    .color-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid rgba(7, 16, 20, 0.12);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .color-input-wrap input[type="color"] {
+      width: 52px;
+      height: 40px;
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+
+    .lane-grid,
+    .carrier-grid,
+    .confirm-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.9rem;
+    }
+
+    .carrier-card,
+    .lane-card,
+    .confirm-card,
+    .shipment-row {
+      background: rgba(7, 16, 20, 0.03);
+      border: 1px solid rgba(7, 16, 20, 0.08);
+      padding: 1rem;
+    }
+
+    .shipment-list {
+      display: grid;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .shipment-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .shipment-ref {
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(19, 33, 36, 0.55);
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(15, 118, 110, 0.12);
+      color: #0f5f57;
+    }
+
+    .status-banner {
+      display: none;
+      padding: 1rem 1rem 1rem 1.1rem;
+      margin-bottom: 1rem;
+      background: rgba(15, 118, 110, 0.08);
+      border-color: rgba(15, 118, 110, 0.18);
+    }
+
+    .status-banner.visible {
+      display: block;
+    }
+
+    .wizard-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 1.75rem;
+    }
+
+    .btn-brand {
+      background: var(--brand-color);
+      border-color: var(--brand-color);
+      color: #fff;
+    }
+
+    .btn-brand:hover,
+    .btn-brand:focus {
+      background: color-mix(in srgb, var(--brand-color) 88%, #000 12%);
+      border-color: color-mix(in srgb, var(--brand-color) 88%, #000 12%);
+      color: #fff;
+    }
+
+    .btn-soft {
+      border-radius: 999px;
+      padding: 0.78rem 1.15rem;
+      font-weight: 600;
+    }
+
+    .helper-text {
+      color: rgba(19, 33, 36, 0.6);
+      font-size: 0.94rem;
+    }
+
+    .inline-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: rgba(246, 245, 239, 0.7);
+      font-size: 0.92rem;
+    }
+
+    .success-link {
+      text-decoration: none;
+      color: var(--brand-color);
+      font-weight: 700;
+    }
+
+    @media (max-width: 980px) {
+      .setup-frame {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-title {
+        max-width: none;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hero-grid,
+      .lane-grid,
+      .carrier-grid,
+      .confirm-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .step-indicators {
+        grid-template-columns: 1fr;
+      }
+
+      .shipment-row,
+      .wizard-actions,
+      .step-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="setup-shell">
+    <div class="setup-frame">
+      <section class="hero-pane">
+        <div class="eyebrow">
+          <i class="bi bi-stars"></i>
+          White-Label TMS Sandbox
+        </div>
+        <h1 class="hero-title">Brand it, preload it, hand it off.</h1>
+        <p class="hero-copy">
+          Finish the sandbox in under five minutes. Set the company name, upload a logo, pick a primary color,
+          and the wizard will load five fake shipments, three carriers, and two lanes into <strong>`tms.db`</strong>.
+        </p>
+        <div class="inline-note">
+          <i class="bi bi-stopwatch"></i>
+          3 steps max. No extra setup screens.
+        </div>
+
+        <div class="hero-grid">
+          <div class="hero-stat">
+            <div class="hero-stat-number">5</div>
+            <div class="small text-white-50">Fake shipments</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-number">3</div>
+            <div class="small text-white-50">Demo carriers</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-number">2</div>
+            <div class="small text-white-50">Live lanes</div>
+          </div>
+        </div>
+
+        <div class="hero-card">
+          <div class="small text-uppercase text-white-50 mb-2">Current Sandbox State</div>
+          <div class="d-flex justify-content-between gap-3 flex-wrap">
+            <div>
+              <div class="small text-white-50">Company</div>
+              <div class="fs-5 fw-semibold" id="heroCompanyName">{{ setup.settings.company_name or "Summit Freight" }}</div>
+            </div>
+            <div>
+              <div class="small text-white-50">Primary color</div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="brand-swatch" id="heroSwatch"></span>
+                <span id="heroColorCode">{{ setup.settings.primary_color or "#0f766e" }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="preview-card">
+          <div class="preview-content">
+            <span class="preview-badge">
+              <i class="bi bi-palette-fill"></i>
+              Live preview
+            </span>
+            <div class="d-flex align-items-center gap-3">
+              <img
+                id="brandLogoPreview"
+                class="brand-logo {% if setup.settings.company_logo %}visible{% endif %}"
+                src="{{ setup.settings.company_logo }}"
+                alt="Brand logo preview">
+              <div>
+                <div class="small text-white-50">Sandbox workspace</div>
+                <div class="fs-4 fw-semibold" id="brandNamePreview">{{ setup.settings.company_name or "Summit Freight" }}</div>
+                <div class="small text-white-50">Branded carrier portal and onboarding shell</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="wizard-pane">
+        <div class="step-header">
+          <div>
+            <div class="soft-label">Setup wizard</div>
+            <h2 class="h3 mb-1">Launch `/tms/setup`</h2>
+            <div class="helper-text" id="stepSummary">Step 1 of 3. Capture the white-label basics.</div>
+          </div>
+          <div class="text-end">
+            <div class="soft-label">Database</div>
+            <div class="fw-semibold">`contact-dashboard/tms/tms.db`</div>
+          </div>
+        </div>
+
+        <div class="status-banner {% if setup.setup_complete %}visible{% endif %}" id="statusBanner">
+          <div class="fw-semibold mb-1" id="statusTitle">
+            {% if setup.setup_complete %}Sandbox ready{% else %}Sandbox not saved yet{% endif %}
+          </div>
+          <div class="helper-text" id="statusCopy">
+            {% if setup.setup_complete %}
+            Saved brand config and preloaded {{ setup.counts.shipments }} shipments, {{ setup.counts.carriers }} carriers, and {{ setup.counts.lanes }} lanes.
+            {% else %}
+            Finish the last step and the wizard will save your branding plus demo records into `tms.db`.
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="step-indicators">
+          <div class="step-pill active" data-pill="0">
+            <div class="fw-semibold">1. Brand</div>
+            <div class="small">Company, logo, color</div>
+          </div>
+          <div class="step-pill" data-pill="1">
+            <div class="fw-semibold">2. Demo Data</div>
+            <div class="small">Shipments, carriers, lanes</div>
+          </div>
+          <div class="step-pill" data-pill="2">
+            <div class="fw-semibold">3. Confirm</div>
+            <div class="small">Save and preload</div>
+          </div>
+        </div>
+
+        <form id="setupForm" action="{{ url_for('tms.setup_wizard') }}" method="post" enctype="multipart/form-data" novalidate>
+          <div class="wizard-step active" data-step="0">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="soft-label" for="company_name">Company name</label>
+                <input
+                  class="form-control"
+                  id="company_name"
+                  name="company_name"
+                  value="{{ setup.settings.company_name or 'Summit Freight' }}"
+                  placeholder="Summit Freight"
+                  required>
+              </div>
+              <div class="col-md-6">
+                <label class="soft-label" for="logo">Logo upload</label>
+                <input class="form-control" id="logo" name="logo" type="file" accept="image/*">
+                <div class="helper-text mt-2">PNG, JPG, WEBP, or SVG. Stored directly in `tms.db` for sandbox portability.</div>
+              </div>
+              <div class="col-md-6">
+                <label class="soft-label" for="primary_color">Primary color</label>
+                <div class="color-input-wrap">
+                  <input id="primary_color" name="primary_color" type="color" value="{{ setup.settings.primary_color or '#0f766e' }}">
+                  <div>
+                    <div class="fw-semibold" id="colorCodeLabel">{{ setup.settings.primary_color or "#0f766e" }}</div>
+                    <div class="helper-text">Used on buttons, highlights, and preview cards.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="wizard-step" data-step="1">
+            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+              <div>
+                <div class="soft-label">Preloader scope</div>
+                <h3 class="h4 mb-2">Sandbox records that ship with setup</h3>
+                <div class="helper-text">The wizard writes these fake records into `tms.db` so the sandbox opens with something meaningful on day one.</div>
+              </div>
+              <div class="text-end">
+                <div class="soft-label">Existing counts</div>
+                <div class="fw-semibold" id="countSummary">{{ setup.counts.shipments }} shipments / {{ setup.counts.carriers }} carriers / {{ setup.counts.lanes }} lanes</div>
+              </div>
+            </div>
+
+            <div class="carrier-grid mt-3">
+              {% for carrier in setup.demo_carriers %}
+              <div class="carrier-card">
+                <div class="soft-label">Carrier</div>
+                <div class="fw-semibold">{{ carrier.name }}</div>
+                <div class="helper-text">{{ carrier.scac }} · {{ carrier.contact_email }}</div>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="lane-grid mt-3">
+              {% for lane in setup.demo_lanes %}
+              <div class="lane-card">
+                <div class="soft-label">{{ lane.mode }} lane</div>
+                <div class="fw-semibold">{{ lane.origin_name }} to {{ lane.destination_name }}</div>
+                <div class="helper-text">{{ lane.avg_transit_days }} day average transit · {{ lane.weekly_shipments }} loads/week</div>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="shipment-list">
+              {% for shipment in setup.demo_shipments %}
+              <div class="shipment-row">
+                <div>
+                  <div class="shipment-ref">{{ shipment.shipment_ref }}</div>
+                  <div class="fw-semibold">{{ shipment.shipper_name }} to {{ shipment.consignee_name }}</div>
+                  <div class="helper-text">{{ shipment.origin_port }} to {{ shipment.destination_port }} · {{ shipment.carrier_name }}</div>
+                </div>
+                <span class="status-chip">{{ shipment.status }}</span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="wizard-step" data-step="2">
+            <div class="soft-label">Final check</div>
+            <h3 class="h4 mb-2">Save the white-label config and preload the sandbox</h3>
+            <div class="helper-text mb-3">One submit writes the brand settings plus the demo dataset into `tms.db`.</div>
+
+            <div class="confirm-grid">
+              <div class="confirm-card">
+                <div class="soft-label">Brand config</div>
+                <div class="fw-semibold mb-1" id="confirmName">{{ setup.settings.company_name or "Summit Freight" }}</div>
+                <div class="helper-text">Logo, company name, and primary color will be available on next load.</div>
+              </div>
+              <div class="confirm-card">
+                <div class="soft-label">Demo preload</div>
+                <div class="fw-semibold mb-1">5 shipments, 3 carriers, 2 lanes</div>
+                <div class="helper-text">The sandbox opens with a usable TMS dataset instead of an empty shell.</div>
+              </div>
+            </div>
+
+            <div class="confirm-card mt-3">
+              <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+                <div>
+                  <div class="soft-label">What happens next</div>
+                  <div class="fw-semibold">The POST request saves into `tms.db` and returns the new counts immediately.</div>
+                  <div class="helper-text mt-1">Re-running setup refreshes the sandbox demo dataset back to the packaged 5/3/2 baseline.</div>
+                </div>
+                <a class="success-link" href="/tms/" id="openDashboardLink">Open TMS dashboard</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-danger small mt-3 d-none" id="formError"></div>
+
+          <div class="wizard-actions">
+            <button class="btn btn-outline-secondary btn-soft" id="backButton" type="button" disabled>
+              <i class="bi bi-arrow-left-short"></i> Back
+            </button>
+            <button class="btn btn-brand btn-soft" id="nextButton" type="button">
+              Continue <i class="bi bi-arrow-right-short"></i>
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("setupForm");
+    const steps = Array.from(document.querySelectorAll(".wizard-step"));
+    const pills = Array.from(document.querySelectorAll(".step-pill"));
+    const nextButton = document.getElementById("nextButton");
+    const backButton = document.getElementById("backButton");
+    const formError = document.getElementById("formError");
+    const stepSummary = document.getElementById("stepSummary");
+    const companyInput = document.getElementById("company_name");
+    const colorInput = document.getElementById("primary_color");
+    const logoInput = document.getElementById("logo");
+    const brandNamePreview = document.getElementById("brandNamePreview");
+    const confirmName = document.getElementById("confirmName");
+    const heroCompanyName = document.getElementById("heroCompanyName");
+    const colorCodeLabel = document.getElementById("colorCodeLabel");
+    const heroColorCode = document.getElementById("heroColorCode");
+    const heroSwatch = document.getElementById("heroSwatch");
+    const brandLogoPreview = document.getElementById("brandLogoPreview");
+    const statusBanner = document.getElementById("statusBanner");
+    const statusTitle = document.getElementById("statusTitle");
+    const statusCopy = document.getElementById("statusCopy");
+    const countSummary = document.getElementById("countSummary");
+
+    const stepLabels = [
+      "Step 1 of 3. Capture the white-label basics.",
+      "Step 2 of 3. Review the sandbox records that will be preloaded.",
+      "Step 3 of 3. Save into tms.db and launch the sandbox."
+    ];
+
+    let currentStep = 0;
+
+    function syncPreview() {
+      const companyName = companyInput.value.trim() || "Summit Freight";
+      const colorValue = colorInput.value || "#0f766e";
+
+      document.documentElement.style.setProperty("--brand-color", colorValue);
+      brandNamePreview.textContent = companyName;
+      confirmName.textContent = companyName;
+      heroCompanyName.textContent = companyName;
+      colorCodeLabel.textContent = colorValue;
+      heroColorCode.textContent = colorValue;
+      heroSwatch.style.backgroundColor = colorValue;
+    }
+
+    function showStep(index) {
+      currentStep = index;
+      steps.forEach((step, stepIndex) => {
+        step.classList.toggle("active", stepIndex === index);
+      });
+      pills.forEach((pill, pillIndex) => {
+        pill.classList.toggle("active", pillIndex === index);
+        pill.classList.toggle("done", pillIndex < index);
+      });
+      stepSummary.textContent = stepLabels[index];
+      backButton.disabled = index === 0;
+      nextButton.innerHTML = index === steps.length - 1
+        ? 'Save Sandbox <i class="bi bi-database-check ms-1"></i>'
+        : 'Continue <i class="bi bi-arrow-right-short"></i>';
+      formError.classList.add("d-none");
+      formError.textContent = "";
+    }
+
+    function ensureStepValid() {
+      if (currentStep !== 0) {
+        return true;
+      }
+      if (!companyInput.value.trim()) {
+        formError.textContent = "Company name is required.";
+        formError.classList.remove("d-none");
+        companyInput.focus();
+        return false;
+      }
+      return true;
+    }
+
+    async function submitSetup() {
+      nextButton.disabled = true;
+      backButton.disabled = true;
+      nextButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving';
+      formError.classList.add("d-none");
+
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form)
+        });
+        const payload = await response.json();
+
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.error || "Unable to save sandbox setup.");
+        }
+
+        countSummary.textContent = `${payload.counts.shipments} shipments / ${payload.counts.carriers} carriers / ${payload.counts.lanes} lanes`;
+        statusBanner.classList.add("visible");
+        statusTitle.textContent = "Sandbox ready";
+        statusCopy.textContent = `Saved brand config and preloaded ${payload.counts.shipments} shipments, ${payload.counts.carriers} carriers, and ${payload.counts.lanes} lanes.`;
+        if (payload.brand && payload.brand.company_logo) {
+          brandLogoPreview.src = payload.brand.company_logo;
+          brandLogoPreview.classList.add("visible");
+        }
+      } catch (error) {
+        formError.textContent = error.message;
+        formError.classList.remove("d-none");
+      } finally {
+        nextButton.disabled = false;
+        backButton.disabled = false;
+        showStep(2);
+      }
+    }
+
+    logoInput.addEventListener("change", () => {
+      const file = logoInput.files && logoInput.files[0];
+      if (!file) {
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        brandLogoPreview.src = reader.result;
+        brandLogoPreview.classList.add("visible");
+      };
+      reader.readAsDataURL(file);
+    });
+
+    companyInput.addEventListener("input", syncPreview);
+    colorInput.addEventListener("input", syncPreview);
+
+    nextButton.addEventListener("click", async () => {
+      if (!ensureStepValid()) {
+        return;
+      }
+      if (currentStep < steps.length - 1) {
+        showStep(currentStep + 1);
+        return;
+      }
+      await submitSetup();
+    });
+
+    backButton.addEventListener("click", () => {
+      if (currentStep > 0) {
+        showStep(currentStep - 1);
+      }
+    });
+
+    syncPreview();
+    showStep(0);
+    if ({{ setup.setup_complete|tojson }}) {
+      statusBanner.classList.add("visible");
+    }
+  </script>
+</body>
+</html>

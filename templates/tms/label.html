@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shipping Label — {{ shipment.shipment_ref }}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: #f5f5f5; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 20px; }
+    .label-wrap { background: #fff; width: 4in; min-height: 6in; border: 2px solid #000; padding: 0; display: flex; flex-direction: column; box-shadow: 0 4px 24px rgba(0,0,0,0.18); }
+    .label-header { border-bottom: 3px solid #000; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+    .label-header .company { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .label-header .mode { font-size: 11px; border: 1.5px solid #000; border-radius: 3px; padding: 2px 7px; font-weight: 700; letter-spacing: 0.08em; }
+    .label-section { border-bottom: 2px solid #000; padding: 10px 14px; }
+    .label-section:last-child { border-bottom: none; flex: 1; }
+    .label-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #555; margin-bottom: 3px; }
+    .label-value { font-size: 13px; font-weight: 600; line-height: 1.35; }
+    .label-address { font-size: 12px; line-height: 1.45; }
+    .label-ref-big { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin: 4px 0; }
+    .label-barcode-area { text-align: center; padding: 8px 14px; border-bottom: 2px solid #000; }
+    .barcode-placeholder { border: 1.5px dashed #aaa; border-radius: 4px; padding: 8px; font-size: 10px; color: #888; letter-spacing: 0.15em; }
+    .label-row { display: flex; gap: 0; }
+    .label-row .label-section { flex: 1; border-right: 1.5px solid #000; }
+    .label-row .label-section:last-child { border-right: none; border-bottom: 2px solid #000; }
+    .label-footer { padding: 8px 14px; font-size: 9px; color: #888; text-align: center; border-top: 1.5px solid #eee; margin-top: auto; }
+    .print-btn { position: fixed; top: 16px; right: 16px; background: #000; color: #fff; border: none; border-radius: 6px; padding: 9px 20px; font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 0.06em; z-index: 999; }
+    .print-btn:hover { background: #333; }
+    @media print {
+      body { background: white; padding: 0; }
+      .label-wrap { box-shadow: none; width: 4in; }
+      .print-btn { display: none; }
+    }
+    {% if label_error %}
+    .label-error { background: #fff8e1; border: 1px solid #f59e0b; border-radius: 4px; padding: 8px 12px; margin: 10px 14px; font-size: 11px; color: #92400e; }
+    {% endif %}
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">Print Label</button>
+  <div class="label-wrap">
+    <div class="label-header">
+      <div class="company">{{ company }}</div>
+      <div class="mode">{{ shipment.mode or 'FCL' }}</div>
+    </div>
+
+    {% if label_error %}
+    <div class="label-error">Live carrier label unavailable — showing in-app label. ({{ label_error[:80] }})</div>
+    {% endif %}
+
+    <!-- Ship To -->
+    <div class="label-section">
+      <div class="label-label">Ship To</div>
+      <div class="label-address" style="font-size:14px;font-weight:700;">{{ shipment.consignee_name or '—' }}</div>
+      {% if shipment.consignee_address %}
+      <div class="label-address">{{ shipment.consignee_address }}</div>
+      {% endif %}
+      <div class="label-address" style="font-weight:600;">{{ shipment.destination_port or '—' }}</div>
+    </div>
+
+    <!-- Ship From -->
+    <div class="label-section">
+      <div class="label-label">Ship From</div>
+      <div class="label-address">{{ shipment.shipper_name or '—' }}</div>
+      {% if shipment.shipper_address %}
+      <div class="label-address" style="font-size:11px;">{{ shipment.shipper_address }}</div>
+      {% endif %}
+      <div class="label-address" style="font-size:11px;color:#555;">{{ shipment.origin_port or '—' }}</div>
+    </div>
+
+    <!-- Reference -->
+    <div class="label-section">
+      <div class="label-label">Reference</div>
+      <div class="label-ref-big">{{ shipment.shipment_ref }}</div>
+    </div>
+
+    <!-- Barcode area -->
+    <div class="label-barcode-area">
+      <div class="barcode-placeholder">*{{ shipment.shipment_ref }}*</div>
+      <div style="font-size:10px;color:#aaa;margin-top:4px;">{{ shipment.shipment_ref }}</div>
+    </div>
+
+    <!-- Route + Carrier row -->
+    <div class="label-row">
+      <div class="label-section">
+        <div class="label-label">Carrier</div>
+        <div class="label-value" style="font-size:12px;">{{ shipment.carrier_name or '—' }}</div>
+      </div>
+      <div class="label-section">
+        <div class="label-label">ETD</div>
+        <div class="label-value" style="font-size:12px;">{{ shipment.etd or '—' }}</div>
+      </div>
+    </div>
+
+    <!-- Cargo row -->
+    <div class="label-row">
+      <div class="label-section">
+        <div class="label-label">Weight</div>
+        <div class="label-value" style="font-size:12px;">{{ "{:,.0f}".format(shipment.weight_kg or 0) }} kg</div>
+      </div>
+      <div class="label-section">
+        <div class="label-label">Containers</div>
+        <div class="label-value" style="font-size:12px;">{{ shipment.containers or '—' }}</div>
+      </div>
+    </div>
+
+    <div class="label-footer">
+      Generated {{ now | default('—') }} &nbsp;·&nbsp; {{ company }}&nbsp;·&nbsp; DO NOT BEND
+    </div>
+  </div>
+</body>
+</html>

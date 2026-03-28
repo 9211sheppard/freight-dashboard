@@ -1,0 +1,92 @@
+{% extends "stripe/base.html" %}
+{% set active_tab = 'tms' %}
+
+{% block title %}TMS{% endblock %}
+
+{% block content %}
+<div class="s-fade-in">
+
+  <div class="s-page-header">
+    <div>
+      <h1 class="s-page-title">TMS</h1>
+      <div class="s-page-subtitle">Transportation Management System</div>
+    </div>
+    <div class="s-page-actions">
+      <button class="s-btn s-btn-primary" disabled>
+        <i class="bi bi-plus-circle"></i> New Shipment
+      </button>
+    </div>
+  </div>
+
+  <div class="s-stats-grid">
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-box-seam"></i> Active Shipments</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-truck"></i> In Transit</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-check2-circle"></i> Delivered</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-exclamation-diamond"></i> Exceptions</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Shipment Board</span>
+        <div style="display:flex;gap:6px;">
+          <button class="s-btn s-btn-ghost s-btn-sm" disabled>Loads</button>
+          <button class="s-btn s-btn-ghost s-btn-sm" disabled>Dispatch</button>
+          <button class="s-btn s-btn-ghost s-btn-sm" disabled>Loadboard</button>
+        </div>
+      </div>
+      <div class="s-card-body s-card-body--flush">
+        <table class="s-table">
+          <thead>
+            <tr><th>Ref</th><th>Origin</th><th>Destination</th><th>Carrier</th><th>Status</th><th>ETA</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="6" class="s-table-empty">
+              <i class="bi bi-box-seam"></i>
+              Shipments will populate here.
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Control Tower</span>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-radar"></i>
+          <div class="s-empty-title">Live tracking</div>
+          <div class="s-empty-desc">Real-time shipment visibility, alerts, and milestone updates.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="s-card">
+    <div class="s-card-header">
+      <span class="s-card-title">Documents & Compliance</span>
+    </div>
+    <div class="s-card-body">
+      <div class="s-empty">
+        <i class="bi bi-file-earmark-text"></i>
+        <div class="s-empty-title">Document management</div>
+        <div class="s-empty-desc">BOLs, commercial invoices, packing lists, and customs documents.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "stripe/base.html" %}
+{% set active_tab = 'contacts' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="s-fade-in">
+
+  <!-- Page Header -->
+  <div class="s-page-header">
+    <div>
+      <h1 class="s-page-title">Dashboard</h1>
+      <div class="s-page-subtitle">Freight Intelligence Platform</div>
+    </div>
+  </div>
+
+  <!-- Overview Stats (shell) -->
+  <div class="s-stats-grid">
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-globe2"></i> Overview</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-ship"></i> Shipments</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-currency-dollar"></i> Rates</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+    <div class="s-stat-card">
+      <div class="s-stat-label"><i class="bi bi-send"></i> Outreach</div>
+      <div class="s-stat-value">&mdash;</div>
+    </div>
+  </div>
+
+  <!-- Empty shell cards -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Recent Activity</span>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-clock-history"></i>
+          <div class="s-empty-title">No activity yet</div>
+          <div class="s-empty-desc">Activity will appear here as you use the platform.</div>
+        </div>
+      </div>
+    </div>
+    <div class="s-card">
+      <div class="s-card-header">
+        <span class="s-card-title">Quick Actions</span>
+      </div>
+      <div class="s-card-body">
+        <div class="s-empty">
+          <i class="bi bi-lightning"></i>
+          <div class="s-empty-title">Coming soon</div>
+          <div class="s-empty-desc">Quick actions and shortcuts will live here.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,318 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Route Planner{% endblock %}
+
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+.rp-stat-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  text-align: center;
+}
+.rp-stat-num {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.rp-stat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: rgba(255,255,255,.45);
+  margin-top: .25rem;
+}
+.rp-table th {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: rgba(255,255,255,.45);
+  font-weight: 500;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  padding: .55rem .75rem;
+}
+.rp-table td {
+  padding: .6rem .75rem;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  font-size: .875rem;
+}
+.rp-table tr:last-child td { border-bottom: none; }
+.rp-table tr:hover td { background: rgba(255,255,255,.03); }
+.rp-ref-link {
+  font-family: monospace;
+  font-size: .85rem;
+  font-weight: 600;
+  color: #6ee7b7;
+  text-decoration: none;
+}
+.rp-ref-link:hover { color: #a7f3d0; text-decoration: underline; }
+.status-draft    { background: rgba(100,116,139,.25); color: #94a3b8; }
+.status-assigned { background: rgba(59,130,246,.2);  color: #93c5fd; }
+.status-in-progress { background: rgba(234,179,8,.2); color: #fde047; }
+.status-completed   { background: rgba(34,197,94,.2); color: #86efac; }
+.status-badge {
+  padding: .2rem .55rem;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  white-space: nowrap;
+}
+.rp-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.65);
+  backdrop-filter: blur(3px);
+  z-index: 1050;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.rp-modal-overlay.open { display: flex; }
+.rp-modal {
+  background: #1a1f2e;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 1rem;
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.rp-modal h5 {
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+}
+.rp-form-label {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: rgba(255,255,255,.5);
+  margin-bottom: .3rem;
+  display: block;
+}
+.rp-input {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  color: #fff;
+  border-radius: .5rem;
+  padding: .5rem .75rem;
+  width: 100%;
+  font-size: .875rem;
+  outline: none;
+  transition: border-color .15s;
+}
+.rp-input:focus { border-color: #6ee7b7; }
+.rp-input::placeholder { color: rgba(255,255,255,.25); }
+.rp-btn-primary {
+  background: linear-gradient(135deg,#059669,#0d9488);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: .875rem;
+  padding: .55rem 1.25rem;
+  border-radius: .5rem;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.rp-btn-primary:hover { opacity: .88; }
+.rp-btn-secondary {
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.7);
+  font-size: .875rem;
+  padding: .5rem 1rem;
+  border-radius: .5rem;
+  cursor: pointer;
+}
+.rp-btn-secondary:hover { background: rgba(255,255,255,.12); }
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: rgba(255,255,255,.35);
+}
+.empty-state i { font-size: 2.5rem; margin-bottom: .75rem; display: block; }
+</style>
+{% endblock %}
+
+{% block tms_content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="fw-bold mb-0">Route Planner</h4>
+    <div class="text-secondary" style="font-size:.8rem;margin-top:.2rem;">
+      Plan multi-stop routes, assign drivers, track progress
+    </div>
+  </div>
+  <button class="rp-btn-primary" id="btnNewRoute">
+    <i class="bi bi-plus-lg me-1"></i> New Route
+  </button>
+</div>
+
+<!-- Stats row -->
+{% set s_draft = plans | selectattr('status','equalto','Draft') | list | length %}
+{% set s_assigned = plans | selectattr('status','equalto','Assigned') | list | length %}
+{% set s_inprog = plans | selectattr('status','equalto','In Progress') | list | length %}
+{% set s_done = plans | selectattr('status','equalto','Completed') | list | length %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="rp-stat-card">
+      <div class="rp-stat-num text-secondary">{{ s_draft }}</div>
+      <div class="rp-stat-label">Draft</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="rp-stat-card">
+      <div class="rp-stat-num" style="color:#93c5fd">{{ s_assigned }}</div>
+      <div class="rp-stat-label">Assigned</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="rp-stat-card">
+      <div class="rp-stat-num" style="color:#fde047">{{ s_inprog }}</div>
+      <div class="rp-stat-label">In Progress</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="rp-stat-card">
+      <div class="rp-stat-num" style="color:#86efac">{{ s_done }}</div>
+      <div class="rp-stat-label">Completed</div>
+    </div>
+  </div>
+</div>
+
+<!-- Table -->
+<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:.75rem;overflow:hidden;">
+  {% if plans %}
+  <table class="rp-table w-100">
+    <thead>
+      <tr>
+        <th>Route Ref</th>
+        <th>Shipment / Load</th>
+        <th>Driver</th>
+        <th>Stops</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in plans %}
+      {% set st = p.status | lower | replace(' ','-') %}
+      <tr>
+        <td>
+          <a href="/tms/routes/{{ p.route_ref }}" class="rp-ref-link">{{ p.route_ref }}</a>
+        </td>
+        <td>
+          {% if p.shipment_ref %}<span class="text-info" style="font-size:.8rem;">{{ p.shipment_ref }}</span>{% endif %}
+          {% if p.load_number %}<span class="text-secondary ms-1" style="font-size:.8rem;">#{{ p.load_number }}</span>{% endif %}
+          {% if not p.shipment_ref and not p.load_number %}<span class="text-secondary">—</span>{% endif %}
+        </td>
+        <td>
+          {% if p.driver_name %}<span class="text-white">{{ p.driver_name }}</span>
+          {% else %}<span class="text-secondary">Unassigned</span>{% endif %}
+        </td>
+        <td>
+          <span class="fw-semibold">{{ p.total_stops }}</span>
+          <span class="text-secondary" style="font-size:.8rem;"> stops</span>
+        </td>
+        <td>
+          <span class="status-badge status-{{ st }}">{{ p.status }}</span>
+        </td>
+        <td class="text-secondary" style="font-size:.8rem;">
+          {{ p.created_at[:10] if p.created_at else '' }}
+        </td>
+        <td>
+          <a href="/tms/routes/{{ p.route_ref }}" class="rp-btn-secondary" style="text-decoration:none;padding:.3rem .7rem;font-size:.8rem;">
+            Open
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-signpost-split"></i>
+    <div class="fw-semibold mb-1">No routes yet</div>
+    <div style="font-size:.85rem;">Create your first route to start planning multi-stop loads.</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- New Route Modal -->
+<div class="rp-modal-overlay" id="newRouteModal">
+  <div class="rp-modal">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h5 class="mb-0"><i class="bi bi-signpost-split me-2 text-success"></i>New Route</h5>
+      <button class="rp-btn-secondary" style="padding:.25rem .6rem;" id="btnCloseModal">&times;</button>
+    </div>
+    <form id="newRouteForm">
+      <div class="mb-3">
+        <label class="rp-form-label">Shipment Ref <span class="text-secondary">(optional)</span></label>
+        <input type="text" name="shipment_ref" class="rp-input" placeholder="TMS-0001">
+      </div>
+      <div class="mb-3">
+        <label class="rp-form-label">Load Number <span class="text-secondary">(optional)</span></label>
+        <input type="text" name="load_number" class="rp-input" placeholder="LOAD-001">
+      </div>
+      <div class="mb-3">
+        <label class="rp-form-label">Notes</label>
+        <textarea name="notes" class="rp-input" rows="2" placeholder="Any route notes..."></textarea>
+      </div>
+      <div class="d-flex gap-2 justify-content-end mt-3">
+        <button type="button" class="rp-btn-secondary" id="btnCancelModal">Cancel</button>
+        <button type="submit" class="rp-btn-primary" id="btnCreateRoute">
+          <span id="createBtnText">Create Route</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  var modal   = document.getElementById('newRouteModal');
+  var form    = document.getElementById('newRouteForm');
+  var btnOpen = document.getElementById('btnNewRoute');
+  var btnClose  = document.getElementById('btnCloseModal');
+  var btnCancel = document.getElementById('btnCancelModal');
+
+  function openModal()  { modal.classList.add('open'); }
+  function closeModal() { modal.classList.remove('open'); form.reset(); }
+
+  btnOpen.addEventListener('click', openModal);
+  btnClose.addEventListener('click', closeModal);
+  btnCancel.addEventListener('click', closeModal);
+  modal.addEventListener('click', function(e){ if(e.target===modal) closeModal(); });
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('btnCreateRoute');
+    var txt = document.getElementById('createBtnText');
+    btn.disabled = true;
+    txt.textContent = 'Creating…';
+    var fd = new FormData(form);
+    var body = {};
+    fd.forEach(function(v,k){ body[k]=v; });
+    fetch('/tms/routes/new', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.ok) {
+        window.location.href = '/tms/routes/' + d.route_ref;
+      } else {
+        alert('Error creating route.');
+        btn.disabled = false;
+        txt.textContent = 'Create Route';
+      }
+    })
+    .catch(function(){ alert('Network error.'); btn.disabled=false; txt.textContent='Create Route'; });
+  });
+})();
+</script>
+{% endblock %}

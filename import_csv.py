@@ -15,6 +15,7 @@ import sys
 
 from database import init_db, get_db
 from config import CSV_SOURCES
+from mx_check import check_batch as _mx_check_batch
 
 
 def normalize(value: str) -> str:
@@ -132,9 +133,18 @@ def import_csv(csv_path: str, network_override: str = None) -> dict:
                     "linkedin_url":    r[7], "verify_notes":   r[8],
                 }
 
-    # Delete only this network's old data, then insert fresh
+    # Snapshot scraped emails before wiping — preserve any email found by scraper
+    scraped_emails = {}
     for net in networks:
-        conn.execute("DELETE FROM contacts WHERE network = ?", (net,))
+        for row in conn.execute(
+            "SELECT company_name, email FROM contacts WHERE network=? AND email!='' AND email IS NOT NULL",
+            (net,)
+        ).fetchall():
+            scraped_emails[(net.lower(), row[0].strip().lower())] = row[1]
+
+    # DISABLED: destructive delete removed — import_codex_batch.py handles dedup safely
+    # for net in networks:
+    #     conn.execute("DELETE FROM contacts WHERE network = ?", (net,))
 
     conn.executemany(
         """INSERT INTO contacts
@@ -176,31 +186,117 @@ def import_csv(csv_path: str, network_override: str = None) -> dict:
                      row["network"],       row["company_name"]),
                 )
 
-    # Auto-verify paid network members — always, on every import.
-    # These are vetted members of paid freight networks; verification must never be lost.
+    # Restore scraped emails that were wiped by the delete+insert
+    for (net, company), email in scraped_emails.items():
+        conn.execute(
+            "UPDATE contacts SET email=? WHERE LOWER(network)=? AND LOWER(company_name)=? AND (email IS NULL OR email='')",
+            (email, net, company)
+        )
+
+    # ── Step 1: Recalculate score from actual DB fields ───────────────────────
+    # Rules (CLAUDE.md): email +35, phone +25, website +15, linkedin +10. Max = 85.
+    # Score 100 = confirmed email reply only — never recalculated, never reset.
     from datetime import datetime as _dt
     today = _dt.now().strftime("%Y-%m-%d")
-    AUTO_VERIFY_NETWORKS = {
-        "WFA":   (75, "WFA paid member — auto-verified"),
-        "WWPC":  (75, "WWPC paid member — auto-verified"),
-        "FIATA": (75, "FIATA paid member — auto-verified"),
-    }
-    AUTO_REVIEW_NETWORKS = {
-        "Freightnet-FF":  (55, "Freightnet paid member — network verified"),
-        "Freightnet-Air": (55, "Freightnet paid member — network verified"),
-    }
-    for net, (score, note) in AUTO_VERIFY_NETWORKS.items():
+
+    for net in networks:
         conn.execute("""
-            UPDATE contacts SET verified_status='verified', verified_score=?,
-                                verified_date=?, verify_notes=?
-            WHERE network=? AND (verified_status='unverified' OR verified_status='' OR verified_score < ?)
-        """, (score, today, note, net, score))
-    for net, (score, note) in AUTO_REVIEW_NETWORKS.items():
+            UPDATE contacts SET verified_score = (
+                CASE WHEN email        IS NOT NULL AND TRIM(email)        != '' THEN 35 ELSE 0 END +
+                CASE WHEN phone_number IS NOT NULL AND TRIM(phone_number) != '' THEN 25 ELSE 0 END +
+                CASE WHEN website_url  IS NOT NULL AND TRIM(website_url)  != '' THEN 15 ELSE 0 END +
+                CASE WHEN linkedin_url IS NOT NULL AND TRIM(linkedin_url) != '' THEN 10 ELSE 0 END
+            )
+            WHERE network = ? AND COALESCE(verified_score, 0) != 100
+        """, (net,))
+
+    # ── Step 2: Set verified_status for trusted networks ──────────────────────
+    # Trusted = paid memberships or government-issued registries.
+    # score >= 50 → verified   |   score < 50 → review (needs more data)
+    # Unknown networks land as unverified until manually reviewed.
+    TRUSTED_NETWORKS = {
+        # Existing sources
+        "WFA":            "WFA paid member",
+        "WWPC":           "WWPC paid member",
+        "FIATA":          "FIATA paid member",
+        "Freightnet-FF":  "Freightnet paid member, IATA accredited",
+        "Freightnet-Air": "Freightnet paid member, IATA accredited",
+        "AHK-Japan":      "AHK Japan member directory",
+        # Phase 2 — country association sources
+        "BIFA":           "BIFA member (British International Freight Association)",
+        "NCBFAA":         "NCBFAA member (US customs brokers & forwarders)",
+        "DSLV":           "DSLV member (Germany, Bundesverband Spedition)",
+        "Fenex":          "Fenex member (Netherlands freight association)",
+        "Fedespedi":      "Fedespedi member (Italy freight association)",
+        "FETEIA":         "FETEIA member (Spain freight association)",
+        "AFIF":           "AFIF member (Australia International Freight Association)",
+        "JIFFA":          "JIFFA member (Japan International Freight Forwarders Assoc.)",
+        "KIFFA":          "KIFFA member (Korea International Freight Forwarders Assoc.)",
+        "CIFA":           "CIFA member (China International Freight Forwarders Assoc.)",
+        "FMC-NVOCC":      "FMC licensed NVOCC (US Federal Maritime Commission registry)",
+        "WCA":            "WCA World member",
+    }
+
+    for net in networks:
+        if net not in TRUSTED_NETWORKS:
+            continue  # unknown source — leave as unverified for manual review
+        note = TRUSTED_NETWORKS[net]
+        # score >= 50 → verified (only upgrade, never overwrite score=100)
         conn.execute("""
-            UPDATE contacts SET verified_status='review', verified_score=?,
-                                verified_date=?, verify_notes=?
-            WHERE network=? AND (verified_status='unverified' OR verified_status='' OR verified_score < ?)
-        """, (score, today, note, net, score))
+            UPDATE contacts SET
+                verified_status = 'verified',
+                verified_date   = ?,
+                verify_notes    = ?
+            WHERE network = ?
+              AND verified_score >= 50
+              AND COALESCE(verified_score, 0) != 100
+              AND (verified_status IS NULL OR verified_status IN ('', 'unverified', 'review'))
+        """, (today, note, net))
+        # score < 50 → review (missing email or phone — needs enrichment)
+        conn.execute("""
+            UPDATE contacts SET
+                verified_status = 'review',
+                verified_date   = ?,
+                verify_notes    = ?
+            WHERE network = ?
+              AND verified_score < 50
+              AND COALESCE(verified_score, 0) != 100
+              AND (verified_status IS NULL OR verified_status IN ('', 'unverified'))
+        """, (today, note + " — needs email to reach verified", net))
+
+    # ── Step 3: MX record validation ──────────────────────────────────────────
+    # Check that each email domain actually accepts mail.
+    # Invalid MX → clear email, append note, recalculate score.
+    # Never touches score=100 contacts.
+    imported_emails = conn.execute(
+        "SELECT id, email FROM contacts WHERE network IN ({}) AND email IS NOT NULL AND email != ''"
+        .format(",".join("?" * len(networks))),
+        list(networks)
+    ).fetchall()
+
+    if imported_emails:
+        mx_results = _mx_check_batch([r[1] for r in imported_emails], workers=30)
+        bad_mx = [(r[0], r[1]) for r in imported_emails if not mx_results.get(r[1], True)]
+        if bad_mx:
+            for contact_id, email in bad_mx:
+                conn.execute(
+                    "UPDATE contacts SET email='', "
+                    "verify_notes=verify_notes || ' | MX FAIL: no MX record for ' || ?, "
+                    "verified_score=("
+                    "  CASE WHEN phone_number IS NOT NULL AND TRIM(phone_number)!='' THEN 25 ELSE 0 END +"
+                    "  CASE WHEN website_url  IS NOT NULL AND TRIM(website_url) !='' THEN 15 ELSE 0 END +"
+                    "  CASE WHEN linkedin_url IS NOT NULL AND TRIM(linkedin_url)!='' THEN 10 ELSE 0 END"
+                    ") WHERE id=? AND COALESCE(verified_score,0)!=100",
+                    (email, contact_id)
+                )
+            # Re-set status for any that dropped below 50
+            for net in networks:
+                conn.execute("""
+                    UPDATE contacts SET verified_status='review'
+                    WHERE network=? AND verified_score < 50
+                      AND COALESCE(verified_score,0)!=100
+                      AND verified_status='verified'
+                """, (net,))
 
     conn.commit()
     conn.close()

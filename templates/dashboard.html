@@ -4,174 +4,207 @@
 {% block title %}Dashboard — WFA Contacts{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4 py-3">
+<div class="lux-page">
 
-  <!-- ── Search & Filter Panel ── -->
-  <div class="card shadow-sm mb-3">
-    <div class="card-body pb-2">
-      <div class="row g-2 align-items-end">
-
-        <!-- Country search -->
-        <div class="col-12 col-md-4">
-          <label class="form-label fw-medium small mb-1">
-            <i class="bi bi-globe2 me-1 text-primary"></i>Search by Country
-          </label>
-          <div class="input-group">
-            <span class="input-group-text bg-transparent"><i class="bi bi-search text-muted small"></i></span>
-            <input type="text" id="searchCountry" class="form-control"
-                   placeholder="e.g. Germany, France…" autocomplete="off">
-            <button class="btn btn-outline-secondary" type="button" id="clearCountry" title="Clear">
-              <i class="bi bi-x"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Company search -->
-        <div class="col-12 col-md-3">
-          <label class="form-label fw-medium small mb-1">
-            <i class="bi bi-building me-1 text-primary"></i>Search by Company
-          </label>
-          <div class="input-group">
-            <span class="input-group-text bg-transparent"><i class="bi bi-search text-muted small"></i></span>
-            <input type="text" id="searchCompany" class="form-control"
-                   placeholder="e.g. Acme Corp…" autocomplete="off">
-            <button class="btn btn-outline-secondary" type="button" id="clearCompany" title="Clear">
-              <i class="bi bi-x"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Name search -->
-        <div class="col-12 col-md-3">
-          <label class="form-label fw-medium small mb-1">
-            <i class="bi bi-person me-1 text-primary"></i>Search by Name
-          </label>
-          <div class="input-group">
-            <span class="input-group-text bg-transparent"><i class="bi bi-search text-muted small"></i></span>
-            <input type="text" id="searchName" class="form-control"
-                   placeholder="e.g. John Smith…" autocomplete="off">
-            <button class="btn btn-outline-secondary" type="button" id="clearName" title="Clear">
-              <i class="bi bi-x"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Sort -->
-        <div class="col-6 col-md-1">
-          <label class="form-label fw-medium small mb-1">
-            <i class="bi bi-sort-alpha-down me-1 text-primary"></i>Sort by
-          </label>
-          <select id="sortBy" class="form-select">
-            <option value="company_name">Company Name</option>
-            <option value="country">Country</option>
-          </select>
-        </div>
-
-        <!-- Sort direction -->
-        <div class="col-6 col-md-1">
-          <label class="form-label fw-medium small mb-1">
-            <i class="bi bi-arrow-down-up me-1 text-primary"></i>Order
-          </label>
-          <select id="sortDir" class="form-select">
-            <option value="asc">A → Z</option>
-            <option value="desc">Z → A</option>
-          </select>
-        </div>
-
-      </div><!-- /row -->
-
-      <!-- Filters row -->
-      <div class="row g-2 align-items-center mt-1">
-        <div class="col-auto">
-          <!-- Network filter -->
-          <div class="btn-group btn-group-sm me-3" role="group" id="networkFilter">
-            <button type="button" class="btn btn-outline-primary active" data-network="">All Networks</button>
-            <button type="button" class="btn btn-outline-primary" data-network="WFA">WFA</button>
-            <button type="button" class="btn btn-outline-primary" data-network="WWPC">WWPC</button>
-            <button type="button" class="btn btn-outline-primary" data-network="FIATA">FIATA</button>
-            <button type="button" class="btn btn-outline-primary" data-network="Freightnet-FF">Freightnet FF</button>
-            <button type="button" class="btn btn-outline-primary" data-network="Freightnet-Air">Freightnet Air</button>
-            <button type="button" class="btn btn-outline-primary" data-network="AHK-Japan">AHK Japan</button>
-          </div>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="checkbox" id="filterEmail">
-            <label class="form-check-label small" for="filterEmail">
-              <i class="bi bi-envelope-fill text-primary me-1"></i>Has Email
-            </label>
-          </div>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="checkbox" id="filterPhone">
-            <label class="form-check-label small" for="filterPhone">
-              <i class="bi bi-telephone-fill text-primary me-1"></i>Has Phone
-            </label>
-          </div>
-        </div>
-        <div class="col-auto ms-auto d-flex align-items-center gap-2">
-          <button id="clearAll" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-x-circle me-1"></i>Clear All
-          </button>
-          <button id="exportBtn" class="btn btn-sm btn-success">
-            <i class="bi bi-download me-1"></i>Export CSV
-          </button>
-        </div>
-      </div>
-
-      <!-- Verification filter row -->
-      <div class="row g-2 align-items-center mt-1 pt-1 border-top">
-        <div class="col-auto d-flex align-items-center gap-2 flex-wrap">
-          <span class="small text-muted fw-medium">
-            <i class="bi bi-shield-check me-1"></i>Verification:
-          </span>
-          <div class="btn-group btn-group-sm" role="group" id="verifyFilter">
-            <button type="button" class="btn btn-outline-secondary active" data-verify="">All</button>
-            <button type="button" class="btn btn-outline-success"  data-verify="verified">✅ Verified</button>
-            <button type="button" class="btn btn-outline-warning"  data-verify="review">⚠️ Review</button>
-            <button type="button" class="btn btn-outline-danger"   data-verify="flagged">❌ Flagged</button>
-            <button type="button" class="btn btn-outline-secondary" data-verify="unverified">⬜ Not checked</button>
-          </div>
-          <span id="verifyStats" class="small text-muted ms-2"></span>
-        </div>
-      </div>
-
+  {% if session.get('user_role') == 'admin' %}
+  <!-- ── User Activity ── -->
+  <div class="lux-section lux-activity" id="adminActivityCard">
+    <div class="lux-section-header">
+      <span class="lux-label">User Activity</span>
+      <button class="lux-ghost-btn" id="toggleActivity"><i class="bi bi-chevron-down"></i></button>
     </div>
-  </div><!-- /card -->
-
-  <!-- ── Results bar ── -->
-  <div class="d-flex align-items-center justify-content-between mb-2 px-1">
-    <span id="resultCount" class="text-muted small">
-      <span class="spinner-border spinner-border-sm me-1" role="status" id="spinner"></span>
-      Loading…
-    </span>
-    <span class="text-muted small" id="dbTotal"></span>
-  </div>
-
-  <!-- ── Table ── -->
-  <div class="card shadow-sm">
-    <div class="table-responsive">
-      <table class="table table-hover mb-0" id="resultsTable">
+    <div id="activityPanel">
+      <table class="lux-table" id="activityTable">
         <thead>
           <tr>
-            <th style="width:70px">Network</th>
-            <th class="sortable-col" data-col="company_name">
-              Company <i class="bi bi-chevron-expand sort-icon"></i>
-            </th>
-            <th>Email</th>
-            <th>Phone</th>
-            <th class="sortable-col" data-col="country">
-              Country <i class="bi bi-chevron-expand sort-icon"></i>
-            </th>
+            <th>User</th><th>Role</th><th>Logins</th><th>Last Active</th>
           </tr>
         </thead>
-        <tbody id="resultsBody">
-          <tr><td colspan="5" class="text-center text-muted py-4">Loading…</td></tr>
+        <tbody id="activityBody">
+          <tr><td colspan="4" class="lux-empty">Loading…</td></tr>
         </tbody>
       </table>
     </div>
-  </div><!-- /card -->
+  </div>
+  {% endif %}
+
+  <!-- ── Stats ── -->
+  <div class="lux-stats" id="dashboardStats">
+    <div class="lux-stat">
+      <div class="lux-stat-value" id="statTotalContacts">—</div>
+      <div class="lux-stat-label">Total Contacts</div>
+    </div>
+    <div class="lux-stat-divider"></div>
+    <div class="lux-stat">
+      <div class="lux-stat-value" id="statCountries">—</div>
+      <div class="lux-stat-label">Countries</div>
+    </div>
+    <div class="lux-stat-divider"></div>
+    <div class="lux-stat">
+      <div class="lux-stat-value" id="statNetworks">—</div>
+      <div class="lux-stat-label">Networks</div>
+    </div>
+  </div>
+
+  <!-- ── Search & Filter ── -->
+  <div class="lux-section lux-filters" id="contactsSearchPanel">
+
+    <div class="lux-search-row">
+      <!-- Country -->
+      <div class="lux-search-field">
+        <label class="lux-label">Search by Country</label>
+        <div class="lux-input-wrap">
+          <i class="bi bi-search lux-input-icon"></i>
+          <input type="text" id="searchCountry" class="lux-input" placeholder="e.g. Germany, France…" autocomplete="off">
+          <button class="lux-input-clear" type="button" id="clearCountry"><i class="bi bi-x"></i></button>
+        </div>
+      </div>
+      <!-- Company -->
+      <div class="lux-search-field">
+        <label class="lux-label">Search by Company</label>
+        <div class="lux-input-wrap">
+          <i class="bi bi-search lux-input-icon"></i>
+          <input type="text" id="searchCompany" class="lux-input" placeholder="e.g. Acme Corp…" autocomplete="off">
+          <button class="lux-input-clear" type="button" id="clearCompany"><i class="bi bi-x"></i></button>
+        </div>
+      </div>
+      <!-- Name -->
+      <div class="lux-search-field">
+        <label class="lux-label">Search by Name</label>
+        <div class="lux-input-wrap">
+          <i class="bi bi-search lux-input-icon"></i>
+          <input type="text" id="searchName" class="lux-input" placeholder="e.g. John Smith…" autocomplete="off">
+          <button class="lux-input-clear" type="button" id="clearName"><i class="bi bi-x"></i></button>
+        </div>
+      </div>
+      <!-- Sort -->
+      <div class="lux-search-field lux-search-field--sm">
+        <label class="lux-label">Sort by</label>
+        <select id="sortBy" class="lux-select">
+          <option value="company_name">Company Name</option>
+          <option value="country">Country</option>
+        </select>
+      </div>
+      <!-- Order -->
+      <div class="lux-search-field lux-search-field--sm">
+        <label class="lux-label">Order</label>
+        <select id="sortDir" class="lux-select">
+          <option value="asc">A → Z</option>
+          <option value="desc">Z → A</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Network filters -->
+    <div class="lux-filter-row">
+      <div class="lux-pills" id="networkFilter">
+        <button type="button" class="lux-pill active" data-network="">All Networks</button>
+        <button type="button" class="lux-pill" data-network="WFA">WFA</button>
+        <button type="button" class="lux-pill" data-network="WWPC">WWPC</button>
+        <button type="button" class="lux-pill" data-network="FIATA">FIATA</button>
+        <button type="button" class="lux-pill" data-network="Freightnet-FF">Freightnet FF</button>
+        <button type="button" class="lux-pill" data-network="Freightnet-Air">Freightnet Air</button>
+        <button type="button" class="lux-pill" data-network="AHK-Japan">AHK Japan</button>
+      </div>
+      <label class="lux-check">
+        <input type="checkbox" id="filterEmail">
+        <i class="bi bi-envelope-fill"></i> Has Email
+      </label>
+      <label class="lux-check">
+        <input type="checkbox" id="filterPhone">
+        <i class="bi bi-telephone-fill"></i> Has Phone
+      </label>
+      <div class="lux-filter-actions">
+        <button id="clearAll" class="lux-ghost-btn">Clear All</button>
+        <button id="exportBtn" class="lux-action-btn"><i class="bi bi-download me-1"></i>Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Verification filter -->
+    <div class="lux-filter-row lux-filter-row--verify">
+      <span class="lux-label"><i class="bi bi-shield-check me-1"></i>Verification</span>
+      <div class="lux-pills" id="verifyFilter">
+        <button type="button" class="lux-pill active" data-verify="">All</button>
+        <button type="button" class="lux-pill lux-pill--success" data-verify="verified">Verified</button>
+        <button type="button" class="lux-pill lux-pill--warning" data-verify="review">Review</button>
+        <button type="button" class="lux-pill lux-pill--danger" data-verify="flagged">Flagged</button>
+        <button type="button" class="lux-pill" data-verify="unverified">Not Checked</button>
+      </div>
+      <span id="verifyStats" class="lux-meta"></span>
+    </div>
+
+  </div>
+
+  <!-- ── Results bar ── -->
+  <div class="lux-results-bar">
+    <span id="resultCount" class="lux-meta">
+      <span class="spinner-border spinner-border-sm me-1" role="status" id="spinner"></span>
+    </span>
+    <span class="lux-meta" id="dbTotal"></span>
+  </div>
+
+  <!-- ── Table ── -->
+  <div class="lux-table-wrap">
+    <table class="lux-table" id="resultsTable">
+      <thead>
+        <tr>
+          <th style="width:80px">Network</th>
+          <th class="sortable-col" data-col="company_name">Company <i class="bi bi-chevron-expand sort-icon"></i></th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th class="sortable-col" data-col="country">Country <i class="bi bi-chevron-expand sort-icon"></i></th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody">
+        <tr><td colspan="5" class="lux-empty">Search to see results</td></tr>
+      </tbody>
+    </table>
+  </div>
 
 </div>
+
+<!-- Intelligence Modal -->
+<div class="modal fade" id="intelModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-person-badge me-2"></i>Contact Intelligence</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="intelModalBody">
+        <div class="text-center py-4"><div class="spinner-border"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='app.js') }}"></script>
+{% if session.get('user_role') == 'admin' %}
+<script>
+(function(){
+  fetch('/api/admin/activity').then(function(r){return r.json()}).then(function(data){
+    var tbody = document.getElementById('activityBody');
+    if(!tbody || !data.users) return;
+    tbody.innerHTML = data.users.map(function(u){
+      var last = u.last_login ? new Date(u.last_login).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}) : 'Never';
+      var badge = u.role === 'admin'
+        ? '<span class="lux-badge lux-badge--gold">admin</span>'
+        : '<span class="lux-badge">user</span>';
+      return '<tr><td>'+u.name+'</td><td>'+badge+'</td><td>'+u.login_count+'</td><td>'+last+'</td></tr>';
+    }).join('');
+  });
+  var btn = document.getElementById('toggleActivity');
+  if(btn) btn.addEventListener('click', function(){
+    var panel = document.getElementById('activityPanel');
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+    var icon = this.querySelector('i');
+    icon.classList.toggle('bi-chevron-down');
+    icon.classList.toggle('bi-chevron-up');
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}
