@@ -152,23 +152,34 @@ jobs:
           exit-code: "1"
 
   snyk:
-    if: ${{ secrets.SNYK_TOKEN != '' }}
     runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Skip when Snyk token is missing
+        if: ${{ env.SNYK_TOKEN == '' }}
+        run: echo "SNYK_TOKEN is not configured; skipping Snyk."
       - name: Install Snyk
+        if: ${{ env.SNYK_TOKEN != '' }}
         run: npm install -g snyk
       - name: Authenticate Snyk
-        run: snyk auth ${{ secrets.SNYK_TOKEN }}
+        if: ${{ env.SNYK_TOKEN != '' }}
+        run: snyk auth $SNYK_TOKEN
       - name: Run Snyk
+        if: ${{ env.SNYK_TOKEN != '' }}
         run: snyk test --all-projects --severity-threshold=high --skip-unresolved
 
   stripe-e2e:
-    if: ${{ secrets.STRIPE_SECRET_KEY != '' && secrets.STRIPE_WEBHOOK_SECRET != '' }}
     runs-on: ubuntu-latest
+    env:
+      ENABLE_STRIPE: "true"
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      BASE_URL: https://example.test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -179,10 +190,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r tms/requirements.txt
+      - name: Skip when Stripe secrets are missing
+        if: ${{ env.STRIPE_SECRET_KEY == '' || env.STRIPE_WEBHOOK_SECRET == '' }}
+        run: echo "Stripe test-mode secrets are not configured; skipping Stripe E2E."
       - name: Run Stripe E2E
-        env:
-          ENABLE_STRIPE: "true"
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          BASE_URL: https://example.test
+        if: ${{ env.STRIPE_SECRET_KEY != '' && env.STRIPE_WEBHOOK_SECRET != '' }}
         run: python -m unittest tms.tests.test_stripe_e2e
