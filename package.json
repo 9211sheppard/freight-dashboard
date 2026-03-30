@@ -4,14 +4,25 @@
   "version": "1.0.0",
   "description": "Local quality and security tooling for the Flask-based TMS repo",
   "scripts": {
+    "lint": "npm run lint:js",
     "lint:js": "eslint \"static/**/*.js\"",
+    "test": "npm run test:js",
     "test:js": "vitest run --passWithNoTests",
-    "build:next": "node -e \"const fs=require('fs'); const hasNextConfig=['next.config.js','next.config.mjs','next.config.ts'].some((f)=>fs.existsSync(f)); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); const hasNextDep=Boolean((pkg.dependencies&&pkg.dependencies.next)||(pkg.devDependencies&&pkg.devDependencies.next)); if(!hasNextConfig && !hasNextDep){console.log('Skipped next build: no Next.js app detected.'); process.exit(0);} process.exit(1);\""
+    "test:e2e": "playwright test",
+    "test:a11y": "playwright test --grep @a11y",
+    "test:k6": "node scripts/run-k6-smoke.mjs",
+    "build": "npm run build:next",
+    "build:next": "node -e \"const fs=require('fs'); const hasNextConfig=['next.config.js','next.config.mjs','next.config.ts'].some((f)=>fs.existsSync(f)); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); const hasNextDep=Boolean((pkg.dependencies&&pkg.dependencies.next)||(pkg.devDependencies&&pkg.devDependencies.next)); if(!hasNextConfig && !hasNextDep){console.log('Skipped next build: no Next.js app detected.'); process.exit(0);} process.exit(1);\"",
+    "test:lighthouse": "node scripts/run-lighthouse.mjs"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
     "@eslint/js": "^9.22.0",
+    "@playwright/test": "^1.58.2",
     "eslint": "^9.22.0",
     "globals": "^16.0.0",
-    "vitest": "^3.0.8"
+    "lighthouse": "^12.8.2",
+    "vitest": "^3.0.8",
+    "wait-on": "^9.0.4"
   }
 }

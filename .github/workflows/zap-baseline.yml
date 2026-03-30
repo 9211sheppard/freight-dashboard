@@ -1,0 +1,48 @@
+name: ZAP Baseline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - "codex/**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  zap-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r tms/requirements.txt
+      - name: Start local app
+        run: |
+          nohup python scripts/playwright_server.py > zap-server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4173/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat zap-server.log
+          exit 1
+      - name: Run ZAP baseline
+        run: |
+          mkdir -p zap-report
+          docker run --rm --network host \
+            -v "$PWD/zap-report:/zap/wrk" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://127.0.0.1:4173/login -J zap-report.json -r zap-report.html
+      - name: Upload ZAP artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: zap-report

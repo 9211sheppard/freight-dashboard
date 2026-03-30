@@ -7415,6 +7415,7 @@ def save_tracking_ping(carrier_id, shipment_ref, lat, lng, speed=None, timestamp
 def _build_live_eta_details(shipment, last_ping, origin_coords, destination_coords):
     eta_value = shipment.get("eta")
     eta_details = {
+        "value": eta_value,
         "display": _format_tracking_datetime(eta_value),
         "summary": _build_eta_summary(shipment.get("status"), eta_value),
         "source_label": "Scheduled ETA",
@@ -7448,6 +7449,7 @@ def _build_live_eta_details(shipment, last_ping, origin_coords, destination_coor
     recalculated_eta = ping_dt + ((planned_eta - planned_etd) * remaining_ratio)
     recalculated_eta_value = recalculated_eta.strftime("%Y-%m-%d %H:%M:%S")
 
+    eta_details["value"] = recalculated_eta_value
     eta_details["display"] = _format_tracking_datetime(recalculated_eta_value)
     eta_details["summary"] = _build_eta_summary(shipment.get("status"), recalculated_eta_value)
     eta_details["source_label"] = "GPS ETA"
@@ -7647,9 +7649,11 @@ def _build_tracking_context(shipment, events, settings, pings=None):
         "route_label": " to ".join(
             [part for part in [shipment.get("origin_port"), shipment.get("destination_port")] if part]
         ) or "Route pending",
+        "eta_value": eta_details["value"],
         "eta_display": eta_details["display"],
         "eta_summary": eta_details["summary"],
         "eta_source_label": eta_details["source_label"],
+        "eta_is_live": eta_details["is_live"],
         "progress_percent": _calculate_live_progress(
             shipment.get("status"),
             shipment.get("etd"),
@@ -7766,7 +7770,9 @@ def _derive_control_tower_health(shipment, tracking, tracking_map):
             "reason": "Shipment is still in draft and awaiting dispatch.",
         }
 
-    eta_dt = _coerce_tracking_compare_datetime(shipment.get("eta"))
+    eta_dt = _coerce_tracking_compare_datetime(
+        tracking.get("eta_value") or shipment.get("eta")
+    )
     eta_summary = tracking.get("eta_summary") or "ETA pending"
     now = datetime.utcnow()
     last_ping = tracking_map.get("last_ping")
@@ -7806,7 +7812,7 @@ def _derive_control_tower_health(shipment, tracking, tracking_map):
             "reason": reason,
         }
 
-    if hours_to_eta <= 24:
+    if last_ping and hours_to_eta <= 24:
         if last_ping and remaining_km is not None:
             reason = f"{remaining_km:,.0f} km remaining with {eta_summary.lower()}."
         elif last_ping:

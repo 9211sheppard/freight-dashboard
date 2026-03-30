@@ -187,10 +187,10 @@ class TmsTrackingTests(unittest.TestCase):
         payload = response.get_json()
 
         self.assertEqual(payload["counts"]["total"], 4)
-        self.assertEqual(payload["counts"]["on_time"], 1)
+        self.assertEqual(payload["counts"]["on_time"], 2)
         self.assertEqual(payload["counts"]["at_risk"], 0)
         self.assertEqual(payload["counts"]["draft"], 1)
-        self.assertEqual(payload["counts"]["delayed"], 2)
+        self.assertEqual(payload["counts"]["delayed"], 1)
 
         shipment_refs = {shipment["shipment_ref"] for shipment in payload["shipments"]}
         self.assertIn("TMS-DEMO-003", shipment_refs)
@@ -204,6 +204,12 @@ class TmsTrackingTests(unittest.TestCase):
         self.assertEqual(shipment["gps_ping_count"], 2)
         self.assertEqual(len(shipment["gps_path"]), 2)
         self.assertEqual(shipment["marker"]["source"], "gps")
+
+        scheduled_shipment = next(
+            shipment for shipment in payload["shipments"] if shipment["shipment_ref"] == "TMS-DEMO-002"
+        )
+        self.assertEqual(scheduled_shipment["health_key"], "on_time")
+        self.assertFalse(scheduled_shipment["has_live_data"])
 
 
 if __name__ == "__main__":

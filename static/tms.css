@@ -56,7 +56,7 @@ body .fw-bold, body .fw-semibold {
 }
 
 .tms-page .table thead th {
-    color: #1e293b !important; /* dark text on light thead */
+    color: #cbd5e1 !important;
 }
 
 .tms-page .table-dark td,
@@ -217,7 +217,7 @@ body .fw-bold, body .fw-semibold {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #606060;
+  color: #a3a3a3;
   padding: 14px 14px 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -277,8 +277,8 @@ body .fw-bold, body .fw-semibold {
   padding: 8px 0;
   flex-shrink: 0;
 }
-.tms-sb-back { color: #666 !important; }
-.tms-sb-back:hover { color: #aaa !important; }
+.tms-sb-back { color: #cbd5e1 !important; }
+.tms-sb-back:hover { color: #f8fafc !important; }
 
 /* ── Main Content ─────────────────────────────────────────────────────────── */
 .tms-main {
@@ -323,7 +323,7 @@ body .fw-bold, body .fw-semibold {
 }
 .tms-page-subtitle {
   font-size: 0.78rem;
-  color: #707070;
+  color: #cbd5e1;
   margin: 3px 0 0;
   font-weight: 400;
 }
@@ -347,7 +347,7 @@ body .fw-bold, body .fw-semibold {
 }
 .tms-stat-label {
   font-size: 0.73rem;
-  color: #767676;
+  color: #d1d5db;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 500;
@@ -388,7 +388,7 @@ body .fw-bold, body .fw-semibold {
 }
 .tms-spotlight-sub {
   font-size: 0.7rem;
-  color: #666;
+  color: #d1d5db;
   margin-top: 10px;
 }
 
@@ -483,8 +483,8 @@ body .fw-bold, body .fw-semibold {
                         box-shadow: 0 0 8px rgba(74,222,128,0.2); }
 
 /* Page subtitle / section label lift */
-.tms-page-subtitle { color: #888; }
-.tms-stat-label    { color: #888; }
+.tms-page-subtitle { color: #cbd5e1; }
+.tms-stat-label    { color: #d1d5db; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    GLOBAL CARD / TABLE LIFT — applies to all Bootstrap cards inside TMS
