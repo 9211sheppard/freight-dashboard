@@ -1,0 +1,298 @@
+{% extends "tms/tms_base.html" %}
+{% block tms_content %}
+<style nonce="{{ csp_nonce }}">
+.adm-stat-card {
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 1.4rem 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.adm-stat-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #666;
+}
+.adm-stat-value {
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+}
+.adm-stat-value.gold { color: #d4a943; }
+.adm-stat-sub {
+  font-size: 0.78rem;
+  color: #555;
+}
+.adm-section-title {
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 1rem;
+  margin-top: 2rem;
+}
+.adm-table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #555;
+  border-color: #1e1e1e;
+  padding: 0.55rem 0.75rem;
+  white-space: nowrap;
+}
+.adm-table td {
+  color: #ccc;
+  border-color: #1a1a1a;
+  vertical-align: middle;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+}
+.adm-table tbody tr:hover { background: #111; }
+.badge-active { background: #1a3a20; color: #4ade80; border: 1px solid #2d5a34; }
+.badge-trialing { background: #1a2a4a; color: #60a5fa; border: 1px solid #2a4070; }
+.badge-suspended { background: #3a1a1a; color: #f87171; border: 1px solid #5a2a2a; }
+.badge-cancelled { background: #2a2a2a; color: #888; border: 1px solid #333; }
+.adm-action-btn {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 5px;
+  border: 1px solid #333;
+  background: transparent;
+  color: #ccc;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.adm-action-btn:hover { border-color: #d4a943; color: #d4a943; }
+.adm-action-btn.danger:hover { border-color: #f87171; color: #f87171; }
+.adm-action-btn.success:hover { border-color: #4ade80; color: #4ade80; }
+.modal-content { background: #111; border: 1px solid #2a2a2a; }
+.modal-header { border-bottom: 1px solid #1e1e1e; }
+.modal-footer { border-top: 1px solid #1e1e1e; }
+.form-label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.06em; }
+.form-control, .form-select {
+  background: #0d0d0d;
+  border: 1px solid #2a2a2a;
+  color: #ccc;
+  font-size: 0.88rem;
+}
+.form-control:focus, .form-select:focus {
+  background: #0d0d0d;
+  border-color: #d4a943;
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(212,169,67,0.15);
+}
+.btn-gold {
+  background: #d4a943;
+  color: #000;
+  border: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.btn-gold:hover { background: #c49830; color: #000; }
+.top-addon-pill {
+  background: #1a2a1a;
+  border: 1px solid #2a4a2a;
+  border-radius: 20px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.78rem;
+  color: #4ade80;
+  display: inline-block;
+}
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold text-white">Platform Admin</h4>
+    <div style="font-size:0.8rem;color:#555;">Revenue &amp; tenant management</div>
+  </div>
+  <button class="btn btn-gold" data-bs-toggle="modal" data-bs-target="#newTenantModal">
+    <i class="bi bi-plus-lg me-1"></i> New Tenant
+  </button>
+</div>
+
+<!-- Revenue Stats Row -->
+<div class="row g-3 mb-2">
+  <div class="col-sm-6 col-xl-2">
+    <div class="adm-stat-card">
+      <div class="adm-stat-label">MRR</div>
+      <div class="adm-stat-value gold">${{ "%.2f"|format(summary.mrr) }}</div>
+      <div class="adm-stat-sub">Monthly recurring</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-2">
+    <div class="adm-stat-card">
+      <div class="adm-stat-label">ARR</div>
+      <div class="adm-stat-value">${{ "%.2f"|format(summary.arr) }}</div>
+      <div class="adm-stat-sub">Annual run rate</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-2">
+    <div class="adm-stat-card">
+      <div class="adm-stat-label">Active Tenants</div>
+      <div class="adm-stat-value">{{ summary.active_tenants }}</div>
+      <div class="adm-stat-sub">Paying customers</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-2">
+    <div class="adm-stat-card">
+      <div class="adm-stat-label">Trials</div>
+      <div class="adm-stat-value" style="color:#60a5fa;">{{ summary.trialing_tenants }}</div>
+      <div class="adm-stat-sub">In free trial</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-2">
+    <div class="adm-stat-card">
+      <div class="adm-stat-label">Avg Rev / Tenant</div>
+      <div class="adm-stat-value">${{ "%.2f"|format(summary.avg_revenue_per_tenant) }}</div>
+      <div class="adm-stat-sub">Per month</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-2">
+    <div class="adm-stat-card">
+      <div class="adm-stat-label">Top Add-on</div>
+      {% if summary.top_addon %}
+      <div style="font-size:1rem;font-weight:700;color:#fff;line-height:1.2;margin:0.3rem 0;">{{ summary.top_addon.plan_name }}</div>
+      <div class="top-addon-pill">{{ summary.top_addon.cnt }} tenants</div>
+      {% else %}
+      <div class="adm-stat-value" style="font-size:1.2rem;">—</div>
+      <div class="adm-stat-sub">No add-ons yet</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Tenant Table -->
+<div class="adm-section-title">All Tenants ({{ tenants|length }})</div>
+
+{% if tenants %}
+<div class="table-responsive">
+  <table class="table adm-table table-dark mb-0">
+    <thead>
+      <tr>
+        <th>Company</th>
+        <th>Owner Email</th>
+        <th>Status</th>
+        <th>Users</th>
+        <th>Add-ons</th>
+        <th>Monthly $</th>
+        <th>Joined</th>
+        <th>Last Login</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tenants %}
+      <tr>
+        <td class="text-white fw-semibold">{{ t.company_name }}</td>
+        <td style="color:#888;">{{ t.owner_email }}</td>
+        <td>
+          {% if t.status == 'active' %}
+            <span class="badge badge-active">Active</span>
+          {% elif t.status == 'trialing' %}
+            <span class="badge badge-trialing">Trial</span>
+          {% elif t.status == 'suspended' %}
+            <span class="badge badge-suspended">Suspended</span>
+          {% else %}
+            <span class="badge badge-cancelled">{{ t.status|title }}</span>
+          {% endif %}
+        </td>
+        <td>{{ t.user_count }}</td>
+        <td>{{ t.addon_count }}</td>
+        <td class="text-white fw-semibold">${{ "%.2f"|format(t.monthly_revenue) }}</td>
+        <td style="color:#555;">{{ t.created_at[:10] if t.created_at else '—' }}</td>
+        <td style="color:#555;">{{ t.last_login[:10] if t.last_login else '—' }}</td>
+        <td>
+          <div class="d-flex gap-1 align-items-center">
+            <a href="/tms/admin/tenants/{{ t.tenant_id }}" class="adm-action-btn">View</a>
+            {% if t.status == 'suspended' %}
+            <button class="adm-action-btn success" onclick="tenantAction('{{ t.tenant_id }}','activate')">Activate</button>
+            {% else %}
+            <button class="adm-action-btn danger" onclick="tenantAction('{{ t.tenant_id }}','suspend')">Suspend</button>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div style="color:#444;padding:3rem;text-align:center;border:1px dashed #222;border-radius:10px;">
+  No tenants yet. Create your first tenant above.
+</div>
+{% endif %}
+
+<!-- New Tenant Modal -->
+<div class="modal fade" id="newTenantModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title text-white mb-0">New Tenant</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Company Name *</label>
+          <input type="text" class="form-control" id="nt_company" placeholder="Acme Freight Co.">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Owner Email *</label>
+          <input type="email" class="form-control" id="nt_email" placeholder="owner@company.com">
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label">Owner Name</label>
+            <input type="text" class="form-control" id="nt_name" placeholder="Jane Smith">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Phone</label>
+            <input type="text" class="form-control" id="nt_phone" placeholder="+1 555 000 0000">
+          </div>
+        </div>
+        <div class="mt-3">
+          <label class="form-label">Trial Days</label>
+          <input type="number" class="form-control" id="nt_trial" value="14" min="0" max="90">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-gold btn-sm" id="nt_submit">Create Tenant</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+function tenantAction(tenantId, action) {
+  if (!confirm('Are you sure you want to ' + action + ' this tenant?')) return;
+  fetch('/tms/admin/tenants/' + tenantId + '/' + action, {method:'POST'})
+    .then(r => r.json())
+    .then(d => { if (d.ok) location.reload(); });
+}
+
+document.getElementById('nt_submit').addEventListener('click', function() {
+  var company = document.getElementById('nt_company').value.trim();
+  var email   = document.getElementById('nt_email').value.trim();
+  if (!company || !email) { alert('Company name and email are required.'); return; }
+  var fd = new FormData();
+  fd.append('company_name', company);
+  fd.append('owner_email', email);
+  fd.append('owner_name', document.getElementById('nt_name').value.trim());
+  fd.append('phone', document.getElementById('nt_phone').value.trim());
+  fd.append('trial_days', document.getElementById('nt_trial').value || '14');
+  fetch('/tms/admin/tenants/new', {method:'POST', body: fd})
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        bootstrap.Modal.getInstance(document.getElementById('newTenantModal')).hide();
+        window.location.href = '/tms/admin/tenants/' + d.tenant_id;
+      }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,707 @@
+/* TMS CSS — overrides global dark-text for dark-background TMS pages */
+
+/* Force light text for Bootstrap component overrides only */
+body .card-header,
+body .card-title,
+body .card-body,
+body .form-label,
+body .modal-title,
+body .modal-body,
+body .table,
+body .dropdown-item,
+body h1, body h2, body h3, body h4, body h5, body h6,
+body .fw-bold, body .fw-semibold {
+    color: inherit;
+}
+
+/* TMS wrapper — set baseline text color to light */
+.tms-page {
+    color: #e2e8f0;
+}
+
+.tms-page .card-header {
+    color: #f1f5f9 !important;
+    background-color: rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-weight: 600;
+}
+
+.tms-page .card-body {
+    color: #e2e8f0 !important;
+}
+
+.tms-page .form-label {
+    color: #94a3b8 !important;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.tms-page .text-muted {
+    color: #94a3b8 !important;
+}
+
+.tms-page h1, .tms-page h2, .tms-page h3,
+.tms-page h4, .tms-page h5, .tms-page h6 {
+    color: #f1f5f9 !important;
+}
+
+.tms-page .fw-bold, .tms-page .fw-semibold {
+    color: #f1f5f9 !important;
+}
+
+
+.tms-page .table td, .tms-page .table th {
+    color: #e2e8f0 !important;
+}
+
+.tms-page .table thead th {
+    color: #1e293b !important; /* dark text on light thead */
+}
+
+.tms-page .table-dark td,
+.tms-page .table-dark th {
+    color: #e2e8f0 !important;
+}
+
+.tms-page .dropdown-item {
+    color: #e2e8f0 !important;
+}
+
+.tms-page .dropdown-item:hover {
+    background-color: rgba(255,255,255,0.1);
+    color: #fff !important;
+}
+
+.tms-page .modal-title {
+    color: #f1f5f9 !important;
+}
+
+.tms-page .modal-body {
+    color: #e2e8f0 !important;
+}
+
+.tms-page .nav-link {
+    color: #94a3b8 !important;
+}
+
+.tms-page .nav-link.active {
+    color: #fff !important;
+}
+
+.tms-page .list-group-item {
+    color: #e2e8f0 !important;
+}
+
+/* Input fields */
+.tms-page .form-control,
+.tms-page .form-select {
+    color: #f1f5f9 !important;
+}
+
+.tms-page .form-control::placeholder {
+    color: #475569 !important;
+}
+
+/* Small / secondary text */
+.tms-page small, .tms-page .small {
+    color: #94a3b8 !important;
+}
+
+/* Alert overrides */
+.tms-page .alert-success { color: #0f5132 !important; }
+.tms-page .alert-danger  { color: #842029 !important; }
+.tms-page .alert-warning { color: #664d03 !important; }
+.tms-page .alert-info    { color: #055160 !important; }
+
+/* Progress bar label */
+.tms-page .progress-label { color: #94a3b8 !important; }
+
+/* Stat numbers on KPI cards */
+.tms-page .fs-2, .tms-page .fs-3, .tms-page .fs-4, .tms-page .fs-5 {
+    color: inherit !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TMS SIDEBAR LAYOUT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Shell: sidebar + main side by side, full height below navbar */
+.tms-shell {
+  display: flex;
+  height: calc(100vh - 96px); /* navbar ~48px + tab-strip ~48px */
+  overflow: hidden;
+  background: #181818;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.tms-sidebar {
+  width: 216px;
+  min-width: 216px;
+  background: #141414;
+  border-right: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.2s ease, min-width 0.2s ease;
+  scrollbar-width: none;
+}
+.tms-sidebar::-webkit-scrollbar { display: none; }
+
+.tms-sidebar.collapsed {
+  width: 52px;
+  min-width: 52px;
+}
+
+/* Brand row */
+.tms-sb-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 12px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+.tms-sb-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.tms-sb-logomark {
+  font-size: 18px;
+  color: #c8a96e;
+  flex-shrink: 0;
+}
+.tms-sb-logotext {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #f1f5f9;
+  text-transform: uppercase;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+.tms-sidebar.collapsed .tms-sb-logotext { opacity: 0; width: 0; }
+.tms-sb-collapse-btn {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.tms-sb-collapse-btn:hover { color: #888; }
+.tms-sidebar.collapsed .tms-sb-collapse-btn { margin: 0 auto; }
+
+/* Nav */
+.tms-sb-nav {
+  flex: 1;
+  padding: 8px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+.tms-sb-nav::-webkit-scrollbar { display: none; }
+
+/* Section labels */
+.tms-sb-section-label {
+  font-size: 0.63rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #606060;
+  padding: 14px 14px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.15s ease;
+}
+.tms-sidebar.collapsed .tms-sb-section-label { opacity: 0; }
+
+/* Nav items */
+.tms-sb-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  color: #909090;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  border-left: 2px solid transparent;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+  cursor: pointer;
+  background: none;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  width: 100%;
+  text-align: left;
+}
+.tms-sb-item i {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+.tms-sb-item span {
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+.tms-sidebar.collapsed .tms-sb-item span { opacity: 0; }
+.tms-sidebar.collapsed .tms-sb-item { justify-content: center; padding: 9px 0; }
+
+.tms-sb-item:hover {
+  color: #d8d8d8;
+  background: rgba(255,255,255,0.05);
+}
+.tms-sb-item.active {
+  color: #f1f5f9;
+  border-left-color: #c8a96e;
+  background: rgba(200,169,110,0.07);
+}
+.tms-sidebar.collapsed .tms-sb-item.active { border-left-color: #c8a96e; }
+
+/* Footer */
+.tms-sb-footer {
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 8px 0;
+  flex-shrink: 0;
+}
+.tms-sb-back { color: #666 !important; }
+.tms-sb-back:hover { color: #aaa !important; }
+
+/* ── Main Content ─────────────────────────────────────────────────────────── */
+.tms-main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #181818;
+}
+
+/* Public pages (loadboard, portal) — no sidebar, full-width */
+.tms-shell-public {
+  display: block;
+  height: auto;
+  min-height: 100vh;
+}
+.tms-main-public {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0;
+  background: transparent;
+  overflow-y: visible;
+}
+.tms-main-inner {
+  padding: 32px 36px;
+  max-width: 1400px;
+}
+
+/* ── Page header pattern ──────────────────────────────────────────────────── */
+.tms-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.tms-page-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.tms-page-subtitle {
+  font-size: 0.78rem;
+  color: #707070;
+  margin: 3px 0 0;
+  font-weight: 400;
+}
+
+/* ── Stat cards ───────────────────────────────────────────────────────────── */
+.tms-stat-card {
+  background: #222222;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 20px 22px;
+  transition: border-color 0.15s;
+}
+.tms-stat-card:hover { border-color: rgba(255,255,255,0.2); }
+.tms-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+.tms-stat-label {
+  font-size: 0.73rem;
+  color: #767676;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+
+/* ── Spotlight action cards ───────────────────────────────────────────────── */
+.tms-spotlight {
+  background: #222222;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 20px 22px;
+  text-decoration: none;
+  display: block;
+  transition: border-color 0.15s, transform 0.12s;
+  color: inherit;
+}
+.tms-spotlight:hover {
+  border-color: rgba(200,169,110,0.3);
+  transform: translateY(-1px);
+  color: inherit;
+  text-decoration: none;
+}
+.tms-spotlight-icon {
+  font-size: 22px;
+  margin-bottom: 12px;
+}
+.tms-spotlight-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.tms-spotlight-label {
+  font-size: 0.78rem;
+  color: #aaa;
+  margin-top: 4px;
+}
+.tms-spotlight-sub {
+  font-size: 0.7rem;
+  color: #666;
+  margin-top: 10px;
+}
+
+/* ── Content card ─────────────────────────────────────────────────────────── */
+.tms-card {
+  background: #222222;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.tms-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #bbb;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Integration tiles ────────────────────────────────────────────────────── */
+.tms-integ-name {
+  font-size: 0.81rem;
+  font-weight: 600;
+  color: #c0c0c0 !important;
+}
+.tms-integ-tile p {
+  color: #7a7a7a !important;
+}
+.tms-integ-tile .tms-integ-region {
+  color: #555 !important;
+}
+.tms-integ-chip {
+  font-size: 0.65rem !important;
+  color: #b8b8b8 !important;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 4px;
+  padding: 3px 9px;
+  display: inline-block;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL TMS STATUS COLOR SYSTEM
+   Use .tms-status-{name} anywhere — shipments, drivers, loads, exceptions
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tms-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.tms-status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Shipment statuses */
+.tms-status-draft     { color: #888; background: rgba(136,136,136,0.1); border: 1px solid rgba(136,136,136,0.2); }
+.tms-status-active    { color: #4ade80; background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2); }
+.tms-status-booked    { color: #60a5fa; background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.2); }
+.tms-status-transit   { color: #fb923c; background: rgba(251,146,60,0.08); border: 1px solid rgba(251,146,60,0.2); }
+.tms-status-delivered { color: #a3e635; background: rgba(163,230,53,0.08); border: 1px solid rgba(163,230,53,0.15); }
+.tms-status-cancelled { color: #f87171; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); }
+.tms-status-hold      { color: #facc15; background: rgba(250,204,21,0.08); border: 1px solid rgba(250,204,21,0.2); }
+
+/* Driver / HOS statuses */
+.tms-status-available { color: #4ade80; background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2); }
+.tms-status-driving   { color: #60a5fa; background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.2); }
+.tms-status-rest      { color: #a78bfa; background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.2); }
+.tms-status-off       { color: #888; background: rgba(136,136,136,0.08); border: 1px solid rgba(136,136,136,0.15); }
+
+/* Exception / control tower urgency */
+.tms-status-critical  { color: #f87171; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25); }
+.tms-status-warning   { color: #facc15; background: rgba(250,204,21,0.08); border: 1px solid rgba(250,204,21,0.2); }
+.tms-status-info      { color: #38bdf8; background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.2); }
+.tms-status-live      { color: #4ade80; background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2);
+                        box-shadow: 0 0 8px rgba(74,222,128,0.2); }
+
+/* Page subtitle / section label lift */
+.tms-page-subtitle { color: #888; }
+.tms-stat-label    { color: #888; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL CARD / TABLE LIFT — applies to all Bootstrap cards inside TMS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Lift Bootstrap bg-dark cards */
+.tms-page .card.bg-dark,
+.tms-page .card.bg-dark.border-secondary {
+  background-color: #222222 !important;
+  border-color: rgba(255,255,255,0.1) !important;
+}
+.tms-page .card.bg-dark .card-header {
+  background: rgba(255,255,255,0.04) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  color: #c8c8c8 !important;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* Table improvements */
+.tms-page .table-dark {
+  --bs-table-bg: #1e1e1e;
+  --bs-table-striped-bg: #252525;
+  --bs-table-hover-bg: #2a2a2a;
+  --bs-table-border-color: rgba(255,255,255,0.07);
+}
+.tms-page .table-dark thead.table-secondary th {
+  background: #2e2e2e !important;
+  color: #aaa !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+  font-size: 0.73rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+}
+.tms-page .table-dark td {
+  color: #d0d0d0 !important;
+  font-size: 0.84rem;
+}
+.tms-page .table-dark a.text-info {
+  color: #5bc8dc !important;
+}
+
+/* Shared nav-pills style (status filter bars) */
+.tms-page .nav-pills .nav-link {
+  color: #888 !important;
+  background: transparent !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: 999px !important;
+  font-size: 0.79rem;
+  padding: 5px 14px;
+  margin-right: 4px;
+  transition: background 0.13s, color 0.13s, border-color 0.13s;
+}
+.tms-page .nav-pills .nav-link.active {
+  background: #c8a96e !important;
+  color: #000 !important;
+  border-color: #c8a96e !important;
+  font-weight: 700;
+}
+.tms-page .nav-pills .nav-link:hover:not(.active) {
+  color: #ccc !important;
+  background: rgba(255,255,255,0.05) !important;
+  border-color: rgba(255,255,255,0.15) !important;
+}
+
+/* Form controls — consistent dark inputs across all pages */
+.tms-page .form-control.bg-black,
+.tms-page .form-select.bg-black {
+  background: #1a1a1a !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  color: #e2e8f0 !important;
+}
+.tms-page .form-control.bg-black:focus,
+.tms-page .form-select.bg-black:focus {
+  border-color: rgba(200,169,110,0.4) !important;
+  box-shadow: 0 0 0 3px rgba(200,169,110,0.08) !important;
+}
+
+/* Status aliases for common badge patterns */
+.tms-status-pending  { color: #facc15; background: rgba(250,204,21,0.08); border: 1px solid rgba(250,204,21,0.2); }
+.tms-status-open     { color: #60a5fa; background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.2); }
+.tms-status-closed   { color: #888;    background: rgba(136,136,136,0.08); border: 1px solid rgba(136,136,136,0.2); }
+.tms-status-awarded  { color: #a3e635; background: rgba(163,230,53,0.08); border: 1px solid rgba(163,230,53,0.15); }
+.tms-status-expired  { color: #888;    background: rgba(136,136,136,0.08); border: 1px solid rgba(136,136,136,0.2); }
+.tms-status-rejected { color: #f87171; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); }
+.tms-status-accepted { color: #4ade80; background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2); }
+
+/* Subtle gold accent on h2 page titles */
+.tms-page h2 .bi {
+  color: #c8a96e;
+}
+
+/* Button group improvements */
+.tms-page .btn-outline-secondary {
+  border-color: rgba(255,255,255,0.15) !important;
+  color: #888 !important;
+}
+.tms-page .btn-outline-secondary:hover {
+  background: rgba(255,255,255,0.07) !important;
+  color: #ccc !important;
+}
+
+/* ── Responsive: hide sidebar on small screens ────────────────────────────── */
+/* ── Mobile & tablet (≤768px): sidebar becomes an overlay drawer ─────────── */
+@media (max-width: 768px) {
+
+  /* Shell fills full viewport height, no overflow clipping */
+  .tms-shell {
+    height: auto;
+    min-height: calc(100dvh - 96px);
+    flex-direction: column;
+    overflow: visible;
+    position: relative;
+  }
+
+  /* Sidebar: off-screen by default, slides in as a left drawer */
+  .tms-sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 260px !important;
+    min-width: 260px !important;
+    height: 100dvh;
+    z-index: 1050;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    border-right: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.6);
+    overflow-y: auto;
+  }
+  .tms-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  /* Collapsed state on mobile still shows full width when open */
+  .tms-sidebar.collapsed {
+    width: 260px !important;
+    min-width: 260px !important;
+  }
+  .tms-sidebar.collapsed .tms-sb-logotext { opacity: 1; width: auto; }
+  .tms-sidebar.collapsed .tms-sb-section-label { opacity: 1; }
+  .tms-sidebar.collapsed .tms-sb-item span { opacity: 1; }
+  .tms-sidebar.collapsed .tms-sb-item { justify-content: flex-start; padding: 9px 12px; }
+  .tms-sidebar.collapsed .tms-sb-collapse-btn { margin: 0; }
+
+  /* Backdrop overlay */
+  .tms-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 1040;
+    backdrop-filter: blur(2px);
+  }
+  .tms-sidebar-backdrop.visible { display: block; }
+
+  /* Mobile topbar with hamburger */
+  .tms-mobile-topbar {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #141414;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .tms-mobile-topbar-brand {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none; color: #fff;
+    font-size: .9rem; font-weight: 700;
+  }
+  .tms-mobile-topbar-brand i { color: #c8a96e; font-size: 1.1rem; }
+  .tms-hamburger {
+    background: none; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; padding: 6px 10px;
+    color: #c8a96e; font-size: 1.1rem;
+    cursor: pointer; line-height: 1;
+  }
+
+  /* Hide the desktop collapse toggle on mobile */
+  .tms-sb-collapse-btn { display: none; }
+
+  /* Main area takes full width */
+  .tms-main {
+    width: 100% !important;
+    min-width: 0;
+  }
+  .tms-main-inner {
+    padding: 14px 12px;
+  }
+
+  /* Tables scroll horizontally */
+  .table-responsive-mobile {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table { min-width: 560px; }
+
+  /* Cards full width */
+  .card { border-radius: 10px; }
+  .card-body { padding: 0.85rem !important; }
+}
+
+/* Hide mobile topbar on desktop */
+.tms-mobile-topbar { display: none; }
+
+/* ── Tablet (769px–1024px): sidebar stays but narrower ───────────────────── */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .tms-sidebar {
+    width: 52px;
+    min-width: 52px;
+  }
+  .tms-sidebar .tms-sb-logotext,
+  .tms-sidebar .tms-sb-section-label,
+  .tms-sidebar .tms-sb-item span { opacity: 0; width: 0; overflow: hidden; }
+  .tms-sidebar .tms-sb-item { justify-content: center; padding: 9px 0; }
+  .tms-sidebar .tms-sb-collapse-btn { margin: 0 auto; }
+}

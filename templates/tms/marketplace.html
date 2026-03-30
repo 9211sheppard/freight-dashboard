@@ -1,0 +1,356 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Carrier Marketplace{% endblock %}
+
+{% block tms_content %}
+<div class="tms-page-header">
+  <div>
+    <h1 class="tms-page-title">Carrier Marketplace</h1>
+    <p class="tms-page-subtitle">Find verified carriers by lane and equipment, then request a direct connection.</p>
+  </div>
+</div>
+
+<style nonce="{{ csp_nonce }}">
+.marketplace-card {
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.96) 0%, rgba(10, 14, 23, 0.98) 100%);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.marketplace-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(200, 169, 110, 0.35) !important;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+}
+.marketplace-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d1d5db;
+}
+.marketplace-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  color: #4ade80;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.marketplace-stars {
+  color: #fbbf24;
+  letter-spacing: 0.03em;
+}
+.marketplace-muted {
+  color: #9ca3af;
+}
+.marketplace-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.marketplace-status-pending {
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.28);
+  color: #facc15;
+}
+.marketplace-status-connected {
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  color: #4ade80;
+}
+.marketplace-status-blocked {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  color: #f87171;
+}
+.marketplace-stat-card {
+  background: #10141d;
+  border: 1px solid #2f3745;
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  height: 100%;
+}
+.marketplace-stat-label {
+  color: #8b93a4;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.35rem;
+}
+.marketplace-stat-value {
+  color: #f8fafc;
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1;
+}
+</style>
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-body">
+    <form method="get">
+      <div class="row g-3 align-items-end">
+        <div class="col-lg-4">
+          <label class="form-label text-muted">Search</label>
+          <input
+            type="text"
+            name="q"
+            value="{{ filters.q }}"
+            class="form-control bg-black text-white border-secondary"
+            placeholder="Carrier, contact, lane, or equipment"
+          >
+        </div>
+        <div class="col-md-4 col-lg-2">
+          <label class="form-label text-muted">Equipment</label>
+          <select name="equipment_type" class="form-select bg-black text-white border-secondary">
+            <option value="">All equipment</option>
+            {% for option in equipment_options %}
+            <option value="{{ option }}" {% if filters.equipment_type == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4 col-lg-2">
+          <label class="form-label text-muted">Origin State</label>
+          <select name="origin_state" class="form-select bg-black text-white border-secondary">
+            <option value="">All origins</option>
+            {% for option in state_options %}
+            <option value="{{ option }}" {% if filters.origin_state == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4 col-lg-2">
+          <label class="form-label text-muted">Dest State</label>
+          <select name="dest_state" class="form-select bg-black text-white border-secondary">
+            <option value="">All destinations</option>
+            {% for option in state_options %}
+            <option value="{{ option }}" {% if filters.dest_state == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-lg-2 d-grid">
+          <button type="submit" class="btn" style="background:#c8a96e;color:#111827;font-weight:700;border:none;">
+            <i class="bi bi-search me-1"></i>Search
+          </button>
+        </div>
+      </div>
+      {% if search_active %}
+      <div class="mt-3">
+        <a href="/tms/marketplace" class="small text-decoration-none" style="color:#c8a96e;">Clear filters</a>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="marketplace-stat-card">
+      <div class="marketplace-stat-label">Featured Verified</div>
+      <div class="marketplace-stat-value" style="color:#4ade80;">{{ featured_carriers|length }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="marketplace-stat-card">
+      <div class="marketplace-stat-label">Matching Carriers</div>
+      <div class="marketplace-stat-value" style="color:#60a5fa;">{{ carriers|length }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="marketplace-stat-card">
+      <div class="marketplace-stat-label">Equipment Types</div>
+      <div class="marketplace-stat-value" style="color:#fbbf24;">{{ equipment_options|length }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="marketplace-stat-card">
+      <div class="marketplace-stat-label">State Coverage</div>
+      <div class="marketplace-stat-value" style="color:#f472b6;">{{ state_options|length }}</div>
+    </div>
+  </div>
+</div>
+
+{% if featured_carriers %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h2 class="h4 mb-1">Featured Carriers</h2>
+    <div class="marketplace-muted small">Top rated verified carriers in the network.</div>
+  </div>
+  <div class="marketplace-muted small">Verified only</div>
+</div>
+
+<div class="row g-4 mb-5">
+  {% for carrier in featured_carriers %}
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card marketplace-card border-secondary h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+          <div>
+            <a href="/tms/marketplace/{{ carrier.id }}" class="h5 text-decoration-none text-light">{{ carrier.company_name }}</a>
+            <div class="marketplace-muted small mt-1">MC #{{ carrier.mc_number }}{% if carrier.dot_number %} · DOT #{{ carrier.dot_number }}{% endif %}</div>
+          </div>
+          <span class="marketplace-verified"><i class="bi bi-check-circle-fill"></i>Verified</span>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div>
+            <div class="marketplace-stars fw-semibold">
+              {% set rounded_rating = carrier.rating|round(0, 'common')|int %}
+              {% for star in range(1, 6) %}
+              <i class="bi {% if star <= rounded_rating %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+              {% endfor %}
+            </div>
+            <div class="small marketplace-muted mt-1">{{ '%.1f'|format(carrier.rating) }} rating from {{ carrier.review_count }} review{{ '' if carrier.review_count == 1 else 's' }}</div>
+          </div>
+          {% if carrier.connection_status %}
+          <span class="marketplace-status marketplace-status-{{ carrier.connection_status }}">{{ carrier.connection_status }}</span>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          {% for equipment in carrier.equipment_list %}
+          <span class="marketplace-pill me-1 mb-1">{{ equipment }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="mb-3">
+          <div class="text-muted small mb-2">Lanes Served</div>
+          {% for lane in carrier.lane_list[:3] %}
+          <span class="marketplace-pill me-1 mb-1"><i class="bi bi-signpost-2"></i>{{ lane }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="small marketplace-muted mb-4">
+          <div><i class="bi bi-person me-1"></i>{{ carrier.contact_name or 'Contact on request' }}</div>
+          <div class="mt-1"><i class="bi bi-envelope me-1"></i>{{ carrier.contact_email or 'No email listed' }}</div>
+        </div>
+
+        <div class="mt-auto d-flex gap-2">
+          <a href="/tms/marketplace/{{ carrier.id }}" class="btn btn-outline-light btn-sm flex-fill">View Profile</a>
+          <form method="post" action="/tms/marketplace/{{ carrier.id }}/connect" class="flex-fill">
+            <input type="hidden" name="next" value="/tms/marketplace">
+            <button
+              type="submit"
+              class="btn btn-sm w-100 {% if carrier.connection_status == 'connected' %}btn-success{% elif carrier.connection_status == 'blocked' %}btn-danger{% else %}btn-warning{% endif %}"
+              {% if carrier.connection_status in ['pending', 'connected', 'blocked'] %}disabled{% endif %}
+            >
+              {% if carrier.connection_status == 'pending' %}
+              Pending
+              {% elif carrier.connection_status == 'connected' %}
+              Connected
+              {% elif carrier.connection_status == 'blocked' %}
+              Blocked
+              {% else %}
+              Connect
+              {% endif %}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h2 class="h4 mb-1">{% if search_active %}Search Results{% else %}All Carriers{% endif %}</h2>
+    <div class="marketplace-muted small">Sorted by rating, then review volume.</div>
+  </div>
+  <div class="marketplace-muted small">{{ carriers|length }} carrier{{ '' if carriers|length == 1 else 's' }}</div>
+</div>
+
+{% if carriers %}
+<div class="row g-4">
+  {% for carrier in carriers %}
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="card marketplace-card border-secondary h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+          <div>
+            <a href="/tms/marketplace/{{ carrier.id }}" class="h5 text-decoration-none text-light">{{ carrier.company_name }}</a>
+            <div class="marketplace-muted small mt-1">MC #{{ carrier.mc_number }}{% if carrier.dot_number %} · DOT #{{ carrier.dot_number }}{% endif %}</div>
+          </div>
+          {% if carrier.verified %}
+          <span class="marketplace-verified"><i class="bi bi-check-circle-fill"></i>Verified</span>
+          {% endif %}
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div>
+            <div class="marketplace-stars fw-semibold">
+              {% set rounded_rating = carrier.rating|round(0, 'common')|int %}
+              {% for star in range(1, 6) %}
+              <i class="bi {% if star <= rounded_rating %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+              {% endfor %}
+            </div>
+            <div class="small marketplace-muted mt-1">{{ '%.1f'|format(carrier.rating) }} rating from {{ carrier.review_count }} review{{ '' if carrier.review_count == 1 else 's' }}</div>
+          </div>
+          {% if carrier.connection_status %}
+          <span class="marketplace-status marketplace-status-{{ carrier.connection_status }}">{{ carrier.connection_status }}</span>
+          {% endif %}
+        </div>
+
+        <div class="mb-3">
+          {% for equipment in carrier.equipment_list %}
+          <span class="marketplace-pill me-1 mb-1">{{ equipment }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="mb-3">
+          <div class="text-muted small mb-2">Primary Lanes</div>
+          {% for lane in carrier.lane_list[:3] %}
+          <span class="marketplace-pill me-1 mb-1"><i class="bi bi-signpost-2"></i>{{ lane }}</span>
+          {% endfor %}
+        </div>
+
+        <div class="small marketplace-muted mb-4">
+          <div><i class="bi bi-person me-1"></i>{{ carrier.contact_name or 'Contact on request' }}</div>
+          <div class="mt-1"><i class="bi bi-telephone me-1"></i>{{ carrier.contact_phone or 'No phone listed' }}</div>
+        </div>
+
+        <div class="mt-auto d-flex gap-2">
+          <a href="/tms/marketplace/{{ carrier.id }}" class="btn btn-outline-light btn-sm flex-fill">View Profile</a>
+          <form method="post" action="/tms/marketplace/{{ carrier.id }}/connect" class="flex-fill">
+            <input type="hidden" name="next" value="/tms/marketplace">
+            <button
+              type="submit"
+              class="btn btn-sm w-100 {% if carrier.connection_status == 'connected' %}btn-success{% elif carrier.connection_status == 'blocked' %}btn-danger{% else %}btn-warning{% endif %}"
+              {% if carrier.connection_status in ['pending', 'connected', 'blocked'] %}disabled{% endif %}
+            >
+              {% if carrier.connection_status == 'pending' %}
+              Pending
+              {% elif carrier.connection_status == 'connected' %}
+              Connected
+              {% elif carrier.connection_status == 'blocked' %}
+              Blocked
+              {% else %}
+              Connect
+              {% endif %}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card bg-dark border-secondary">
+  <div class="card-body text-center py-5">
+    <div class="h5 text-light mb-2">No carriers matched your search.</div>
+    <div class="marketplace-muted">Try removing a lane filter or changing the equipment type.</div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

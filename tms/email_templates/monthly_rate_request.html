@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#06080d;color:#e7edf7;font-family:'Segoe UI',Arial,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#06080d;padding:28px 14px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#0d1320;border:1px solid #1e2a3f;border-radius:18px;overflow:hidden;">
+            <tr>
+              <td style="padding:28px 32px;background:linear-gradient(135deg,#17253d 0%,#0a0f19 100%);border-bottom:1px solid #25324a;">
+                <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#d4a943;font-weight:700;">TMS Master</div>
+                <h1 style="margin:12px 0 8px;font-size:28px;line-height:1.2;color:#f5f7fb;">Next-Month Rate Request</h1>
+                <p style="margin:0;color:#aab6cb;font-size:15px;line-height:1.6;">Please submit your rate for this planned {{target_month_label}} lane.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 32px;">
+                <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#dce5f5;">Hello {{carrier_name}}, we are collecting pricing for shipment <strong style="color:#ffffff;">{{shipment_ref}}</strong>.</p>
+                <div style="padding:18px 20px;background:#111827;border:1px solid #202d45;border-radius:14px;">
+                  <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#7f8ba3;">Lane Scope</div>
+                  <div style="margin-top:10px;color:#aab6cb;font-size:14px;line-height:1.8;">Lane: <strong style="color:#ffffff;">{{lane_label}}</strong><br>Mode: {{mode}}<br>Equipment: {{equipment}}<br>Cargo: {{cargo_description}}<br>Pickup window: {{pickup_window}}<br>Delivery window: {{delivery_window}}<br>Quote deadline: {{quote_deadline}}</div>
+                </div>
+                <div style="margin:26px 0 12px;">
+                  <a href="{{response_url}}" style="display:inline-block;padding:14px 22px;background:#d4a943;color:#05070b;text-decoration:none;border-radius:999px;font-weight:700;">Submit Rate</a>
+                </div>
+                <p style="margin:0;color:#8f9ab0;font-size:13px;line-height:1.6;">The response form accepts 20ft, 40ft, and 40HC pricing along with transit days and notes.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 32px;border-top:1px solid #1d2739;color:#6f7c95;font-size:12px;line-height:1.7;">
+                {{company_name}} sent this automated request to verified carriers in the TMS Master network.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

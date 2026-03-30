@@ -1,0 +1,13 @@
+Flask>=3.1,<4
+cryptography>=46.0.5,<47
+gunicorn>=23,<24
+pdfplumber>=0.11,<1
+pdfminer.six>=20251107,<20270000
+Pillow>=12.1.1,<13
+PyMuPDF>=1.24,<2
+pyOpenSSL>=26,<27
+python-dotenv>=1.0,<2
+pytesseract>=0.3.10,<0.4
+reportlab>=4.0,<5
+requests>=2.31,<3
+stripe>=11,<12

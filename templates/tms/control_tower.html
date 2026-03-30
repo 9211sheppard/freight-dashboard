@@ -1,0 +1,859 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Control Tower{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style nonce="{{ csp_nonce }}">
+  #main-content-wrap.tms-page {
+    padding: 0;
+  }
+
+  :root {
+    --tower-bg: #07111f;
+    --tower-surface: rgba(9, 18, 33, 0.92);
+    --tower-surface-strong: #0f1c31;
+    --tower-border: rgba(148, 163, 184, 0.18);
+    --tower-text: #e2e8f0;
+    --tower-muted: #94a3b8;
+    --tower-shadow: 0 18px 48px rgba(2, 6, 23, 0.45);
+    --tower-green: #22c55e;
+    --tower-yellow: #facc15;
+    --tower-red: #ef4444;
+    --tower-grey: #94a3b8;
+  }
+
+  .control-tower-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 380px) 1fr;
+    min-height: var(--tower-height, 78vh);
+    background:
+      radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.12), transparent 24%),
+      linear-gradient(180deg, #081120 0%, #050b15 100%);
+  }
+
+  .tower-sidebar {
+    padding: 1.25rem;
+    background: var(--tower-surface);
+    border-right: 1px solid var(--tower-border);
+    overflow-y: auto;
+  }
+
+  .tower-map-panel {
+    position: relative;
+    min-height: var(--tower-height, 78vh);
+    background: #dbeafe;
+  }
+
+  #controlTowerMap {
+    width: 100%;
+    height: 100%;
+    min-height: var(--tower-height, 78vh);
+  }
+
+  .tower-panel {
+    border: 1px solid var(--tower-border);
+    background: rgba(15, 28, 49, 0.82);
+    border-radius: 1.1rem;
+    box-shadow: var(--tower-shadow);
+    padding: 1rem;
+    color: var(--tower-text);
+  }
+
+  .tower-panel + .tower-panel {
+    margin-top: 1rem;
+  }
+
+  .tower-title {
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    margin-bottom: 0.25rem;
+  }
+
+  .tower-subtitle,
+  .tower-muted {
+    color: var(--tower-muted);
+  }
+
+  .tower-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .tower-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    padding: 0.45rem 0.75rem;
+    background: rgba(15, 23, 42, 0.62);
+    border: 1px solid var(--tower-border);
+    font-size: 0.82rem;
+    color: var(--tower-text);
+  }
+
+  .tower-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .tower-status-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    width: 100%;
+    padding: 0.9rem;
+    border-radius: 1rem;
+    border: 1px solid var(--tower-border);
+    background: rgba(8, 15, 28, 0.7);
+    color: var(--tower-text);
+    transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+  }
+
+  .tower-status-card:hover,
+  .tower-status-card:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(226, 232, 240, 0.28);
+    background: rgba(15, 23, 42, 0.88);
+  }
+
+  .tower-status-card.active {
+    border-color: rgba(96, 165, 250, 0.75);
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.35) inset;
+  }
+
+  .tower-status-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.88rem;
+    color: var(--tower-muted);
+  }
+
+  .tower-status-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+
+  .tower-status-dot.on_time { background: var(--tower-green); }
+  .tower-status-dot.at_risk { background: var(--tower-yellow); }
+  .tower-status-dot.delayed { background: var(--tower-red); }
+  .tower-status-dot.draft { background: var(--tower-grey); }
+
+  .tower-status-count {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .tower-section-heading {
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--tower-muted);
+    margin-bottom: 0.85rem;
+  }
+
+  .tower-filter-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .tower-filter-grid label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--tower-muted);
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .tower-filter-grid .form-select {
+    background-color: rgba(15, 23, 42, 0.92);
+    color: var(--tower-text);
+    border-color: var(--tower-border);
+  }
+
+  .tower-filter-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+  }
+
+  .tower-inline-stat {
+    font-size: 0.9rem;
+    color: var(--tower-muted);
+  }
+
+  .tower-exception-list {
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .tower-exception-item {
+    display: block;
+    padding: 0.85rem 0.95rem;
+    border-radius: 0.95rem;
+    background: rgba(8, 15, 28, 0.74);
+    border: 1px solid var(--tower-border);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .tower-exception-item:hover {
+    border-color: rgba(226, 232, 240, 0.28);
+    background: rgba(15, 23, 42, 0.88);
+  }
+
+  .tower-exception-ref {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .tower-exception-route {
+    font-size: 0.9rem;
+    color: var(--tower-muted);
+  }
+
+  .tower-exception-reason {
+    margin-top: 0.45rem;
+    font-size: 0.92rem;
+  }
+
+  .tower-empty {
+    border-radius: 1rem;
+    border: 1px dashed var(--tower-border);
+    color: var(--tower-muted);
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .tower-map-toolbar,
+  .tower-map-legend {
+    position: absolute;
+    z-index: 500;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .tower-map-toolbar {
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+
+  .tower-map-toolbar .tower-pill {
+    pointer-events: auto;
+    background: rgba(7, 17, 31, 0.88);
+  }
+
+  .tower-map-legend {
+    right: 1rem;
+    bottom: 1rem;
+    padding: 0.8rem 0.95rem;
+    border-radius: 1rem;
+    background: rgba(7, 17, 31, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    box-shadow: var(--tower-shadow);
+    color: var(--tower-text);
+  }
+
+  .tower-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.82rem;
+    margin-right: 0.85rem;
+  }
+
+  .tower-pin-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 255, 255, 0.95);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.28);
+  }
+
+  .shipment-popup {
+    min-width: 240px;
+  }
+
+  .shipment-popup h6 {
+    margin-bottom: 0.4rem;
+    font-size: 1rem;
+  }
+
+  .shipment-popup-route {
+    color: #475569;
+    margin-bottom: 0.7rem;
+  }
+
+  .shipment-popup-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .shipment-popup-label {
+    display: block;
+    font-size: 0.72rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.12rem;
+  }
+
+  .shipment-popup-value {
+    font-size: 0.9rem;
+    color: #0f172a;
+    font-weight: 600;
+  }
+
+  .shipment-popup-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.88rem;
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  @media (max-width: 991.98px) {
+    .control-tower-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .tower-sidebar {
+      border-right: 0;
+      border-bottom: 1px solid var(--tower-border);
+    }
+
+    .tower-map-panel,
+    #controlTowerMap {
+      min-height: 62vh;
+    }
+  }
+</style>
+{% endblock %}
+{% block tms_content %}
+<div class="control-tower-layout">
+  <aside class="tower-sidebar">
+    <div class="tower-panel">
+      <div class="tower-title">Control Tower</div>
+      <div class="tower-subtitle">
+        {{ control_tower.settings.get("company_name", "TMS") }} live shipment map with global OpenStreetMap coverage.
+      </div>
+      <div class="tower-meta">
+        <span class="tower-pill">
+          <i class="bi bi-arrow-repeat"></i>
+          Refreshes every 30 seconds
+        </span>
+        <span class="tower-pill">
+          <i class="bi bi-clock-history"></i>
+          <span id="controlTowerRefreshedAt">{{ control_tower.refreshed_at }}</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="tower-panel">
+      <div class="tower-section-heading">Shipment Health</div>
+      <div class="tower-metric-grid">
+        <button type="button" class="tower-status-card" data-status-card="on_time">
+          <span class="tower-status-label">
+            <span class="tower-status-dot on_time"></span>
+            On Time
+          </span>
+          <span class="tower-status-count" id="statusCountOnTime">{{ control_tower.counts.on_time }}</span>
+        </button>
+        <button type="button" class="tower-status-card" data-status-card="at_risk">
+          <span class="tower-status-label">
+            <span class="tower-status-dot at_risk"></span>
+            At Risk
+          </span>
+          <span class="tower-status-count" id="statusCountAtRisk">{{ control_tower.counts.at_risk }}</span>
+        </button>
+        <button type="button" class="tower-status-card" data-status-card="delayed">
+          <span class="tower-status-label">
+            <span class="tower-status-dot delayed"></span>
+            Delayed
+          </span>
+          <span class="tower-status-count" id="statusCountDelayed">{{ control_tower.counts.delayed }}</span>
+        </button>
+        <button type="button" class="tower-status-card" data-status-card="draft">
+          <span class="tower-status-label">
+            <span class="tower-status-dot draft"></span>
+            Draft
+          </span>
+          <span class="tower-status-count" id="statusCountDraft">{{ control_tower.counts.draft }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="tower-panel">
+      <div class="tower-section-heading">Filters</div>
+      <div class="tower-filter-grid">
+        <div>
+          <label for="controlTowerStatusFilter">Status</label>
+          <select id="controlTowerStatusFilter" class="form-select">
+            <option value="">All statuses</option>
+            {% for status in control_tower.filters.statuses %}
+            <option value="{{ status.value }}">{{ status.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="controlTowerCarrierFilter">Carrier</label>
+          <select id="controlTowerCarrierFilter" class="form-select">
+            <option value="">All carriers</option>
+            {% for carrier in control_tower.filters.carriers %}
+            <option value="{{ carrier }}">{{ carrier }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="controlTowerModeFilter">Mode</label>
+          <select id="controlTowerModeFilter" class="form-select">
+            <option value="">All modes</option>
+            {% for mode in control_tower.filters.modes %}
+            <option value="{{ mode }}">{{ mode }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="tower-filter-actions">
+        <span class="tower-inline-stat">
+          Showing <strong id="controlTowerVisibleCount">{{ control_tower.counts.total }}</strong>
+          of
+          <strong id="controlTowerTotalCount">{{ control_tower.counts.total }}</strong>
+        </span>
+        <button type="button" class="btn btn-sm btn-outline-light" id="controlTowerClearFilters">
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <div class="tower-panel">
+      <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+        <div class="tower-section-heading mb-0">Exceptions</div>
+        <span class="tower-inline-stat">
+          Live GPS: <strong id="controlTowerLiveCount">
+            {{ control_tower.shipments|selectattr("has_live_data")|list|length }}
+          </strong>
+        </span>
+      </div>
+      <div class="tower-exception-list" id="controlTowerExceptions">
+        {% for exception in control_tower.exceptions %}
+        <a href="{{ exception.view_url }}" class="tower-exception-item">
+          <div class="d-flex justify-content-between align-items-start gap-3">
+            <div>
+              <div class="tower-exception-ref">{{ exception.shipment_ref }}</div>
+              <div class="tower-exception-route">{{ exception.route_label }}</div>
+            </div>
+            <span class="badge text-bg-{% if exception.health_key == 'delayed' %}danger{% else %}warning{% endif %}">
+              {{ exception.health_label }}
+            </span>
+          </div>
+          <div class="tower-exception-reason">{{ exception.health_reason }}</div>
+          <div class="tower-muted mt-2">{{ exception.carrier_name }} | {{ exception.eta_display }}</div>
+        </a>
+        {% else %}
+        <div class="tower-empty">No at-risk or delayed shipments in view.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </aside>
+
+  <section class="tower-map-panel">
+    <div class="tower-map-toolbar">
+      <div class="d-flex flex-wrap gap-2">
+        <span class="tower-pill">
+          <i class="bi bi-globe2"></i>
+          Global map
+        </span>
+        <span class="tower-pill">
+          <i class="bi bi-truck"></i>
+          <span id="controlTowerToolbarCount">{{ control_tower.counts.total }}</span> active shipments
+        </span>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <span class="tower-pill" id="controlTowerSyncStatus">
+          <i class="bi bi-broadcast-pin"></i>
+          Live tracking online
+        </span>
+      </div>
+    </div>
+    <div id="controlTowerMap" aria-label="Live shipment map"></div>
+    <div class="tower-map-legend">
+      <span class="tower-legend-item"><span class="tower-status-dot on_time"></span>On Time</span>
+      <span class="tower-legend-item"><span class="tower-status-dot at_risk"></span>At Risk</span>
+      <span class="tower-legend-item"><span class="tower-status-dot delayed"></span>Delayed</span>
+      <span class="tower-legend-item"><span class="tower-status-dot draft"></span>Draft</span>
+    </div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script nonce="{{ csp_nonce }}">
+  const controlTowerDataUrl = "{{ url_for('tms.control_tower_data') }}";
+  const controlTowerInitialPayload = {{ control_tower|tojson }};
+  const controlTowerHealthMeta = {
+    on_time: { label: "On Time", color: "#22c55e", badge: "success" },
+    at_risk: { label: "At Risk", color: "#facc15", badge: "warning" },
+    delayed: { label: "Delayed", color: "#ef4444", badge: "danger" },
+    draft: { label: "Draft", color: "#94a3b8", badge: "secondary" },
+  };
+
+  const controlTowerState = {
+    payload: controlTowerInitialPayload,
+    filters: {
+      status: "",
+      carrier: "",
+      mode: "",
+    },
+    mapInitialized: false,
+  };
+
+  const controlTowerElements = {
+    map: document.getElementById("controlTowerMap"),
+    refreshedAt: document.getElementById("controlTowerRefreshedAt"),
+    statusFilter: document.getElementById("controlTowerStatusFilter"),
+    carrierFilter: document.getElementById("controlTowerCarrierFilter"),
+    modeFilter: document.getElementById("controlTowerModeFilter"),
+    clearFilters: document.getElementById("controlTowerClearFilters"),
+    visibleCount: document.getElementById("controlTowerVisibleCount"),
+    totalCount: document.getElementById("controlTowerTotalCount"),
+    toolbarCount: document.getElementById("controlTowerToolbarCount"),
+    liveCount: document.getElementById("controlTowerLiveCount"),
+    syncStatus: document.getElementById("controlTowerSyncStatus"),
+    exceptions: document.getElementById("controlTowerExceptions"),
+    cards: {
+      on_time: document.getElementById("statusCountOnTime"),
+      at_risk: document.getElementById("statusCountAtRisk"),
+      delayed: document.getElementById("statusCountDelayed"),
+      draft: document.getElementById("statusCountDraft"),
+    },
+    cardButtons: Array.from(document.querySelectorAll("[data-status-card]")),
+  };
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function syncTowerHeight() {
+    const layout = document.querySelector(".control-tower-layout");
+    if (!layout) {
+      return;
+    }
+    const availableHeight = Math.max(window.innerHeight - layout.getBoundingClientRect().top, 560);
+    document.documentElement.style.setProperty("--tower-height", `${availableHeight}px`);
+    if (controlTowerState.mapInitialized && controlTowerMap) {
+      controlTowerMap.invalidateSize();
+    }
+  }
+
+  function buildPinIcon(healthKey) {
+    const color = (controlTowerHealthMeta[healthKey] || controlTowerHealthMeta.draft).color;
+    return L.divIcon({
+      className: "",
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+      popupAnchor: [0, -10],
+      html: `<div class="tower-pin-icon" style="background:${color};"></div>`,
+    });
+  }
+
+  function setSelectOptions(selectElement, values, selectedValue, labelBuilder) {
+    const normalizedValues = values || [];
+    const optionMarkup = normalizedValues
+      .map((value) => {
+        if (typeof value === "object") {
+          return {
+            value: value.value,
+            label: value.label,
+          };
+        }
+        return {
+          value,
+          label: labelBuilder ? labelBuilder(value) : value,
+        };
+      });
+    const current = Array.from(selectElement.options).map((option) => option.value).join("|");
+    const incoming = ["", ...optionMarkup.map((option) => option.value)].join("|");
+    if (current !== incoming) {
+      selectElement.innerHTML = "";
+      const allOption = document.createElement("option");
+      allOption.value = "";
+      allOption.textContent = selectElement === controlTowerElements.statusFilter ? "All statuses" :
+        selectElement === controlTowerElements.carrierFilter ? "All carriers" : "All modes";
+      selectElement.appendChild(allOption);
+      optionMarkup.forEach((option) => {
+        const element = document.createElement("option");
+        element.value = option.value;
+        element.textContent = option.label;
+        selectElement.appendChild(element);
+      });
+    }
+    selectElement.value = selectedValue || "";
+  }
+
+  function splitFilteredShipments(shipments) {
+    const scopedShipments = shipments.filter((shipment) => {
+      const matchesCarrier = !controlTowerState.filters.carrier || shipment.carrier_name === controlTowerState.filters.carrier;
+      const matchesMode = !controlTowerState.filters.mode || shipment.mode === controlTowerState.filters.mode;
+      return matchesCarrier && matchesMode;
+    });
+    const visibleShipments = scopedShipments.filter((shipment) => {
+      if (!controlTowerState.filters.status) {
+        return true;
+      }
+      return shipment.health_key === controlTowerState.filters.status;
+    });
+    return { scopedShipments, visibleShipments };
+  }
+
+  function countByHealth(shipments) {
+    return shipments.reduce((counts, shipment) => {
+      counts[shipment.health_key] = (counts[shipment.health_key] || 0) + 1;
+      return counts;
+    }, { on_time: 0, at_risk: 0, delayed: 0, draft: 0 });
+  }
+
+  function updateStatusCards(scopedShipments) {
+    const counts = countByHealth(scopedShipments);
+    Object.keys(controlTowerElements.cards).forEach((key) => {
+      controlTowerElements.cards[key].textContent = counts[key] || 0;
+    });
+    controlTowerElements.cardButtons.forEach((button) => {
+      const buttonStatus = button.getAttribute("data-status-card");
+      button.classList.toggle("active", controlTowerState.filters.status === buttonStatus);
+    });
+  }
+
+  function updateCounters(allShipments, visibleShipments) {
+    const liveCount = visibleShipments.filter((shipment) => shipment.has_live_data).length;
+    controlTowerElements.visibleCount.textContent = visibleShipments.length;
+    controlTowerElements.totalCount.textContent = allShipments.length;
+    controlTowerElements.toolbarCount.textContent = visibleShipments.length;
+    controlTowerElements.liveCount.textContent = liveCount;
+  }
+
+  function buildExceptionMarkup(visibleShipments) {
+    const exceptionShipments = visibleShipments.filter((shipment) => ["delayed", "at_risk"].includes(shipment.health_key));
+    if (!exceptionShipments.length) {
+      return '<div class="tower-empty">No at-risk or delayed shipments in view.</div>';
+    }
+
+    return exceptionShipments.map((shipment) => {
+      const meta = controlTowerHealthMeta[shipment.health_key] || controlTowerHealthMeta.draft;
+      return `
+        <a href="${escapeHtml(shipment.view_url)}" class="tower-exception-item">
+          <div class="d-flex justify-content-between align-items-start gap-3">
+            <div>
+              <div class="tower-exception-ref">${escapeHtml(shipment.shipment_ref)}</div>
+              <div class="tower-exception-route">${escapeHtml(shipment.route_label)}</div>
+            </div>
+            <span class="badge text-bg-${meta.badge}">${escapeHtml(shipment.health_label)}</span>
+          </div>
+          <div class="tower-exception-reason">${escapeHtml(shipment.health_reason)}</div>
+          <div class="tower-muted mt-2">${escapeHtml(shipment.carrier_name)} | ${escapeHtml(shipment.eta_display)}</div>
+        </a>
+      `;
+    }).join("");
+  }
+
+  function buildPopupMarkup(shipment) {
+    const meta = controlTowerHealthMeta[shipment.health_key] || controlTowerHealthMeta.draft;
+    return `
+      <div class="shipment-popup">
+        <h6>${escapeHtml(shipment.shipment_ref)}</h6>
+        <div class="shipment-popup-route">${escapeHtml(shipment.origin_port)} -> ${escapeHtml(shipment.destination_port)}</div>
+        <div class="shipment-popup-grid">
+          <div>
+            <span class="shipment-popup-label">Carrier</span>
+            <span class="shipment-popup-value">${escapeHtml(shipment.carrier_name)}</span>
+          </div>
+          <div>
+            <span class="shipment-popup-label">Mode</span>
+            <span class="shipment-popup-value">${escapeHtml(shipment.mode)}</span>
+          </div>
+          <div>
+            <span class="shipment-popup-label">Status</span>
+            <span class="shipment-popup-value">${escapeHtml(shipment.shipment_status)}</span>
+          </div>
+          <div>
+            <span class="shipment-popup-label">Health</span>
+            <span class="shipment-popup-value" style="color:${meta.color};">${escapeHtml(shipment.health_label)}</span>
+          </div>
+          <div>
+            <span class="shipment-popup-label">ETA</span>
+            <span class="shipment-popup-value">${escapeHtml(shipment.eta_display)}</span>
+          </div>
+          <div>
+            <span class="shipment-popup-label">GPS Pings</span>
+            <span class="shipment-popup-value">${escapeHtml(shipment.gps_ping_count)}</span>
+          </div>
+        </div>
+        <div class="tower-muted mb-2">${escapeHtml(shipment.health_reason)}</div>
+        <a class="shipment-popup-link" href="${escapeHtml(shipment.view_url)}">
+          <i class="bi bi-box-arrow-up-right"></i>
+          Open shipment
+        </a>
+      </div>
+    `;
+  }
+
+  function resetMapView() {
+    controlTowerMap.setView([20, 0], 2);
+  }
+
+  function drawShipmentsOnMap(visibleShipments, fitBounds) {
+    controlTowerLayers.trails.clearLayers();
+    controlTowerLayers.pings.clearLayers();
+    controlTowerLayers.markers.clearLayers();
+
+    const bounds = [];
+
+    visibleShipments.forEach((shipment) => {
+      if (Array.isArray(shipment.gps_path) && shipment.gps_path.length) {
+        const pathLatLngs = shipment.gps_path.map((ping) => [ping.lat, ping.lng]);
+        L.polyline(pathLatLngs, {
+          color: (controlTowerHealthMeta[shipment.health_key] || controlTowerHealthMeta.draft).color,
+          weight: 3,
+          opacity: 0.65,
+        }).addTo(controlTowerLayers.trails);
+        pathLatLngs.forEach((latLng, index) => {
+          L.circleMarker(latLng, {
+            radius: index === pathLatLngs.length - 1 ? 4.5 : 3,
+            weight: 1,
+            color: "#ffffff",
+            fillColor: (controlTowerHealthMeta[shipment.health_key] || controlTowerHealthMeta.draft).color,
+            fillOpacity: index === pathLatLngs.length - 1 ? 0.95 : 0.7,
+          }).addTo(controlTowerLayers.pings);
+          bounds.push(latLng);
+        });
+      }
+
+      if (!shipment.marker) {
+        return;
+      }
+
+      const markerLatLng = [shipment.marker.lat, shipment.marker.lng];
+      const marker = L.marker(markerLatLng, {
+        icon: buildPinIcon(shipment.health_key),
+      }).bindPopup(buildPopupMarkup(shipment));
+      marker.addTo(controlTowerLayers.markers);
+      bounds.push(markerLatLng);
+    });
+
+    if (fitBounds) {
+      if (!bounds.length) {
+        resetMapView();
+      } else {
+        controlTowerMap.fitBounds(bounds, { padding: [36, 36], maxZoom: 6 });
+      }
+    }
+  }
+
+  function renderControlTower(options) {
+    const fitBounds = Boolean(options && options.fitBounds);
+    const payload = controlTowerState.payload || { shipments: [], filters: {} };
+    const shipments = Array.isArray(payload.shipments) ? payload.shipments : [];
+    const { scopedShipments, visibleShipments } = splitFilteredShipments(shipments);
+
+    setSelectOptions(controlTowerElements.statusFilter, payload.filters.statuses, controlTowerState.filters.status);
+    setSelectOptions(controlTowerElements.carrierFilter, payload.filters.carriers, controlTowerState.filters.carrier);
+    setSelectOptions(controlTowerElements.modeFilter, payload.filters.modes, controlTowerState.filters.mode);
+    updateStatusCards(scopedShipments);
+    updateCounters(shipments, visibleShipments);
+    controlTowerElements.exceptions.innerHTML = buildExceptionMarkup(visibleShipments);
+    controlTowerElements.refreshedAt.textContent = payload.refreshed_at || "Just now";
+    drawShipmentsOnMap(visibleShipments, fitBounds);
+  }
+
+  async function refreshControlTower() {
+    try {
+      const response = await fetch(controlTowerDataUrl, {
+        headers: {
+          Accept: "application/json",
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Refresh failed with status ${response.status}`);
+      }
+      controlTowerState.payload = await response.json();
+      controlTowerElements.syncStatus.innerHTML = '<i class="bi bi-broadcast-pin"></i> Live tracking online';
+      renderControlTower({ fitBounds: false });
+    } catch (error) {
+      controlTowerElements.syncStatus.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Refresh retry pending';
+    }
+  }
+
+  const controlTowerMap = L.map("controlTowerMap", {
+    zoomControl: true,
+    worldCopyJump: true,
+  });
+
+  const controlTowerLayers = {
+    trails: L.layerGroup().addTo(controlTowerMap),
+    pings: L.layerGroup().addTo(controlTowerMap),
+    markers: L.layerGroup().addTo(controlTowerMap),
+  };
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(controlTowerMap);
+
+  controlTowerState.mapInitialized = true;
+  syncTowerHeight();
+  renderControlTower({ fitBounds: true });
+
+  controlTowerElements.statusFilter.addEventListener("change", () => {
+    controlTowerState.filters.status = controlTowerElements.statusFilter.value;
+    renderControlTower({ fitBounds: true });
+  });
+  controlTowerElements.carrierFilter.addEventListener("change", () => {
+    controlTowerState.filters.carrier = controlTowerElements.carrierFilter.value;
+    renderControlTower({ fitBounds: true });
+  });
+  controlTowerElements.modeFilter.addEventListener("change", () => {
+    controlTowerState.filters.mode = controlTowerElements.modeFilter.value;
+    renderControlTower({ fitBounds: true });
+  });
+  controlTowerElements.clearFilters.addEventListener("click", () => {
+    controlTowerState.filters.status = "";
+    controlTowerState.filters.carrier = "";
+    controlTowerState.filters.mode = "";
+    renderControlTower({ fitBounds: true });
+  });
+  controlTowerElements.cardButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const buttonStatus = button.getAttribute("data-status-card");
+      controlTowerState.filters.status = controlTowerState.filters.status === buttonStatus ? "" : buttonStatus;
+      renderControlTower({ fitBounds: true });
+    });
+  });
+
+  window.addEventListener("resize", syncTowerHeight);
+  window.setInterval(refreshControlTower, 30000);
+</script>
+{% endblock %}

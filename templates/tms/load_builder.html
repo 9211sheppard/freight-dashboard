@@ -1,0 +1,320 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Load Builder — {{ load.load_ref }}{% endblock %}
+
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+.lb-panel { background: #1e1e1e; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 1.25rem; }
+.lb-fill-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.lb-fill-inner { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.lb-fill-low { background: #4ade80; }
+.lb-fill-mid { background: #facc15; }
+.lb-fill-high { background: #f87171; }
+.stop-card { background: #1a1a1a; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 0.5rem; cursor: grab; }
+.stop-card:active { cursor: grabbing; }
+.stop-pickup { border-left: 3px solid #60a5fa; }
+.stop-delivery { border-left: 3px solid #4ade80; }
+.shipment-row { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 0.7rem 1rem; margin-bottom: 0.4rem; }
+.equip-btn { border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #999; border-radius: 8px; padding: 0.6rem 1rem; cursor: pointer; transition: all 0.2s; }
+.equip-btn.active { border-color: #c8a96e; background: rgba(200,169,110,0.1); color: #c8a96e; }
+.msg-bubble { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 0.5rem 0.85rem; margin-bottom: 0.4rem; font-size: 0.82rem; }
+.msg-bubble.driver { background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.15); }
+.msg-bubble.dispatcher { background: rgba(200,169,110,0.07); border: 1px solid rgba(200,169,110,0.15); }
+.ftl-ready-banner { background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.25); border-radius: 10px; padding: 0.85rem 1.25rem; }
+.x-small { font-size: 0.72rem; }
+</style>
+{% endblock %}
+
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <a href="/tms/loads" class="text-muted text-decoration-none small">← Loads</a>
+    </div>
+    <h2 class="mb-0">{{ load.load_ref }}</h2>
+    <small class="text-muted">{{ load.equipment_label }} · {{ load.load_type }} · {{ load.status }}</small>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if load.load_type == 'LTL' and load.is_ftl_ready %}
+    <button class="btn btn-success" onclick="convertToFTL()"><i class="bi bi-arrow-up-circle me-1"></i>Convert to FTL</button>
+    {% endif %}
+    <button class="btn btn-outline-secondary" onclick="releaseToAccounting()"><i class="bi bi-send me-1"></i>Release to Accounting</button>
+  </div>
+</div>
+
+{% if load.is_ftl_ready %}
+<div class="ftl-ready-banner mb-4 d-flex align-items-center gap-3">
+  <i class="bi bi-lightning-charge-fill text-success fs-4"></i>
+  <div>
+    <div class="fw-semibold text-success">This load is FTL-ready ({{ load.fill_pct }}% full)</div>
+    <small class="text-muted">You can convert to FTL and merge all BOLs into a single master shipment.</small>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <!-- LEFT: Weight + Shipments -->
+  <div class="col-lg-4">
+    <!-- Weight tracker -->
+    <div class="lb-panel mb-3">
+      <div class="d-flex justify-content-between mb-2">
+        <span class="fw-semibold small">Load Capacity</span>
+        <span class="small text-muted">{{ "{:,.0f}".format(load.current_lbs) }} / {{ "{:,.0f}".format(load.max_weight_lbs) }} lbs</span>
+      </div>
+      <div class="lb-fill-bar mb-2">
+        <div class="lb-fill-inner {% if load.fill_pct < 60 %}lb-fill-low{% elif load.fill_pct < 85 %}lb-fill-mid{% else %}lb-fill-high{% endif %}" style="width:{{ load.fill_pct }}%"></div>
+      </div>
+      <div class="d-flex justify-content-between">
+        <small class="text-muted">{{ load.fill_pct }}% full</small>
+        <small class="text-muted">{{ "{:,.0f}".format(load.remaining_lbs) }} lbs remaining</small>
+      </div>
+    </div>
+
+    <!-- Shipments on this load -->
+    <div class="lb-panel mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="fw-semibold small">Shipments on Load <span class="badge bg-secondary ms-1">{{ load.shipments|length }}</span></span>
+      </div>
+      <div id="loadShipmentsList">
+        {% for s in load.shipments %}
+        <div class="shipment-row d-flex justify-content-between align-items-center">
+          <div>
+            <div class="small fw-semibold">{{ s.shipment_ref }}</div>
+            <div class="x-small text-muted">{{ s.cargo_description or 'No description' }}</div>
+            <div class="x-small text-muted">{{ "{:,.0f}".format(s.weight_lbs) }} lbs · {{ s.origin_port or '—' }} → {{ s.destination_port or '—' }}</div>
+          </div>
+          <button class="btn btn-sm btn-link text-danger p-0" onclick="removeShipment('{{ s.shipment_ref }}')"><i class="bi bi-x-lg"></i></button>
+        </div>
+        {% else %}
+        <div class="text-muted small text-center py-3">No shipments added yet</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Add shipment -->
+    <div class="lb-panel">
+      <div class="fw-semibold small mb-3">Add LTL Shipment</div>
+      <input type="text" id="shipmentSearch" class="form-control form-control-sm bg-dark text-white border-secondary mb-2" placeholder="Search by ref or origin...">
+      <div id="availableShipments" style="max-height:220px;overflow-y:auto;">
+        {% for s in load.available_shipments %}
+        <div class="shipment-row d-flex justify-content-between align-items-center available-ship"
+             data-ref="{{ s.shipment_ref }}"
+             data-desc="{{ s.cargo_description or '' }}"
+             data-origin="{{ s.origin_port or '' }}">
+          <div>
+            <div class="small fw-semibold">{{ s.shipment_ref }}</div>
+            <div class="x-small text-muted">{{ s.cargo_description or '—' }}</div>
+            <div class="x-small text-muted">{{ "{:,.0f}".format(s.weight_lbs) }} lbs · {{ s.origin_port or '—' }} → {{ s.destination_port or '—' }}</div>
+          </div>
+          <button class="btn btn-sm btn-outline-light py-0 px-2" onclick="addShipment('{{ s.shipment_ref }}')">+</button>
+        </div>
+        {% else %}
+        <div class="text-muted small text-center py-3">No available LTL shipments</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- MIDDLE: Route / Stops -->
+  <div class="col-lg-4">
+    <div class="lb-panel h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="fw-semibold small">Route Stops <span class="badge bg-secondary ms-1">{{ load.stops|length }}</span></span>
+        <button class="btn btn-sm btn-outline-light py-0 px-2" data-bs-toggle="collapse" data-bs-target="#addStopForm"><i class="bi bi-plus-lg"></i> Add Stop</button>
+      </div>
+
+      <div class="collapse mb-3" id="addStopForm">
+        <div class="p-3 rounded" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
+          <div class="d-flex gap-2 mb-2">
+            <button class="equip-btn active flex-fill" id="stopTypePickup" onclick="setStopType('pickup')"><i class="bi bi-box-arrow-in-down me-1"></i>Pickup</button>
+            <button class="equip-btn flex-fill" id="stopTypeDelivery" onclick="setStopType('delivery')"><i class="bi bi-box-arrow-up me-1"></i>Delivery</button>
+          </div>
+          <input type="hidden" id="stopTypeInput" value="pickup">
+          <input class="form-control form-control-sm bg-dark text-white border-secondary mb-2" id="stopCompany" placeholder="Company name">
+          <input class="form-control form-control-sm bg-dark text-white border-secondary mb-2" id="stopAddress" placeholder="Street address">
+          <div class="row g-1 mb-2">
+            <div class="col-5"><input class="form-control form-control-sm bg-dark text-white border-secondary" id="stopCity" placeholder="City"></div>
+            <div class="col-3"><input class="form-control form-control-sm bg-dark text-white border-secondary" id="stopState" placeholder="State"></div>
+            <div class="col-4"><input class="form-control form-control-sm bg-dark text-white border-secondary" id="stopZip" placeholder="ZIP"></div>
+          </div>
+          <input class="form-control form-control-sm bg-dark text-white border-secondary mb-2" id="stopShipmentRef" placeholder="Shipment ref (optional)">
+          <input class="form-control form-control-sm bg-dark text-white border-secondary mb-2" type="datetime-local" id="stopTime">
+          <button class="btn btn-sm btn-primary w-100" onclick="addStop()">Add Stop</button>
+        </div>
+      </div>
+
+      <div id="stopsList" class="sortable-stops">
+        {% for stop in load.stops %}
+        <div class="stop-card stop-{{ stop.stop_type }}" data-stop-id="{{ stop.id }}">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="small fw-bold text-muted">#{{ stop.stop_number }}</span>
+                <span class="badge {% if stop.stop_type == 'pickup' %}bg-primary{% else %}bg-success{% endif %} small" style="font-size:0.65rem;">{{ stop.stop_type|upper }}</span>
+                {% if stop.status == 'deviated' and not stop.deviation_approved %}
+                <button class="btn btn-warning py-0 px-1" style="font-size:0.65rem;" onclick="approveDeviation({{ stop.id }})">Approve Deviation</button>
+                {% endif %}
+              </div>
+              <div class="small fw-semibold">{{ stop.company_name or 'Unknown' }}</div>
+              <div class="x-small text-muted">{{ stop.address }}{% if stop.city %}, {{ stop.city }}{% endif %}{% if stop.state %}, {{ stop.state }}{% endif %} {{ stop.zip }}</div>
+              {% if stop.shipment_ref %}<div class="x-small text-muted">Ref: {{ stop.shipment_ref }}</div>{% endif %}
+              {% if stop.scheduled_time %}<div class="x-small text-muted"><i class="bi bi-clock me-1"></i>{{ stop.scheduled_time }}</div>{% endif %}
+            </div>
+            <span class="tms-status tms-status-{% if stop.status == 'completed' %}delivered{% elif stop.status == 'skipped' %}cancelled{% elif stop.status == 'deviated' %}hold{% else %}draft{% endif %}">{{ stop.status }}</span>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-muted small text-center py-4"><i class="bi bi-map me-2"></i>No stops yet — add pickups and deliveries above</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Driver message + load info -->
+  <div class="col-lg-4">
+    <!-- Equipment / load info -->
+    <div class="lb-panel mb-3">
+      <div class="fw-semibold small mb-3">Load Details</div>
+      <div class="row g-2 text-center mb-3">
+        {% for key, eq in equipment_types.items() %}
+        <div class="col-4">
+          <div class="equip-btn {% if load.equipment_type == key %}active{% endif %} d-flex flex-column align-items-center p-2">
+            <i class="bi {{ eq.icon }} fs-5 mb-1"></i>
+            <div style="font-size:0.7rem;">{{ eq.label }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="row g-2">
+        <div class="col-6">
+          <div class="small text-muted">Trailer #</div>
+          <div class="fw-semibold small">{{ load.trailer_number or '—' }}</div>
+        </div>
+        <div class="col-6">
+          <div class="small text-muted">Driver</div>
+          <div class="fw-semibold small">{{ load.driver_name or '—' }}</div>
+        </div>
+        <div class="col-6">
+          <div class="small text-muted">Pickups</div>
+          <div class="fw-semibold small">{{ load.stops | selectattr('stop_type', 'equalto', 'pickup') | list | length }}</div>
+        </div>
+        <div class="col-6">
+          <div class="small text-muted">Deliveries</div>
+          <div class="fw-semibold small">{{ load.stops | selectattr('stop_type', 'equalto', 'delivery') | list | length }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Driver messaging -->
+    <div class="lb-panel">
+      <div class="fw-semibold small mb-3"><i class="bi bi-chat-dots me-2"></i>Dispatcher ↔ Driver</div>
+      <div id="messageThread" style="max-height:240px;overflow-y:auto;margin-bottom:0.75rem;">
+        {% for msg in load.messages %}
+        <div class="msg-bubble {{ msg.sender }}">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="fw-semibold" style="font-size:0.72rem;text-transform:capitalize;">{{ msg.sender }}</span>
+            <span class="text-muted" style="font-size:0.68rem;">{{ msg.created_at[:16] if msg.created_at else '' }}</span>
+          </div>
+          {{ msg.message }}
+        </div>
+        {% else %}
+        <div class="text-muted small text-center py-3">No messages yet</div>
+        {% endfor %}
+      </div>
+      <div class="d-flex gap-2">
+        <input type="text" id="msgInput" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="Message driver...">
+        <button class="btn btn-sm btn-primary" onclick="sendMessage()"><i class="bi bi-send"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+const LOAD_ID = {{ load.id }};
+
+function addShipment(ref) {
+  fetch(`/tms/loads/builder/${LOAD_ID}/add-shipment`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: `shipment_ref=${encodeURIComponent(ref)}`
+  }).then(r => r.json()).then(d => {
+    if (d.ok) location.reload();
+    else alert(d.message);
+  });
+}
+
+function removeShipment(ref) {
+  if (!confirm(`Remove ${ref} from load?`)) return;
+  fetch(`/tms/loads/builder/${LOAD_ID}/remove-shipment`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: `shipment_ref=${encodeURIComponent(ref)}`
+  }).then(() => location.reload());
+}
+
+function setStopType(type) {
+  document.getElementById('stopTypeInput').value = type;
+  document.getElementById('stopTypePickup').classList.toggle('active', type === 'pickup');
+  document.getElementById('stopTypeDelivery').classList.toggle('active', type === 'delivery');
+}
+
+function addStop() {
+  const data = new URLSearchParams({
+    stop_type: document.getElementById('stopTypeInput').value,
+    company_name: document.getElementById('stopCompany').value,
+    address: document.getElementById('stopAddress').value,
+    city: document.getElementById('stopCity').value,
+    state: document.getElementById('stopState').value,
+    zip: document.getElementById('stopZip').value,
+    shipment_ref: document.getElementById('stopShipmentRef').value,
+    scheduled_time: document.getElementById('stopTime').value,
+  });
+  fetch(`/tms/loads/builder/${LOAD_ID}/add-stop`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: data
+  }).then(() => location.reload());
+}
+
+function convertToFTL() {
+  if (!confirm('Convert this load to FTL? All BOLs will be merged into one master shipment.')) return;
+  fetch(`/tms/loads/builder/${LOAD_ID}/convert-ftl`, {method: 'POST'})
+    .then(r => r.json()).then(d => {
+      if (d.ok) { alert(`Converted to FTL — Load ref: ${d.load_ref}`); location.reload(); }
+    });
+}
+
+function releaseToAccounting() {
+  if (!confirm('Release all PODs on this load to accounting for billing?')) return;
+  fetch(`/tms/loads/builder/${LOAD_ID}/release-accounting`, {method: 'POST'})
+    .then(() => { alert('Released to accounting.'); location.reload(); });
+}
+
+function approveDeviation(stopId) {
+  fetch(`/tms/loads/builder/${LOAD_ID}/approve-deviation/${stopId}`, {method: 'POST'})
+    .then(() => location.reload());
+}
+
+function sendMessage() {
+  const msg = document.getElementById('msgInput').value.trim();
+  if (!msg) return;
+  fetch(`/tms/loads/builder/${LOAD_ID}/message`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({sender: 'dispatcher', message: msg})
+  }).then(() => location.reload());
+}
+
+// Search filter for available shipments
+document.getElementById('shipmentSearch').addEventListener('input', function () {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('.available-ship').forEach(el => {
+    const match = el.dataset.ref.toLowerCase().includes(q)
+      || el.dataset.desc.toLowerCase().includes(q)
+      || el.dataset.origin.toLowerCase().includes(q);
+    el.style.display = match ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

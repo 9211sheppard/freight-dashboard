@@ -1,0 +1,181 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}New DG Declaration{% endblock %}
+{% block content %}
+<div class="tms-page-header mb-3">
+  <h1 class="tms-page-title mb-0"><i class="bi bi-radioactive me-2 text-gold"></i>New DG Declaration</h1>
+  <p class="text-muted mb-0">IMDG · IATA DGR · ADR · DOT 49 CFR</p>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <form method="post" action="/tms/hazmat/declaration/new">
+      <div class="tms-card mb-3">
+        <div class="fw-semibold mb-3 text-gold">1. Shipment &amp; Transport</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Shipment Reference</label>
+            <input name="shipment_ref" class="form-control tms-input" placeholder="SHP-XXXXXXXX" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Transport Mode</label>
+            <select name="transport_mode" class="form-select tms-input" required>
+              <option value="road">Road (DOT 49 CFR / ADR)</option>
+              <option value="sea">Sea (IMDG)</option>
+              <option value="air">Air (IATA DGR)</option>
+              <option value="rail">Rail</option>
+              <option value="multimodal">Multimodal</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="tms-card mb-3">
+        <div class="fw-semibold mb-3 text-gold">2. Substance Identification</div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">UN Number</label>
+            <div class="input-group">
+              <input name="un_number" id="unInput" class="form-control tms-input" placeholder="UN1234" required
+                     oninput="liveSearch(this.value)">
+              <button type="button" class="btn btn-outline-gold" onclick="liveSearch(document.getElementById('unInput').value)">
+                <i class="bi bi-search"></i>
+              </button>
+            </div>
+            <div id="unDrop" class="position-absolute bg-dark border border-secondary rounded mt-1 d-none" style="z-index:999;min-width:320px;max-height:200px;overflow-y:auto;"></div>
+          </div>
+          <div class="col-md-8">
+            <label class="form-label">Proper Shipping Name</label>
+            <input name="proper_shipping_name" id="psnInput" class="form-control tms-input" required placeholder="Auto-filled from UN lookup">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Hazmat Class</label>
+            <input name="hazmat_class" id="classInput" class="form-control tms-input" placeholder="e.g. 3">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Packing Group</label>
+            <select name="packing_group" class="form-select tms-input">
+              <option value="">N/A</option>
+              <option value="I">I (High Danger)</option>
+              <option value="II">II (Medium)</option>
+              <option value="III">III (Low)</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Quantity</label>
+            <input name="quantity" type="number" step="0.01" class="form-control tms-input" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Unit</label>
+            <select name="unit" class="form-select tms-input">
+              <option value="kg">kg</option>
+              <option value="L">L (litres)</option>
+              <option value="pieces">pieces</option>
+              <option value="packages">packages</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="tms-card mb-3">
+        <div class="fw-semibold mb-3 text-gold">3. Packaging</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Inner Packaging</label>
+            <input name="inner_pkg" class="form-control tms-input" placeholder="e.g. Plastic bottles 1L">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Outer Packaging</label>
+            <input name="outer_pkg" class="form-control tms-input" placeholder="e.g. Fibreboard box, 4G">
+          </div>
+        </div>
+      </div>
+
+      <div class="tms-card mb-3">
+        <div class="fw-semibold mb-3 text-gold">4. Parties &amp; Emergency Contact</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Shipper Name</label>
+            <input name="shipper" class="form-control tms-input" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Consignee Name</label>
+            <input name="consignee" class="form-control tms-input" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Emergency Contact Name</label>
+            <input name="emergency_contact" class="form-control tms-input" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Emergency Phone <span class="text-danger">*</span></label>
+            <input name="emergency_phone" type="tel" class="form-control tms-input" required placeholder="+1 800 555 0100">
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-gold"><i class="bi bi-check-circle me-1"></i>Create Declaration</button>
+        <a href="/tms/hazmat" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="tms-card mb-3">
+      <div class="fw-semibold mb-2"><i class="bi bi-info-circle me-1 text-gold"></i>Selected Substance</div>
+      <div id="substanceCard" class="text-muted small">Enter a UN number to see details</div>
+    </div>
+
+    <div class="tms-card p-0">
+      <div class="px-3 pt-3 pb-2 border-bottom border-secondary">
+        <span class="fw-semibold small"><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Mode Restrictions</span>
+      </div>
+      <div class="px-3 py-2 small text-muted">
+        <div class="mb-1"><span class="badge bg-danger me-1">IATA Prohibited</span> UN2915 (Radioactive) · UN1017 (Chlorine) · UN2031 (Nitric acid conc.)</div>
+        <div class="mb-1"><span class="badge bg-warning text-dark me-1">Class 7</span> Requires radiation documentation</div>
+        <div><span class="badge bg-secondary me-1">PG I</span> Maximum danger — confirm carrier approval</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let searchTimer;
+function liveSearch(q) {
+  clearTimeout(searchTimer);
+  if (q.length < 2) { document.getElementById('unDrop').classList.add('d-none'); return; }
+  searchTimer = setTimeout(() => {
+    fetch('/tms/hazmat/search?q=' + encodeURIComponent(q))
+      .then(r => r.json())
+      .then(rows => {
+        const drop = document.getElementById('unDrop');
+        if (!rows.length) { drop.classList.add('d-none'); return; }
+        drop.innerHTML = rows.map(r =>
+          `<div class="px-3 py-2 border-bottom border-secondary" style="cursor:pointer;"
+            onclick="selectUN('${r.un_number}','${r.proper_shipping_name.replace(/'/g,"\\'")}','${r.hazmat_class}','${r.packing_group||''}')">
+            <span class="text-gold fw-bold">${r.un_number}</span>
+            <span class="text-white ms-2">${r.proper_shipping_name}</span>
+            <span class="badge bg-secondary ms-1">Class ${r.hazmat_class}</span>
+          </div>`
+        ).join('');
+        drop.classList.remove('d-none');
+      });
+  }, 300);
+}
+
+function selectUN(un, psn, cls, pg) {
+  document.getElementById('unInput').value = un;
+  document.getElementById('psnInput').value = psn;
+  document.getElementById('classInput').value = cls;
+  document.getElementById('unDrop').classList.add('d-none');
+  document.getElementById('substanceCard').innerHTML =
+    `<div class="mb-1"><span class="text-gold fw-bold fs-5">${un}</span></div>
+     <div class="mb-1">${psn}</div>
+     <div><span class="badge bg-secondary">Class ${cls}</span>${pg ? ` <span class="badge bg-dark border border-secondary">PG ${pg}</span>` : ''}</div>`;
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#unInput') && !e.target.closest('#unDrop'))
+    document.getElementById('unDrop').classList.add('d-none');
+});
+</script>
+{% endblock %}

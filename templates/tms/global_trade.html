@@ -1,0 +1,334 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Global Trade{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-globe2 me-2"></i>Global Trade</h2>
+    <div class="text-muted small">Search HS codes, run compliance checks, and keep a local audit trail until live tariff credentials are added.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{{ url_for('tms.customs') }}" class="btn btn-outline-info"><i class="bi bi-shield-check me-1"></i>Customs</a>
+    <a href="{{ url_for('tms.dashboard') }}" class="btn btn-outline-secondary"><i class="bi bi-speedometer2 me-1"></i>TMS Master</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="mb-4">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<style nonce="{{ csp_nonce }}">
+  .trade-panel {
+    background: linear-gradient(180deg, rgba(17, 24, 39, 0.98), rgba(10, 14, 23, 0.98));
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 16px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  }
+
+  .trade-panel .card-header {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  }
+
+  .trade-muted {
+    color: #94a3b8;
+  }
+
+  .trade-search-results {
+    min-height: 64px;
+    border: 1px dashed rgba(148, 163, 184, 0.25);
+    border-radius: 12px;
+    background: rgba(2, 6, 23, 0.55);
+    padding: 10px;
+  }
+
+  .trade-result-btn {
+    width: 100%;
+    text-align: left;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(71, 85, 105, 0.7);
+    color: #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    transition: border-color 0.18s ease, transform 0.18s ease;
+  }
+
+  .trade-result-btn:hover {
+    border-color: rgba(96, 165, 250, 0.8);
+    transform: translateY(-1px);
+  }
+
+  .trade-disabled {
+    opacity: 0.6;
+    filter: grayscale(0.15);
+  }
+
+  .trade-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .trade-status-pill::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .trade-status-clear {
+    background: rgba(34, 197, 94, 0.16);
+    color: #86efac;
+  }
+
+  .trade-status-clear::before {
+    background: #22c55e;
+  }
+
+  .trade-status-review {
+    background: rgba(250, 204, 21, 0.16);
+    color: #fde68a;
+  }
+
+  .trade-status-review::before {
+    background: #facc15;
+  }
+
+  .trade-status-blocked {
+    background: rgba(248, 113, 113, 0.16);
+    color: #fca5a5;
+  }
+
+  .trade-status-blocked::before {
+    background: #ef4444;
+  }
+
+  .trade-highlight {
+    background: rgba(59, 130, 246, 0.08);
+  }
+</style>
+
+<div class="row g-4 mb-4">
+  <div class="col-xl-8">
+    <div class="card trade-panel h-100">
+      <div class="card-header bg-transparent text-white">
+        <i class="bi bi-search me-2 text-info"></i>HS Code Search and Compliance Check
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label trade-muted">HS Code Search</label>
+          <input
+            type="text"
+            id="hs-search-input"
+            class="form-control bg-black text-white border-secondary"
+            placeholder="Search 8471, computers, t-shirts, cars">
+          <div class="small trade-muted mt-2">Search by code or description. Clicking a result fills the HS code field below.</div>
+        </div>
+
+        <div id="hs-search-results" class="trade-search-results mb-4">
+          <div class="small trade-muted">Type at least 2 characters to search the local HS code library.</div>
+        </div>
+
+        <form method="POST" action="{{ url_for('tms.trade_check') }}">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label trade-muted">Shipment Ref</label>
+              <input
+                type="text"
+                name="shipment_ref"
+                class="form-control bg-black text-white border-secondary"
+                placeholder="TMS-TRADE-001"
+                required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label trade-muted">HS Code</label>
+              <input
+                type="text"
+                id="hs-code-field"
+                name="hs_code"
+                class="form-control bg-black text-white border-secondary"
+                placeholder="8471"
+                required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label trade-muted">Origin Country</label>
+              <input
+                type="text"
+                name="origin_country"
+                class="form-control bg-black text-white border-secondary"
+                placeholder="China"
+                required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label trade-muted">Dest Country</label>
+              <input
+                type="text"
+                name="dest_country"
+                class="form-control bg-black text-white border-secondary"
+                placeholder="Canada"
+                required>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mt-4">
+            <div class="small trade-muted">
+              Restricted-country hard stop list: Cuba, Iran, North Korea, Russia.
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-shield-check me-1"></i>Run Compliance Check
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4">
+    <div class="card trade-panel trade-disabled h-100">
+      <div class="card-header bg-transparent text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-key me-2 text-warning"></i>Live Tariff API Settings</span>
+        <span class="badge bg-secondary">Coming soon</span>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label trade-muted">Provider</label>
+          <input
+            type="text"
+            class="form-control bg-black text-white border-secondary"
+            value="{{ trade_settings.get('trade_api_provider') or 'No provider saved' }}"
+            disabled>
+        </div>
+        <div class="mb-3">
+          <label class="form-label trade-muted">API Key</label>
+          <input
+            type="text"
+            class="form-control bg-black text-white border-secondary"
+            value="{{ 'Saved in settings' if trade_settings.get('trade_api_key') else 'No API key saved' }}"
+            disabled>
+        </div>
+        <div class="small trade-muted">
+          The module already stores <code>trade_api_provider</code> and <code>trade_api_key</code> in <code>tms_settings</code>. UI save actions stay disabled until the live provider flow is added.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card trade-panel">
+  <div class="card-header bg-transparent text-white d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-clock-history me-2 text-info"></i>Recent Compliance Checks</span>
+    <span class="badge bg-secondary">{{ recent_checks|length }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover mb-0 align-middle">
+      <thead class="table-secondary text-dark">
+        <tr>
+          <th>Shipment Ref</th>
+          <th>HS Code</th>
+          <th>Route</th>
+          <th>Status</th>
+          <th>Flags</th>
+          <th>Checked</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in recent_checks %}
+        <tr class="{% if highlighted_ref and highlighted_ref == row.shipment_ref %}trade-highlight{% endif %}">
+          <td class="fw-semibold">{{ row.shipment_ref }}</td>
+          <td><code>{{ row.hs_code }}</code></td>
+          <td class="small">{{ row.origin }} to {{ row.destination }}</td>
+          <td>
+            <span class="trade-status-pill trade-status-{{ row.status }}">{{ row.status|title }}</span>
+          </td>
+          <td>
+            {% if row.flags %}
+              {% for flag in row.flags %}
+              <div class="small trade-muted mb-1">{{ flag.message }}</div>
+              {% endfor %}
+            {% else %}
+              <span class="small trade-muted">No issues flagged.</span>
+            {% endif %}
+          </td>
+          <td class="small">{{ row.checked_at }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center trade-muted py-4">No compliance checks yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+  var searchInput = document.getElementById("hs-search-input");
+  var resultsBox = document.getElementById("hs-search-results");
+  var hsCodeField = document.getElementById("hs-code-field");
+  var timer = null;
+
+  function renderEmpty(message) {
+    resultsBox.innerHTML = '<div class="small trade-muted">' + message + "</div>";
+  }
+
+  function renderResults(items) {
+    if (!items.length) {
+      renderEmpty("No matching HS codes found in the local library.");
+      return;
+    }
+
+    resultsBox.innerHTML = items.map(function (item) {
+      return (
+        '<button type="button" class="trade-result-btn" data-code="' + item.code + '">' +
+          '<div class="fw-semibold text-white">' + item.code + "</div>" +
+          '<div class="small trade-muted">' + item.description + "</div>" +
+          '<div class="small trade-muted mt-1">Chapter ' + (item.chapter || "--") + " | " + (item.section || "Unassigned") + "</div>" +
+        "</button>"
+      );
+    }).join("");
+
+    Array.prototype.forEach.call(resultsBox.querySelectorAll(".trade-result-btn"), function (button) {
+      button.addEventListener("click", function () {
+        var code = this.getAttribute("data-code") || "";
+        hsCodeField.value = code;
+        searchInput.value = code;
+        renderEmpty("HS code " + code + " loaded into the compliance form.");
+      });
+    });
+  }
+
+  function runSearch() {
+    var query = (searchInput.value || "").trim();
+    if (query.length < 2) {
+      renderEmpty("Type at least 2 characters to search the local HS code library.");
+      return;
+    }
+
+    fetch("{{ url_for('tms.trade_hs_search') }}?q=" + encodeURIComponent(query), {
+      headers: { "X-Requested-With": "XMLHttpRequest" }
+    })
+      .then(function (response) { return response.json(); })
+      .then(renderResults)
+      .catch(function () {
+        renderEmpty("HS search is temporarily unavailable.");
+      });
+  }
+
+  searchInput.addEventListener("input", function () {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(runSearch, 180);
+  });
+})();
+</script>
+{% endblock %}

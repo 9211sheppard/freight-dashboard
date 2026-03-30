@@ -1,0 +1,688 @@
+{% set brand = settings|default({}) %}
+{% set brand_name = brand.get("company_name", "Shipment Tracking") %}
+{% set brand_color = brand.get("primary_color", "#0f766e") %}
+{% set brand_logo = brand.get("company_logo", "") %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if shipment %}Track {{ shipment.shipment_ref }}{% else %}Track Shipment{% endif %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-icons.min.css') }}">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    :root {
+      --brand: {{ brand_color }};
+      --surface: #0d1520;
+      --surface-alt: #101d2d;
+      --surface-soft: rgba(255, 255, 255, 0.06);
+      --border-soft: rgba(255, 255, 255, 0.1);
+      --text-main: #f3f6fb;
+      --text-muted: #9fb0c3;
+      --shadow: 0 18px 46px rgba(0, 0, 0, 0.35);
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text-main);
+      font-family: Aptos, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.08) 0, transparent 30%),
+        linear-gradient(180deg, #122130 0, #09111a 24%, #05080d 100%);
+    }
+
+    .tracking-shell {
+      padding: 24px 0 48px;
+    }
+
+    .tracking-card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0, rgba(255, 255, 255, 0.02) 100%);
+      border: 1px solid var(--border-soft);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    .hero-card {
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -100px auto;
+      width: 240px;
+      height: 240px;
+      border-radius: 999px;
+      background: radial-gradient(circle, var(--brand) 0, transparent 70%);
+      pointer-events: none;
+    }
+
+    .brand-mark {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .eyebrow {
+      font-size: 0.75rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.65rem;
+    }
+
+    .hero-title {
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      margin-bottom: 0.45rem;
+    }
+
+    .hero-subtitle {
+      color: var(--text-muted);
+      max-width: 38rem;
+      margin-bottom: 0;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      border-radius: 999px;
+      padding: 0.65rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+
+    .status-secondary {
+      background: rgba(108, 117, 125, 0.18);
+      border-color: rgba(108, 117, 125, 0.24);
+      color: #e7ebef;
+    }
+
+    .status-success {
+      background: rgba(25, 135, 84, 0.18);
+      border-color: rgba(25, 135, 84, 0.24);
+      color: #9ef0c1;
+    }
+
+    .status-primary {
+      background: rgba(13, 110, 253, 0.18);
+      border-color: rgba(13, 110, 253, 0.24);
+      color: #a9c9ff;
+    }
+
+    .status-warning {
+      background: rgba(255, 193, 7, 0.18);
+      border-color: rgba(255, 193, 7, 0.24);
+      color: #ffe28b;
+    }
+
+    .status-info {
+      background: rgba(13, 202, 240, 0.18);
+      border-color: rgba(13, 202, 240, 0.24);
+      color: #9fefff;
+    }
+
+    .status-danger {
+      background: rgba(220, 53, 69, 0.18);
+      border-color: rgba(220, 53, 69, 0.24);
+      color: #ffb0b8;
+    }
+
+    .metric-card,
+    .detail-card {
+      height: 100%;
+      padding: 1.35rem;
+    }
+
+    .metric-label,
+    .detail-label {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+    }
+
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.35rem;
+    }
+
+    .metric-note,
+    .detail-note {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 0;
+    }
+
+    .progress-track {
+      height: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--brand) 0, #7ed0c5 100%);
+    }
+
+    .route-shell {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .route-stop {
+      padding: 1rem;
+      border-radius: 18px;
+      background: var(--surface-soft);
+      border: 1px solid var(--border-soft);
+    }
+
+    .route-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    .detail-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .timeline {
+      position: relative;
+      padding-left: 1rem;
+      margin: 0;
+    }
+
+    .timeline::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 12px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--brand) 0, rgba(255, 255, 255, 0.08) 100%);
+    }
+
+    .timeline-item {
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 1.15rem;
+    }
+
+    .timeline-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: 0;
+      top: 0.35rem;
+      width: 0.95rem;
+      height: 0.95rem;
+      border-radius: 999px;
+      background: var(--brand);
+      box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.05);
+    }
+
+    .timeline-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 1rem 1rem 0.95rem;
+    }
+
+    .timeline-date {
+      color: var(--text-muted);
+      font-size: 0.86rem;
+    }
+
+    .share-button {
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 0.7rem 1rem;
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .share-button:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    .page-footer {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      text-align: center;
+    }
+
+    .live-map {
+      min-height: 360px;
+      border-radius: 20px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .map-meta {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 767.98px) {
+      .tracking-shell {
+        padding-top: 16px;
+      }
+
+      .hero-card {
+        border-radius: 22px;
+      }
+
+      .route-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .route-arrow {
+        transform: rotate(90deg);
+        justify-self: center;
+      }
+
+      .hero-actions {
+        width: 100%;
+      }
+
+      .share-button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="tracking-shell">
+    <main class="container">
+      <div class="tracking-card hero-card p-4 p-lg-5 mb-4">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-4">
+          <div>
+            <div class="d-flex align-items-center gap-3 mb-4">
+              <div class="brand-mark">
+                {% if brand_logo %}
+                <img src="{{ brand_logo }}" alt="{{ brand_name }}">
+                {% else %}
+                <i class="bi bi-truck fs-4"></i>
+                {% endif %}
+              </div>
+              <div>
+                <div class="eyebrow">Public shipment tracker</div>
+                <div class="fw-semibold fs-5">{{ brand_name }}</div>
+              </div>
+            </div>
+            {% if shipment %}
+            <h1 class="hero-title">{{ shipment.shipment_ref }}</h1>
+            <p class="hero-subtitle">
+              Live shipment visibility for {{ tracking.route_label }}.
+              Last update {{ shipment.last_updated_display }}.
+            </p>
+            {% else %}
+            <h1 class="hero-title">Tracking unavailable</h1>
+            <p class="hero-subtitle">
+              We could not find a shipment for reference <strong>{{ ref }}</strong>.
+              Check the link and try again.
+            </p>
+            {% endif %}
+          </div>
+          {% if shipment %}
+          <div class="hero-actions d-flex flex-column align-items-lg-end gap-3">
+            <span class="status-pill status-{{ shipment.status_variant }}">
+              <i class="bi bi-broadcast-pin"></i>{{ shipment.status }}
+            </span>
+            <button type="button" class="btn share-button d-inline-flex align-items-center gap-2" id="shareTrackingButton">
+              <i class="bi bi-share-fill"></i>
+              <span id="shareTrackingLabel">Share link</span>
+            </button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if shipment %}
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <div class="tracking-card metric-card">
+            <div class="metric-label">Status</div>
+            <div class="metric-value">{{ shipment.status }}</div>
+            <p class="metric-note">{{ tracking.current_location }}</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="tracking-card metric-card">
+            <div class="metric-label">Route</div>
+            <div class="metric-value">{{ tracking.route_label }}</div>
+            <p class="metric-note">{{ shipment.carrier_name or "Carrier pending" }}</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="tracking-card metric-card">
+            <div class="metric-label">ETA</div>
+            <div class="metric-value">{{ tracking.eta_display }}</div>
+            <p class="metric-note">{{ tracking.eta_source_label }} | {{ tracking.eta_summary }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tracking-card detail-card mb-4">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+          <div>
+            <div class="detail-label">Transit progress</div>
+            <div class="detail-value">{{ tracking.progress_percent }}% complete</div>
+          </div>
+          <div class="detail-note">
+            {{ tracking.event_count }} update{% if tracking.event_count != 1 %}s{% endif %} on record
+          </div>
+        </div>
+        <div class="progress-track mb-2">
+          <div class="progress-fill" style="width: {{ tracking.progress_percent }}%;"></div>
+        </div>
+        <div class="d-flex justify-content-between detail-note">
+          <span>Booked</span>
+          <span>In transit</span>
+          <span>Delivered</span>
+        </div>
+      </div>
+
+      {% if tracking_map.has_live_data %}
+      <div class="tracking-card detail-card mb-4">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+          <div>
+            <div class="detail-label">Live GPS map</div>
+            <div class="detail-value">Last known position and route trail</div>
+          </div>
+          <div class="map-meta">
+            Last ping {{ tracking.last_ping_display }}
+          </div>
+        </div>
+        <div id="publicTrackingMap" class="live-map mb-3"></div>
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 map-meta">
+          <span>Current position: {{ tracking.current_location }}</span>
+          <span>{{ tracking.gps_ping_count }} GPS ping{% if tracking.gps_ping_count != 1 %}s{% endif %}</span>
+          <span>
+            {% if tracking.remaining_km is not none %}
+            {{ "{:,.1f}".format(tracking.remaining_km) }} km remaining
+            {% else %}
+            Route distance pending
+            {% endif %}
+          </span>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="row g-4">
+        <div class="col-lg-7">
+          <div class="tracking-card detail-card mb-4">
+            <div class="detail-label">Route plan</div>
+            <div class="route-shell">
+              <div class="route-stop">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <span class="route-icon"><i class="bi bi-geo-alt-fill"></i></span>
+                  <div>
+                    <div class="detail-label mb-1">Origin</div>
+                    <div class="detail-value">{{ shipment.origin_port or "Pending" }}</div>
+                  </div>
+                </div>
+                <p class="detail-note mb-0">ETD {{ shipment.etd_display }}</p>
+              </div>
+              <div class="route-arrow text-center fs-2 text-white-50">
+                <i class="bi bi-arrow-right"></i>
+              </div>
+              <div class="route-stop">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                  <span class="route-icon"><i class="bi bi-flag-fill"></i></span>
+                  <div>
+                    <div class="detail-label mb-1">Destination</div>
+                    <div class="detail-value">{{ shipment.destination_port or "Pending" }}</div>
+                  </div>
+                </div>
+                <p class="detail-note mb-0">{{ tracking.eta_source_label }} {{ tracking.eta_display }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tracking-card detail-card">
+            <div class="detail-label">Event timeline</div>
+            {% if events %}
+            <div class="timeline">
+              {% for event in events %}
+              <div class="timeline-item">
+                <span class="timeline-dot"></span>
+                <div class="timeline-card">
+                  <div class="d-flex flex-column flex-md-row justify-content-between gap-2 mb-2">
+                    <div class="detail-value fs-6">{{ event.event_type }}</div>
+                    <div class="timeline-date">{{ event.event_date_display }}</div>
+                  </div>
+                  {% if event.description %}
+                  <p class="mb-2">{{ event.description }}</p>
+                  {% endif %}
+                  {% if event.location %}
+                  <div class="timeline-date"><i class="bi bi-geo-alt me-1"></i>{{ event.location }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="detail-note mb-0">No shipment events have been posted yet.</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-lg-5">
+          <div class="tracking-card detail-card mb-4">
+            <div class="detail-label">Shipment details</div>
+            <div class="row g-3">
+              <div class="col-6">
+                <div class="detail-label">Carrier</div>
+                <div class="detail-value fs-6">{{ shipment.carrier_name or "Pending" }}</div>
+              </div>
+              <div class="col-6">
+                <div class="detail-label">Incoterm</div>
+                <div class="detail-value fs-6">{{ shipment.incoterm or "-" }}</div>
+              </div>
+              <div class="col-6">
+                <div class="detail-label">Cargo</div>
+                <div class="detail-value fs-6">{{ shipment.cargo_description or "-" }}</div>
+              </div>
+              <div class="col-6">
+                <div class="detail-label">Equipment</div>
+                <div class="detail-value fs-6">{{ shipment.containers or "-" }}</div>
+              </div>
+              <div class="col-6">
+                <div class="detail-label">Weight</div>
+                <div class="detail-value fs-6">{{ "{:,.0f}".format(shipment.weight_kg or 0) }} kg</div>
+              </div>
+              <div class="col-6">
+                <div class="detail-label">Volume</div>
+                <div class="detail-value fs-6">{{ "{:,.1f}".format(shipment.volume_cbm or 0) }} cbm</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tracking-card detail-card">
+            <div class="detail-label">Parties</div>
+            <div class="mb-3">
+              <div class="detail-label mb-1">Shipper</div>
+              <div class="detail-value fs-6">{{ shipment.shipper_name or "-" }}</div>
+              {% if shipment.shipper_address %}
+              <p class="detail-note mt-2 mb-0">{{ shipment.shipper_address }}</p>
+              {% endif %}
+            </div>
+            <hr class="border-secondary border-opacity-25">
+            <div>
+              <div class="detail-label mb-1">Consignee</div>
+              <div class="detail-value fs-6">{{ shipment.consignee_name or "-" }}</div>
+              {% if shipment.consignee_address %}
+              <p class="detail-note mt-2 mb-0">{{ shipment.consignee_address }}</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="tracking-card detail-card p-4 p-lg-5">
+        <div class="detail-label">Reference not found</div>
+        <div class="detail-value mb-3">No public shipment matched {{ ref }}</div>
+        <p class="detail-note mb-0">
+          If you received this link from {{ brand_name }}, confirm the full reference and try again.
+        </p>
+      </div>
+      {% endif %}
+
+      <div class="page-footer mt-4">
+        Powered by {{ brand_name }}
+      </div>
+    </main>
+  </div>
+
+  {% if shipment %}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    (function () {
+      const button = document.getElementById("shareTrackingButton");
+      const label = document.getElementById("shareTrackingLabel");
+      if (!button || !label) return;
+
+      const shareUrl = window.location.href;
+      const shareTitle = "{{ shipment.shipment_ref }}";
+
+      async function copyFallback() {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(shareUrl);
+          return;
+        }
+
+        const tempInput = document.createElement("input");
+        tempInput.value = shareUrl;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+      }
+
+      async function handleShare() {
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: shareTitle + " tracking", url: shareUrl });
+          } else {
+            await copyFallback();
+          }
+          label.textContent = "Link ready";
+          window.setTimeout(function () {
+            label.textContent = "Share link";
+          }, 2200);
+        } catch (error) {
+          if (error && error.name === "AbortError") {
+            return;
+          }
+          label.textContent = "Copy failed";
+        }
+      }
+
+      button.addEventListener("click", handleShare);
+    })();
+
+    {% if tracking_map.has_live_data %}
+    (function renderPublicTrackingMap() {
+      const mapData = {{ tracking_map|tojson }};
+      const mapNode = document.getElementById("publicTrackingMap");
+      if (!mapNode || typeof L === "undefined") {
+        return;
+      }
+
+      const map = L.map(mapNode, { scrollWheelZoom: false });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(map);
+
+      const bounds = [];
+      const addPoint = (point) => {
+        if (point) {
+          bounds.push([point.lat, point.lng]);
+        }
+      };
+
+      if (mapData.origin) {
+        L.marker([mapData.origin.lat, mapData.origin.lng]).addTo(map).bindPopup("Origin: " + mapData.origin.label);
+        addPoint(mapData.origin);
+      }
+
+      if (mapData.destination) {
+        L.marker([mapData.destination.lat, mapData.destination.lng]).addTo(map).bindPopup("Destination: " + mapData.destination.label);
+        addPoint(mapData.destination);
+      }
+
+      const trail = (mapData.trail || []).map((point) => [point.lat, point.lng]);
+      if (trail.length) {
+        L.polyline(trail, {
+          color: "#7ed0c5",
+          weight: 4,
+          opacity: 0.9
+        }).addTo(map);
+        trail.forEach((point) => bounds.push(point));
+      }
+
+      if (mapData.last_ping) {
+        L.circleMarker([mapData.last_ping.lat, mapData.last_ping.lng], {
+          radius: 8,
+          color: "#ffc107",
+          fillColor: "#ffc107",
+          fillOpacity: 1
+        }).addTo(map).bindPopup("Last ping<br>" + mapData.last_ping.timestamp_display);
+      }
+
+      if (bounds.length === 1) {
+        map.setView(bounds[0], 9);
+      } else if (bounds.length > 1) {
+        map.fitBounds(bounds, { padding: [28, 28] });
+      } else if (mapData.center) {
+        map.setView(mapData.center, 6);
+      }
+    })();
+    {% endif %}
+  </script>
+  {% endif %}
+</body>
+</html>

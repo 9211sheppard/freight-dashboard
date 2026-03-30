@@ -1,0 +1,529 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}{{ order.order_ref }} — Order Detail{% endblock %}
+
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+.order-detail-shell {
+  max-width: 900px;
+}
+
+.order-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.order-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  margin-bottom: 0.75rem;
+  transition: color 0.15s;
+}
+
+.order-detail-back:hover { color: #94a3b8; }
+
+.order-ref-badge {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #60a5fa;
+  background: rgba(96,165,250,0.1);
+  border: 1px solid rgba(96,165,250,0.2);
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+  display: inline-block;
+  margin-bottom: 0.4rem;
+}
+
+.order-detail-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0 0 0.25rem;
+}
+
+.order-detail-sub {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+/* Progress bar */
+.stage-progress {
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.stage-progress-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 1rem;
+}
+
+.stage-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+}
+
+.stage-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 80px;
+  position: relative;
+}
+
+.stage-node-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.1);
+  background: #1e1e1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: #475569;
+  margin-bottom: 0.4rem;
+  z-index: 1;
+  position: relative;
+}
+
+.stage-node.done .stage-node-dot {
+  background: #16a34a;
+  border-color: #22c55e;
+  color: #fff;
+}
+
+.stage-node.current .stage-node-dot {
+  background: #1d4ed8;
+  border-color: #60a5fa;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(96,165,250,0.2);
+}
+
+.stage-node-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+.stage-node.done .stage-node-label,
+.stage-node.current .stage-node-label {
+  color: #94a3b8;
+}
+
+.stage-node.current .stage-node-label {
+  color: #93c5fd;
+}
+
+.stage-connector {
+  flex: 0;
+  width: 100%;
+  height: 2px;
+  background: rgba(255,255,255,0.06);
+  margin: -14px 0 0;
+  position: relative;
+  top: -14px;
+}
+
+.stage-connector.done {
+  background: #16a34a;
+}
+
+/* Detail sections */
+.detail-card {
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.detail-card-title {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #60a5fa;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1.5rem;
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.detail-row.full { grid-column: 1 / -1; }
+
+.detail-key {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #475569;
+}
+
+.detail-val {
+  font-size: 0.88rem;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.detail-val.empty { color: #334155; font-style: italic; }
+
+.badge-hazmat {
+  display: inline-block;
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: #ef4444;
+  font-size: 0.7rem;
+  font-weight: 800;
+  border-radius: 4px;
+  padding: 0.1rem 0.45rem;
+}
+
+.badge-temp {
+  display: inline-block;
+  background: rgba(56,189,248,0.12);
+  border: 1px solid rgba(56,189,248,0.25);
+  color: #38bdf8;
+  font-size: 0.7rem;
+  font-weight: 800;
+  border-radius: 4px;
+  padding: 0.1rem 0.45rem;
+}
+
+.shp-link {
+  color: #60a5fa;
+  text-decoration: none;
+  font-family: 'Courier New', monospace;
+  font-size: 0.88rem;
+}
+
+.shp-link:hover { text-decoration: underline; }
+
+/* Advance action */
+.advance-card {
+  background: rgba(29,78,216,0.08);
+  border: 1px solid rgba(96,165,250,0.2);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.advance-info {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.advance-info strong { color: #e2e8f0; }
+
+.btn-advance-stage {
+  background: #1d4ed8;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.5rem 1.2rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.btn-advance-stage:hover { background: #2563eb; }
+
+@media (max-width: 576px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block tms_content %}
+
+{% set stage_idx = stages.index(order.pipeline_stage) if order.pipeline_stage in stages else 0 %}
+{% set next_stage = stages[stage_idx + 1] if stage_idx + 1 < stages | length else None %}
+
+<div class="order-detail-shell">
+
+  <a href="/tms/orders" class="order-detail-back">
+    <i class="bi bi-arrow-left"></i> Back to Order Pipeline
+  </a>
+
+  <div class="order-detail-header">
+    <div>
+      <div class="order-ref-badge">{{ order.order_ref }}</div>
+      <h1 class="order-detail-title">{{ order.customer_name }}{% if order.customer_company %} &mdash; {{ order.customer_company }}{% endif %}</h1>
+      <span class="order-detail-sub">Submitted {{ order.created_at }}</span>
+    </div>
+  </div>
+
+  <!-- Stage Progress -->
+  <div class="stage-progress">
+    <div class="stage-progress-label">Pipeline Progress</div>
+    <div class="stage-track">
+      {% for stage in stages %}
+        {% set i = loop.index0 %}
+        {% if not loop.first %}
+        <div style="flex:1;height:2px;background:{% if i <= stage_idx %}#16a34a{% else %}rgba(255,255,255,0.06){% endif %};margin-top:-14px;"></div>
+        {% endif %}
+        <div class="stage-node {% if i < stage_idx %}done{% elif i == stage_idx %}current{% endif %}">
+          <div class="stage-node-dot">
+            {% if i < stage_idx %}
+              <i class="bi bi-check"></i>
+            {% elif i == stage_idx %}
+              <i class="bi bi-circle-fill" style="font-size:0.5rem;"></i>
+            {% else %}
+              {{ i + 1 }}
+            {% endif %}
+          </div>
+          <div class="stage-node-label">{{ stage }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Advance action -->
+  {% if next_stage %}
+  <div class="advance-card">
+    <div class="advance-info">
+      Current stage: <strong>{{ order.pipeline_stage }}</strong>. Ready to advance?
+    </div>
+    <button class="btn-advance-stage" id="btnAdvance" data-ref="{{ order.order_ref }}" data-next="{{ next_stage }}">
+      Move to {{ next_stage }} &rarr;
+    </button>
+  </div>
+  {% endif %}
+
+  <div class="row g-3">
+    <!-- Contact -->
+    <div class="col-md-6">
+      <div class="detail-card">
+        <div class="detail-card-title">Contact</div>
+        <div class="detail-grid">
+          <div class="detail-row">
+            <span class="detail-key">Name</span>
+            <span class="detail-val">{{ order.customer_name or '—' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Company</span>
+            <span class="detail-val {% if not order.customer_company %}empty{% endif %}">{{ order.customer_company or 'Not provided' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Email</span>
+            <span class="detail-val {% if not order.customer_email %}empty{% endif %}">{{ order.customer_email or 'Not provided' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Phone</span>
+            <span class="detail-val {% if not order.customer_phone %}empty{% endif %}">{{ order.customer_phone or 'Not provided' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Service -->
+    <div class="col-md-6">
+      <div class="detail-card">
+        <div class="detail-card-title">Service</div>
+        <div class="detail-grid">
+          <div class="detail-row">
+            <span class="detail-key">Service Type</span>
+            <span class="detail-val">{{ order.service_type }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Equipment</span>
+            <span class="detail-val">{{ order.equipment_type }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Quoted Rate</span>
+            <span class="detail-val {% if not order.quoted_rate %}empty{% endif %}">
+              {% if order.quoted_rate %}${{ "%.2f" | format(order.quoted_rate) }}{% else %}Pending{% endif %}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Shipment Ref</span>
+            <span class="detail-val">
+              {% if order.shipment_ref %}
+                <a href="/tms/shipments/{{ order.shipment_ref }}" class="shp-link">{{ order.shipment_ref }}</a>
+              {% else %}
+                <span class="empty">—</span>
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Origin -->
+    <div class="col-md-6">
+      <div class="detail-card">
+        <div class="detail-card-title">Pickup</div>
+        <div class="detail-grid">
+          <div class="detail-row full">
+            <span class="detail-key">Address</span>
+            <span class="detail-val {% if not order.origin_address %}empty{% endif %}">{{ order.origin_address or 'Not provided' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">City</span>
+            <span class="detail-val {% if not order.origin_city %}empty{% endif %}">{{ order.origin_city or '—' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">State / ZIP</span>
+            <span class="detail-val">{{ order.origin_state or '—' }} {{ order.origin_zip or '' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Pickup Date</span>
+            <span class="detail-val {% if not order.pickup_date %}empty{% endif %}">{{ order.pickup_date or 'Not specified' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Destination -->
+    <div class="col-md-6">
+      <div class="detail-card">
+        <div class="detail-card-title">Delivery</div>
+        <div class="detail-grid">
+          <div class="detail-row full">
+            <span class="detail-key">Address</span>
+            <span class="detail-val {% if not order.destination_address %}empty{% endif %}">{{ order.destination_address or 'Not provided' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">City</span>
+            <span class="detail-val {% if not order.destination_city %}empty{% endif %}">{{ order.destination_city or '—' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">State / ZIP</span>
+            <span class="detail-val">{{ order.destination_state or '—' }} {{ order.destination_zip or '' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Delivery Date</span>
+            <span class="detail-val {% if not order.delivery_date %}empty{% endif %}">{{ order.delivery_date or 'Not specified' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cargo -->
+    <div class="col-12">
+      <div class="detail-card">
+        <div class="detail-card-title">Cargo</div>
+        <div class="detail-grid">
+          <div class="detail-row full">
+            <span class="detail-key">Description</span>
+            <span class="detail-val {% if not order.cargo_description %}empty{% endif %}">{{ order.cargo_description or 'Not provided' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Weight (lbs)</span>
+            <span class="detail-val {% if not order.weight_lbs %}empty{% endif %}">
+              {% if order.weight_lbs %}{{ order.weight_lbs | int | string }}{% else %}Not specified{% endif %}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Pallets</span>
+            <span class="detail-val {% if not order.pallets %}empty{% endif %}">{{ order.pallets or 'Not specified' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Pieces</span>
+            <span class="detail-val {% if not order.pieces %}empty{% endif %}">{{ order.pieces or 'Not specified' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Declared Value</span>
+            <span class="detail-val {% if not order.declared_value %}empty{% endif %}">
+              {% if order.declared_value %}${{ "%.2f" | format(order.declared_value) }}{% else %}Not specified{% endif %}
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-key">Special Flags</span>
+            <span class="detail-val">
+              {% if order.hazmat %}<span class="badge-hazmat">HAZMAT</span>{% endif %}
+              {% if order.temperature_controlled %}
+                <span class="badge-temp">TEMP CTRL
+                  {% if order.temp_min is not none or order.temp_max is not none %}
+                    ({{ order.temp_min or '?' }}°F — {{ order.temp_max or '?' }}°F)
+                  {% endif %}
+                </span>
+              {% endif %}
+              {% if not order.hazmat and not order.temperature_controlled %}<span class="empty">None</span>{% endif %}
+            </span>
+          </div>
+          {% if order.special_instructions %}
+          <div class="detail-row full">
+            <span class="detail-key">Special Instructions</span>
+            <span class="detail-val">{{ order.special_instructions }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script nonce="{{ csp_nonce }}">
+(function() {
+  var btn = document.getElementById('btnAdvance');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    var ref = btn.dataset.ref;
+    var next = btn.dataset.next;
+    btn.disabled = true;
+    btn.textContent = 'Moving…';
+    fetch('/tms/orders/' + encodeURIComponent(ref) + '/advance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage: next })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        window.location.reload();
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Error — retry';
+      }
+    })
+    .catch(function() {
+      btn.disabled = false;
+      btn.textContent = 'Error — retry';
+    });
+  });
+})();
+</script>
+
+{% endblock %}

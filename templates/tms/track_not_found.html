@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shipment Not Found</title>
+  <link rel="stylesheet" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/bootstrap-icons.min.css">
+  <style nonce="{{ csp_nonce }}">
+    :root {
+      --bg:      #0a0a0f;
+      --surface: #111118;
+      --border:  #1e1e2e;
+      --text:    #e8e8f0;
+      --muted:   #6c6c84;
+      --accent:  #4f8ef7;
+      --red:     #ef4444;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .track-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+    }
+    .track-logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      width: fit-content;
+    }
+    .error-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1rem;
+    }
+    .error-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+    }
+    .error-icon {
+      font-size: 3rem;
+      color: var(--red);
+      margin-bottom: 1rem;
+    }
+    .error-card h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .error-ref {
+      display: inline-block;
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.25);
+      color: var(--red);
+      border-radius: 6px;
+      padding: 0.25rem 0.75rem;
+      font-family: monospace;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+    .error-card p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.75rem;
+      line-height: 1.6;
+    }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity .15s;
+    }
+    .back-btn:hover { opacity: 0.88; color: #fff; }
+    .track-footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 1rem 2rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="track-header">
+    <a href="/tms/track" class="track-logo">
+      <i class="bi bi-hexagon-fill"></i>
+      FlashCargo
+    </a>
+  </header>
+
+  <div class="error-wrap">
+    <div class="error-card">
+      <div class="error-icon"><i class="bi bi-exclamation-circle"></i></div>
+      <h2>Shipment Not Found</h2>
+      <div class="error-ref">{{ ref }}</div>
+      <p>
+        We couldn't find a shipment matching that reference number.<br>
+        Please check your reference number or contact your freight provider for assistance.
+      </p>
+      <a href="/tms/track" class="back-btn">
+        <i class="bi bi-search"></i> Try Again
+      </a>
+    </div>
+  </div>
+
+  <footer class="track-footer">
+    Powered by <strong>FlashCargo TMS</strong>
+  </footer>
+
+</body>
+</html>

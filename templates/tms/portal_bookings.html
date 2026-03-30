@@ -1,0 +1,174 @@
+{% extends "tms/tms_base.html" %}
+
+{% block title %}Portal Bookings{% endblock %}
+
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-inbox me-2"></i>Portal Bookings</h2>
+    <div class="text-muted small">Review customer-submitted quote requests and respond with a rate directly from the dispatcher workspace.</div>
+  </div>
+  <a href="/portal/login" class="btn btn-outline-secondary">
+    <i class="bi bi-box-arrow-up-right me-1"></i>Open Customer Portal
+  </a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Total Requests</div>
+        <div class="fs-3 fw-bold">{{ quote_counts.total }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Pending</div>
+        <div class="fs-3 fw-bold text-warning">{{ quote_counts.pending }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Quoted</div>
+        <div class="fs-3 fw-bold text-info">{{ quote_counts.quoted }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Booked / Cancelled</div>
+        <div class="fs-3 fw-bold">{{ quote_counts.booked + quote_counts.cancelled }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-hourglass-split me-2"></i>Pending Requests</span>
+    <span class="text-muted small">Quote forms are shown only for requests that still need dispatch pricing.</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead class="table-secondary text-dark">
+        <tr>
+          <th>Reference</th>
+          <th>Customer</th>
+          <th>Route</th>
+          <th>Shipment</th>
+          <th>Dates</th>
+          <th>Notes</th>
+          <th style="min-width: 280px;">Quote</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for request_item in pending_requests %}
+        <tr>
+          <td>
+            <div class="fw-bold">{{ request_item.reference }}</div>
+            <div class="small text-muted">{{ request_item.created_at[:16] if request_item.created_at else "-" }}</div>
+          </td>
+          <td>
+            <div>{{ request_item.customer_name }}</div>
+            <div class="small text-muted">{{ request_item.customer_email or "No email on file" }}</div>
+          </td>
+          <td>
+            <div>{{ request_item.route_label }}</div>
+            <div class="small text-muted">{{ request_item.status_label }}</div>
+          </td>
+          <td>
+            <div>{{ request_item.cargo_description }}</div>
+            <div class="small text-muted">
+              {{ request_item.equipment_label or "-" }}
+              {% if request_item.weight_kg is not none %}| {{ "{:,.0f}".format(request_item.weight_kg) }} kg{% endif %}
+              {% if request_item.volume_cbm is not none %}| {{ "{:,.2f}".format(request_item.volume_cbm) }} cbm{% endif %}
+            </div>
+          </td>
+          <td>
+            <div>Pickup: {{ request_item.pickup_date or "-" }}</div>
+            <div class="small text-muted">Delivery: {{ request_item.delivery_date or "-" }}</div>
+          </td>
+          <td class="small text-muted">{{ request_item.notes or "-" }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('tms.portal_bookings_quote', request_id=request_item.id) }}">
+              <div class="mb-2">
+                <label class="form-label small text-muted mb-1">Quoted Rate</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">$</span>
+                  <input type="number" step="0.01" min="0.01" name="quoted_rate" class="form-control" placeholder="0.00" required>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small text-muted mb-1">Dispatcher Notes</label>
+                <textarea name="quote_notes" rows="3" class="form-control form-control-sm" placeholder="Included in the customer email"></textarea>
+              </div>
+              <button type="submit" class="btn btn-sm btn-primary w-100">
+                <i class="bi bi-send me-1"></i>Send Quote
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-5">
+            No pending portal quote requests.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-clock-history me-2"></i>Recent Portal Quote Activity</span>
+    <span class="text-muted small">Quoted, booked, and cancelled requests remain here for reference.</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead class="table-secondary text-dark">
+        <tr>
+          <th>Reference</th>
+          <th>Customer</th>
+          <th>Route</th>
+          <th>Status</th>
+          <th>Rate</th>
+          <th>Quoted By</th>
+          <th>Quoted At</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for request_item in history_requests %}
+        <tr>
+          <td>
+            <div class="fw-bold">{{ request_item.reference }}</div>
+            <div class="small text-muted">{{ request_item.cargo_description }}</div>
+          </td>
+          <td>
+            <div>{{ request_item.customer_name }}</div>
+            <div class="small text-muted">{{ request_item.customer_email or "-" }}</div>
+          </td>
+          <td>{{ request_item.route_label }}</td>
+          <td><span class="badge text-bg-{{ request_item.status_variant }}">{{ request_item.status_label }}</span></td>
+          <td>{{ request_item.quoted_rate_display or "-" }}</td>
+          <td>{{ request_item.quoted_by or "-" }}</td>
+          <td>{{ request_item.quoted_at[:16] if request_item.quoted_at else "-" }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-5">
+            No quoted portal requests yet.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

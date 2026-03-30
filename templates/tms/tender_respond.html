@@ -1,0 +1,145 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Tender Response{% endblock %}
+{% block navbar %}
+<nav class="navbar navbar-dark px-3 py-3" id="main-nav">
+  <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold" href="/tms/tenders">
+    <i class="bi bi-diagram-3"></i> Tender Response
+  </a>
+</nav>
+{% endblock %}
+{% block tms_content %}
+<div class="row justify-content-center">
+  <div class="col-xl-8">
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+          <div>
+            <h2 class="mb-1">{{ tender_response.shipment_ref }}</h2>
+            <div class="text-muted">{{ tender_response.origin_port or '-' }} -> {{ tender_response.destination_port or '-' }}</div>
+            <div class="small text-muted mt-1">{{ tender_response.containers or 'Container type pending' }}</div>
+          </div>
+          <div class="text-end">
+            <div class="fw-semibold">{{ tender_response.carrier_name or 'Carrier' }}</div>
+            <span class="tms-status tms-status-{{ {'Pending':'draft','Submitted':'active','Awarded':'delivered','Declined':'cancelled'}.get(tender_response.response_status, 'draft') }} mt-2">{{ tender_response.response_status }}</span>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-2">
+          <div class="col-md-4">
+            <div class="text-muted small">DEADLINE</div>
+            <div>{{ tender_response.deadline_display }}</div>
+            <span class="badge bg-{{ tender_response.deadline_class }} mt-1">{{ tender_response.deadline_label }}</span>
+          </div>
+          <div class="col-md-4">
+            <div class="text-muted small">CARGO</div>
+            <div>{{ tender_response.cargo_description or '-' }}</div>
+          </div>
+          <div class="col-md-4">
+            <div class="text-muted small">CURRENT APPLIED RATE</div>
+            {% if tender_response.applied_rate is not none %}
+            <div class="text-success fw-semibold">${{ "{:,.2f}".format(tender_response.applied_rate) }} {{ tender_response.currency or 'USD' }}</div>
+            <div class="small text-muted">{{ tender_response.applied_rate_label }} rate</div>
+            {% else %}
+            <div class="text-muted">Awaiting your pricing</div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if tender_response.tender_notes %}
+        <hr class="border-secondary">
+        <div class="text-muted small">TENDER NOTES</div>
+        <div>{{ tender_response.tender_notes }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if submitted %}
+    <div class="alert alert-success">Response submitted. The shipper can now compare your rates on the tender board.</div>
+    {% endif %}
+
+    {% if tender_response.is_awarded %}
+    <div class="alert alert-success">This tender has been awarded to your response.</div>
+    {% elif tender_response.is_closed %}
+    <div class="alert alert-warning">This tender is closed. Responses can no longer be edited.</div>
+    {% endif %}
+
+    {% if form_error %}
+    <div class="alert alert-danger">{{ form_error }}</div>
+    {% endif %}
+
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-cash-coin me-2"></i>Submit Rates</div>
+      <div class="card-body">
+        <form method="POST">
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label text-muted">20ft Rate</label>
+              <input
+                type="number"
+                name="rate_20ft"
+                step="0.01"
+                class="form-control bg-black text-white border-secondary"
+                value="{{ form_values.rate_20ft }}"
+                {% if tender_response.is_closed %}disabled{% endif %}
+              >
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-muted">40ft Rate</label>
+              <input
+                type="number"
+                name="rate_40ft"
+                step="0.01"
+                class="form-control bg-black text-white border-secondary"
+                value="{{ form_values.rate_40ft }}"
+                {% if tender_response.is_closed %}disabled{% endif %}
+              >
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-muted">40HC Rate</label>
+              <input
+                type="number"
+                name="rate_40hc"
+                step="0.01"
+                class="form-control bg-black text-white border-secondary"
+                value="{{ form_values.rate_40hc }}"
+                {% if tender_response.is_closed %}disabled{% endif %}
+              >
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label text-muted">Transit Days</label>
+              <input
+                type="number"
+                name="transit_days"
+                min="1"
+                step="1"
+                class="form-control bg-black text-white border-secondary"
+                value="{{ form_values.transit_days }}"
+                {% if tender_response.is_closed %}disabled{% endif %}
+              >
+            </div>
+            <div class="col-md-8">
+              <label class="form-label text-muted">Notes</label>
+              <textarea
+                name="notes"
+                rows="3"
+                class="form-control bg-black text-white border-secondary"
+                placeholder="Service notes, equipment details, or cut-off constraints"
+                {% if tender_response.is_closed %}disabled{% endif %}
+              >{{ form_values.notes }}</textarea>
+            </div>
+          </div>
+
+          {% if not tender_response.is_closed %}
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-send-check me-1"></i>Submit Response
+          </button>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

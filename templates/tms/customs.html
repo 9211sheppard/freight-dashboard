@@ -1,0 +1,85 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Customs & Compliance{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+.customs-stat {
+  background: #1e1e1e;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+}
+</style>
+{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-shield-check me-2"></i>Customs &amp; Compliance</h2>
+    <small class="text-muted">HS codes, duties, import/export compliance, broker tracking</small>
+  </div>
+</div>
+
+<!-- Status stats -->
+<div class="row g-3 mb-4">
+  {% for status, count in stats.items() %}
+  <div class="col-6 col-md-2">
+    <div class="customs-stat">
+      <div class="fs-3 fw-bold {% if status=='Cleared' %}text-success{% elif status in ('On Hold','Rejected') %}text-danger{% elif status=='Filed' %}text-info{% else %}text-muted{% endif %}">{{ count }}</div>
+      <div class="small text-muted">{{ status }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Records table -->
+<div class="tms-card">
+  <table class="table table-dark table-hover mb-0">
+    <thead>
+      <tr>
+        <th class="text-muted small">Shipment</th>
+        <th class="text-muted small">Route</th>
+        <th class="text-muted small">HS Code</th>
+        <th class="text-muted small">Incoterm</th>
+        <th class="text-muted small">Declared Value</th>
+        <th class="text-muted small">Est. Duty</th>
+        <th class="text-muted small">Status</th>
+        <th class="text-muted small">Broker</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in records %}
+    <tr>
+      <td class="small fw-semibold">{{ r.shipment_ref }}</td>
+      <td class="small text-muted">{{ r.origin_country or '—' }} &rarr; {{ r.destination_country or '—' }}</td>
+      <td class="small">{{ r.hs_code or '—' }}</td>
+      <td class="small">{{ r.incoterm }}</td>
+      <td class="small">${{ "{:,.2f}".format(r.declared_value or 0) }} {{ r.declared_currency }}</td>
+      <td class="small {% if r.estimated_duty_pct and r.estimated_duty_pct > 0 %}text-warning{% endif %}">
+        {% if r.estimated_duty_pct %}
+          {{ r.estimated_duty_pct }}% / ${{ "{:,.2f}".format(r.estimated_duty_amount or 0) }}
+        {% else %}
+          —
+        {% endif %}
+      </td>
+      <td>
+        <span class="tms-status tms-status-{% if r.customs_status=='Cleared' %}delivered{% elif r.customs_status in ('On Hold','Rejected') %}cancelled{% elif r.customs_status=='Filed' %}booked{% else %}draft{% endif %}">
+          {{ r.customs_status }}
+        </span>
+      </td>
+      <td class="small text-muted">{{ r.broker_name or '—' }}</td>
+      <td>
+        <a href="/tms/shipments/{{ r.shipment_ref }}/customs" class="btn btn-sm btn-outline-light py-0 px-2">Edit</a>
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="9" class="text-center text-muted py-4">
+        No customs records yet — open a shipment to add customs info
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

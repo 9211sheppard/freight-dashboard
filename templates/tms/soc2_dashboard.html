@@ -1,0 +1,261 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Security & Compliance — SOC 2{% endblock %}
+
+{% block tms_content %}
+<style nonce="{{ csp_nonce }}">
+.soc2-criteria-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:1rem; margin-bottom:2rem; }
+.soc2-criteria-card { background:#1a1f2e; border:1px solid #2a3050; border-radius:10px; padding:1.1rem 1.2rem; }
+.soc2-criteria-card .criteria-title { font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:#6c7a99; margin-bottom:.5rem; }
+.soc2-criteria-card .criteria-label { font-size:.95rem; font-weight:600; color:#e2e8f0; margin-bottom:.6rem; }
+.soc2-criteria-card .criteria-checks { list-style:none; padding:0; margin:0; }
+.soc2-criteria-card .criteria-checks li { font-size:.78rem; color:#8a9bc2; margin-bottom:.25rem; }
+.soc2-criteria-card .criteria-checks li::before { content:"✓ "; color:#22c55e; }
+.badge-active { background:#166534; color:#86efac; font-size:.65rem; padding:.2rem .5rem; border-radius:4px; text-transform:uppercase; letter-spacing:.05em; }
+
+.soc2-stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:1rem; margin-bottom:2rem; }
+.stat-card { background:#1a1f2e; border:1px solid #2a3050; border-radius:10px; padding:1.1rem; text-align:center; }
+.stat-card .stat-val { font-size:2rem; font-weight:700; line-height:1; margin-bottom:.3rem; }
+.stat-card .stat-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; color:#6c7a99; }
+.stat-ok { color:#22c55e; }
+.stat-warn { color:#f59e0b; }
+.stat-danger { color:#ef4444; }
+.stat-neutral { color:#e2e8f0; }
+
+.soc2-section-title { font-size:.72rem; text-transform:uppercase; letter-spacing:.09em; color:#6c7a99; margin:0 0 .75rem 0; }
+.soc2-card { background:#1a1f2e; border:1px solid #2a3050; border-radius:10px; padding:1.2rem; margin-bottom:1.5rem; }
+
+.incident-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+.incident-table th { text-align:left; padding:.5rem .75rem; color:#6c7a99; font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; border-bottom:1px solid #2a3050; }
+.incident-table td { padding:.55rem .75rem; border-bottom:1px solid #1e2540; color:#c4cde0; vertical-align:middle; }
+.incident-table tr:last-child td { border-bottom:none; }
+
+.sev-critical, .sev-high { background:#7f1d1d; color:#fca5a5; padding:.15rem .4rem; border-radius:4px; font-size:.7rem; }
+.sev-medium { background:#78350f; color:#fcd34d; padding:.15rem .4rem; border-radius:4px; font-size:.7rem; }
+.sev-low { background:#1e293b; color:#94a3b8; padding:.15rem .4rem; border-radius:4px; font-size:.7rem; }
+
+.health-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:1rem; }
+.health-item { display:flex; align-items:center; gap:.75rem; background:#12172a; border-radius:8px; padding:.75rem 1rem; }
+.health-icon { font-size:1.3rem; }
+.health-icon.ok { color:#22c55e; }
+.health-icon.warn { color:#f59e0b; }
+.health-icon.down { color:#ef4444; }
+.health-icon.unknown { color:#64748b; }
+.health-info .health-label { font-size:.72rem; color:#6c7a99; text-transform:uppercase; letter-spacing:.05em; }
+.health-info .health-val { font-size:.88rem; font-weight:600; color:#e2e8f0; margin-top:.1rem; }
+
+.quick-links { display:flex; gap:.75rem; flex-wrap:wrap; }
+.quick-link-btn { display:inline-flex; align-items:center; gap:.4rem; background:#1e2d47; border:1px solid #2a4570; color:#93c5fd; padding:.45rem .9rem; border-radius:7px; font-size:.8rem; text-decoration:none; transition:background .15s; }
+.quick-link-btn:hover { background:#243558; color:#bfdbfe; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold text-white"><i class="bi bi-shield-lock me-2 text-info"></i>Security &amp; Compliance</h4>
+    <div style="font-size:.78rem;color:#6c7a99;margin-top:.25rem;">SOC 2 Type II Technical Controls — Five Trust Service Criteria</div>
+  </div>
+  <a href="/tms/compliance/health" target="_blank" class="quick-link-btn">
+    <i class="bi bi-heart-pulse"></i> Live Health Check
+  </a>
+</div>
+
+<!-- Trust Service Criteria Cards -->
+<p class="soc2-section-title">Trust Service Criteria</p>
+<div class="soc2-criteria-grid">
+
+  <div class="soc2-criteria-card">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <div class="criteria-title">CC6</div>
+      <span class="badge-active">Active</span>
+    </div>
+    <div class="criteria-label"><i class="bi bi-shield-check text-success me-1"></i>Security</div>
+    <ul class="criteria-checks">
+      <li>Audit logging</li>
+      <li>Brute force protection</li>
+      <li>Session management</li>
+    </ul>
+  </div>
+
+  <div class="soc2-criteria-card">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <div class="criteria-title">A1</div>
+      <span class="badge-active">Active</span>
+    </div>
+    <div class="criteria-label"><i class="bi bi-activity text-success me-1"></i>Availability</div>
+    <ul class="criteria-checks">
+      <li>Health monitoring</li>
+      <li>Disk &amp; DB checks</li>
+      <li>Response time tracking</li>
+    </ul>
+  </div>
+
+  <div class="soc2-criteria-card">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <div class="criteria-title">PI1</div>
+      <span class="badge-active">Active</span>
+    </div>
+    <div class="criteria-label"><i class="bi bi-cpu text-success me-1"></i>Processing Integrity</div>
+    <ul class="criteria-checks">
+      <li>Data operations tracked</li>
+      <li>Import/export checksums</li>
+      <li>Error logging</li>
+    </ul>
+  </div>
+
+  <div class="soc2-criteria-card">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <div class="criteria-title">C1</div>
+      <span class="badge-active">Active</span>
+    </div>
+    <div class="criteria-label"><i class="bi bi-lock text-success me-1"></i>Confidentiality</div>
+    <ul class="criteria-checks">
+      <li>Data classification schema</li>
+      <li>PII fields tracked</li>
+      <li>Restricted field tagging</li>
+    </ul>
+  </div>
+
+  <div class="soc2-criteria-card">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <div class="criteria-title">P1</div>
+      <span class="badge-active">Active</span>
+    </div>
+    <div class="criteria-label"><i class="bi bi-person-lock text-success me-1"></i>Privacy</div>
+    <ul class="criteria-checks">
+      <li>GDPR/CCPA request intake</li>
+      <li>30-day response tracking</li>
+      <li>Data subject rights</li>
+    </ul>
+  </div>
+
+</div>
+
+<!-- Stats Row -->
+<p class="soc2-section-title">Live Metrics</p>
+<div class="soc2-stats-grid">
+  <div class="stat-card">
+    <div class="stat-val stat-neutral">{{ summary.audit_events_7d }}</div>
+    <div class="stat-label">Audit Events (7d)</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val {% if summary.open_incidents > 0 %}stat-danger{% else %}stat-ok{% endif %}">{{ summary.open_incidents }}</div>
+    <div class="stat-label">Open Incidents</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val {% if summary.failed_logins_24h > 10 %}stat-warn{% else %}stat-neutral{% endif %}">{{ summary.failed_logins_24h }}</div>
+    <div class="stat-label">Failed Logins (24h)</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val stat-neutral">{{ summary.active_sessions }}</div>
+    <div class="stat-label">Active Sessions</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val {% if summary.privacy_requests_pending > 0 %}stat-warn{% else %}stat-ok{% endif %}">{{ summary.privacy_requests_pending }}</div>
+    <div class="stat-label">Privacy Requests Pending</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-val stat-neutral">{{ summary.pii_fields_tracked }}</div>
+    <div class="stat-label">PII Fields Tracked</div>
+  </div>
+</div>
+
+<!-- Open Incidents -->
+<div class="soc2-card">
+  <p class="soc2-section-title mb-2">Open Security Incidents</p>
+  {% if incidents %}
+  <table class="incident-table">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Severity</th>
+        <th>Source IP</th>
+        <th>Description</th>
+        <th>Status</th>
+        <th>Detected</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inc in incidents %}
+      <tr>
+        <td>{{ inc.incident_type | replace('_', ' ') | title }}</td>
+        <td>
+          <span class="sev-{{ inc.severity }}">{{ inc.severity | upper }}</span>
+        </td>
+        <td style="font-family:monospace;font-size:.75rem;">{{ inc.source_ip or '—' }}</td>
+        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ inc.description }}">{{ inc.description }}</td>
+        <td>
+          {% if inc.status == 'Open' %}
+            <span style="color:#ef4444;">{{ inc.status }}</span>
+          {% elif inc.status == 'Investigating' %}
+            <span style="color:#f59e0b;">{{ inc.status }}</span>
+          {% else %}
+            <span style="color:#22c55e;">{{ inc.status }}</span>
+          {% endif %}
+        </td>
+        <td style="font-size:.75rem;color:#6c7a99;">{{ inc.detected_at[:16] if inc.detected_at else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center;padding:2rem;color:#6c7a99;font-size:.85rem;">
+    <i class="bi bi-shield-check" style="font-size:2rem;color:#22c55e;display:block;margin-bottom:.5rem;"></i>
+    No open security incidents.
+  </div>
+  {% endif %}
+</div>
+
+<!-- System Health -->
+<div class="soc2-card">
+  <p class="soc2-section-title mb-2">System Health</p>
+  <div class="health-grid">
+    {% if health.database is defined %}
+    <div class="health-item">
+      <i class="bi bi-database health-icon {{ health.database.status }}"></i>
+      <div class="health-info">
+        <div class="health-label">Database</div>
+        <div class="health-val">
+          {{ health.database.status | upper }}
+          {% if health.database.ms is defined %}<span style="font-size:.7rem;color:#6c7a99;"> — {{ health.database.ms }}ms</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% if health.disk is defined %}
+    <div class="health-item">
+      <i class="bi bi-hdd health-icon {{ health.disk.status }}"></i>
+      <div class="health-info">
+        <div class="health-label">Disk Space</div>
+        <div class="health-val">
+          {% if health.disk.free_gb is defined %}{{ health.disk.free_gb }} GB free{% else %}{{ health.disk.status | upper }}{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% if health.db_size_mb is defined %}
+    <div class="health-item">
+      <i class="bi bi-archive health-icon ok"></i>
+      <div class="health-info">
+        <div class="health-label">DB File Size</div>
+        <div class="health-val">{{ health.db_size_mb }} MB</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Quick Links -->
+<div class="soc2-card">
+  <p class="soc2-section-title mb-2">Quick Access</p>
+  <div class="quick-links">
+    <a href="/tms/compliance/audit-log" class="quick-link-btn">
+      <i class="bi bi-journal-text"></i> View Audit Log
+    </a>
+    <a href="/tms/compliance/privacy" class="quick-link-btn">
+      <i class="bi bi-person-lock"></i> Privacy Requests
+    </a>
+    <a href="/tms/compliance/audit-log?export=csv" class="quick-link-btn">
+      <i class="bi bi-download"></i> Export Audit CSV
+    </a>
+  </div>
+</div>
+{% endblock %}

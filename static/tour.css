@@ -1,0 +1,90 @@
+/* tour.css - Guided tour overlay and tooltip styles */
+
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9000;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.tour-overlay.active {
+  opacity: 1;
+}
+
+.tour-tooltip {
+  position: fixed;
+  z-index: 9003;
+  max-width: 320px;
+  padding: 0.95rem;
+  background: #10161f;
+  border: 1px solid rgba(13, 202, 240, 0.6);
+  border-radius: 0.9rem;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.4);
+  color: #f8f9fa;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.tour-tooltip.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tour-tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.tour-step-counter {
+  color: #8bdaf0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.tour-close {
+  border: 0;
+  background: transparent;
+  color: #adb5bd;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.tour-close:hover {
+  color: #fff;
+}
+
+.tour-title {
+  margin-bottom: 0.45rem;
+}
+
+.tour-description {
+  color: #ced4da;
+  margin-bottom: 0;
+}
+
+.tour-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.tour-highlight {
+  position: relative !important;
+  z-index: 9002 !important;
+  border-radius: 0.65rem;
+  box-shadow:
+    0 0 0 3px rgba(13, 202, 240, 0.45),
+    0 0 0 10px rgba(13, 202, 240, 0.12);
+  transition: box-shadow 0.2s ease;
+}

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() if csrf_token is defined else '' }}">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="{{ url_for('static', filename='driver_manifest.json') }}">
+  <title>{% block title %}{{ brand_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-icons.min.css') }}">
+  {% if request.path.startswith('/tms') or request.path.startswith('/loadboard') or request.path.startswith('/portal') %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='tms.css') }}?v={{ sv }}">
+  {% endif %}
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #0b1220 0%, #101828 100%);
+      color: #e5e7eb;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(10px);
+    }
+    .app-brand {
+      color: #f8fafc;
+      text-decoration: none;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .app-brand-sub {
+      color: #94a3b8;
+      font-size: 0.82rem;
+    }
+    .app-shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+    .flash-wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 1rem 1.5rem 0;
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+{% block navbar %}
+  {% if session.get('logged_in') and request.endpoint != 'login' %}
+  <header class="app-header">
+    <div>
+      <a class="app-brand" href="{{ url_for('tms.dashboard') }}">{{ brand_name }}</a>
+      <div class="app-brand-sub">Standalone TMS on port 5001</div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a class="btn btn-sm btn-outline-light" href="{{ url_for('public.public_loadboard') }}">Public Loadboard</a>
+      <a class="btn btn-sm btn-outline-light" href="{{ url_for('portal.portal_login') }}">Customer Portal</a>
+      <form method="post" action="{{ url_for('logout') }}" class="d-inline">
+        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+        <button type="submit" class="btn btn-sm btn-warning">Sign Out</button>
+      </form>
+    </div>
+  </header>
+  {% endif %}
+{% endblock %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-wrap">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} mb-2">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<div id="main-content-wrap" class="{% if request.path.startswith('/tms') %}tms-page{% else %}app-shell{% endif %}">
+  {% block content %}{% endblock %}
+</div>
+
+<script nonce="{{ csp_nonce }}">
+  (function () {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    if (!csrfToken) {
+      return;
+    }
+
+    document.querySelectorAll('form[method]').forEach(function (form) {
+      const method = (form.getAttribute('method') || 'get').toUpperCase();
+      if (['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+        return;
+      }
+      if (form.querySelector('input[name="csrf_token"]')) {
+        return;
+      }
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'csrf_token';
+      tokenInput.value = csrfToken;
+      form.appendChild(tokenInput);
+    });
+
+    const originalFetch = window.fetch ? window.fetch.bind(window) : null;
+    if (!originalFetch) {
+      return;
+    }
+
+    window.fetch = function (input, init) {
+      const method = String(
+        (init && init.method)
+        || (input instanceof Request && input.method)
+        || 'GET'
+      ).toUpperCase();
+      if (['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+        return originalFetch(input, init);
+      }
+
+      const urlValue = input instanceof Request ? input.url : input;
+      let url;
+      try {
+        url = new URL(urlValue, window.location.origin);
+      } catch (error) {
+        return originalFetch(input, init);
+      }
+      if (url.origin !== window.location.origin) {
+        return originalFetch(input, init);
+      }
+
+      const headers = new Headers((init && init.headers) || (input instanceof Request ? input.headers : undefined) || {});
+      if (!headers.has('X-CSRF-Token')) {
+        headers.set('X-CSRF-Token', csrfToken);
+      }
+
+      if (input instanceof Request) {
+        return originalFetch(new Request(input, { headers: headers }), init);
+      }
+      return originalFetch(input, Object.assign({}, init || {}, { headers: headers }));
+    };
+  })();
+</script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

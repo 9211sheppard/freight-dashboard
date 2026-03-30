@@ -1,0 +1,133 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}TMS Master{% endblock %}
+
+{% block tms_content %}
+
+<!-- Header -->
+<div class="tms-page-header">
+  <div>
+    <h1 class="tms-page-title">
+      {% if settings.get('company_name') %}{{ settings.get('company_name') }}{% else %}TMS Master{% endif %}
+    </h1>
+    <p class="tms-page-subtitle">
+      {% if current_tenant %}
+        {{ current_tenant.company_name }} &middot; <span class="text-uppercase" style="color:#c8a96e;font-size:0.68rem;letter-spacing:0.1em;">{{ current_tenant.plan }}</span>
+      {% else %}
+        Operations overview
+      {% endif %}
+    </p>
+  </div>
+  <a href="/tms/shipments/new" class="btn btn-sm" style="background:#c8a96e;color:#000;font-weight:600;border:none;padding:8px 18px;border-radius:7px;font-size:0.82rem;">
+    <i class="bi bi-plus-lg me-1"></i>New Shipment
+  </a>
+</div>
+
+<!-- KPI Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value">{{ stats.total }}</div>
+      <div class="tms-stat-label">Shipments</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value" style="color:#4ade80;">{{ stats.active }}</div>
+      <div class="tms-stat-label">Active</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value" style="color:#c8a96e;">${{ "{:,.0f}".format(stats.revenue) }}</div>
+      <div class="tms-stat-label">Revenue</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value" style="color:#fb923c;">{{ stats.in_transit }}</div>
+      <div class="tms-stat-label">In Transit</div>
+    </div>
+  </div>
+</div>
+
+<!-- Spotlight Action Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-4">
+    <a href="/tms/control-tower" class="tms-spotlight">
+      <div class="tms-spotlight-icon" style="color:#f87171;"><i class="bi bi-broadcast-pin"></i></div>
+      <div class="tms-spotlight-value">Control Tower</div>
+      <div class="tms-spotlight-label">Live exception monitoring</div>
+      <div class="tms-spotlight-sub">Delays &middot; Customs holds &middot; SLA breaches</div>
+    </a>
+  </div>
+  <div class="col-12 col-md-4">
+    <a href="/tms/dispatch" class="tms-spotlight">
+      <div class="tms-spotlight-icon" style="color:#60a5fa;"><i class="bi bi-kanban"></i></div>
+      <div class="tms-spotlight-value" style="color:#60a5fa;">{{ stats.loads }}</div>
+      <div class="tms-spotlight-label">Active loads on board</div>
+      <div class="tms-spotlight-sub">Drag &amp; drop · Assign drivers · Real-time status</div>
+    </a>
+  </div>
+  <div class="col-12 col-md-4">
+    <a href="/tms/drivers" class="tms-spotlight">
+      <div class="tms-spotlight-icon" style="color:#a78bfa;"><i class="bi bi-people"></i></div>
+      <div class="tms-spotlight-value" style="color:#a78bfa;">{{ stats.drivers }}</div>
+      <div class="tms-spotlight-label">Drivers · {{ stats.fleet }} vehicles</div>
+      <div class="tms-spotlight-sub">HOS compliance &middot; Assignments &middot; ELD</div>
+    </a>
+  </div>
+</div>
+
+<!-- Recent Shipments -->
+<div class="tms-card">
+  <div class="tms-card-header">
+    <span>Recent Shipments</span>
+    <a href="/tms/shipments" style="color:#c8a96e;font-size:0.75rem;font-weight:500;text-transform:none;letter-spacing:0;text-decoration:none;">View all &rarr;</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark mb-0" style="font-size:0.82rem;">
+      <thead style="border-bottom:1px solid rgba(255,255,255,0.07);">
+        <tr style="color:#777;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;">
+          <th style="padding:10px 18px;font-weight:500;background:#1c1c1c;">Ref</th>
+          <th style="padding:10px 8px;font-weight:500;background:#1c1c1c;">Status</th>
+          <th style="padding:10px 8px;font-weight:500;background:#1c1c1c;">Shipper</th>
+          <th style="padding:10px 8px;font-weight:500;background:#1c1c1c;">Origin</th>
+          <th style="padding:10px 8px;font-weight:500;background:#1c1c1c;">Dest</th>
+          <th style="padding:10px 8px;font-weight:500;background:#1c1c1c;">ETA</th>
+          <th style="padding:10px 8px;font-weight:500;background:#1c1c1c;">Rate</th>
+          <th style="padding:10px 8px;background:#1c1c1c;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set sc = {'Draft':'#555','Active':'#4ade80','Booked':'#60a5fa','In Transit':'#fb923c','Delivered':'#888','Cancelled':'#f87171'} %}
+        {% for s in shipments[:12] %}
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.04);" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+          <td style="padding:11px 18px;">
+            <a href="/tms/shipments/{{ s.shipment_ref }}" style="color:#c8a96e;font-weight:600;text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:0.78rem;">{{ s.shipment_ref }}</a>
+          </td>
+          <td style="padding:11px 8px;">
+            <span style="display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:500;color:{{ sc.get(s.status,'#888') }};">
+              <span style="width:6px;height:6px;border-radius:50%;background:{{ sc.get(s.status,'#888') }};display:inline-block;"></span>
+              {{ s.status }}
+            </span>
+          </td>
+          <td style="padding:11px 8px;color:#aaa;">{{ s.shipper_name or '—' }}</td>
+          <td style="padding:11px 8px;color:#666;">{{ s.origin_port or '—' }}</td>
+          <td style="padding:11px 8px;color:#666;">{{ s.destination_port or '—' }}</td>
+          <td style="padding:11px 8px;color:#666;font-family:'JetBrains Mono',monospace;font-size:0.75rem;">{{ s.eta or '—' }}</td>
+          <td style="padding:11px 8px;color:#aaa;">${{ "{:,.0f}".format(s.freight_rate or 0) }}</td>
+          <td style="padding:11px 8px;">
+            <a href="/tms/shipments/{{ s.shipment_ref }}" style="color:#444;font-size:11px;text-decoration:none;">view &rarr;</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;padding:48px;color:#333;">
+          No shipments yet &mdash; <a href="/tms/shipments/new" style="color:#c8a96e;">create your first</a>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,274 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Market Rates — TMS{% endblock %}
+
+{% block tms_content %}
+<div class="tms-page-header">
+  <div>
+    <h1 class="tms-page-title">Market Rate Benchmark</h1>
+    <p class="tms-page-subtitle">Compare your rates to spot market estimates</p>
+  </div>
+</div>
+
+<!-- API Status Banner -->
+{% if dat_configured %}
+<div class="mr-banner mr-banner-live">
+  <i class="bi bi-broadcast-pin me-2"></i>
+  <strong>Live DAT RateView data active.</strong> Rates pulled from DAT API.
+</div>
+{% else %}
+<div class="mr-banner mr-banner-estimate">
+  <i class="bi bi-info-circle me-2"></i>
+  Using internal estimates. Set <code>DAT_API_KEY</code> env var for live DAT RateView data.
+</div>
+{% endif %}
+
+<div class="row g-4 mt-1">
+
+  <!-- Rate Lookup Tool -->
+  <div class="col-lg-5">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-search me-2"></i>Rate Lookup
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="mr-label">Origin State</label>
+          <input type="text" id="mrOrigin" class="form-control bg-black text-white border-secondary"
+                 placeholder="e.g. CA" maxlength="2" style="text-transform:uppercase;">
+        </div>
+        <div class="mb-3">
+          <label class="mr-label">Destination State</label>
+          <input type="text" id="mrDest" class="form-control bg-black text-white border-secondary"
+                 placeholder="e.g. TX" maxlength="2" style="text-transform:uppercase;">
+        </div>
+        <div class="mb-3">
+          <label class="mr-label">Equipment Type</label>
+          <select id="mrEquip" class="form-select bg-black text-white border-secondary">
+            <option value="Dry Van">Dry Van</option>
+            <option value="Reefer">Reefer</option>
+            <option value="Flatbed">Flatbed</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="mr-label">Miles <span class="text-muted">(optional — for all-in estimate)</span></label>
+          <input type="number" id="mrMiles" class="form-control bg-black text-white border-secondary"
+                 placeholder="e.g. 1500" min="0">
+        </div>
+        <div class="mb-4">
+          <label class="mr-label">Your Rate $/mile <span class="text-muted">(optional — for comparison)</span></label>
+          <input type="number" id="mrYourRate" class="form-control bg-black text-white border-secondary"
+                 placeholder="e.g. 2.75" step="0.01" min="0">
+        </div>
+        <button class="btn w-100" style="background:#c8a96e;color:#000;font-weight:700;border:none;padding:12px;"
+                onclick="lookupRate()">
+          <i class="bi bi-graph-up-arrow me-2"></i>Get Market Rate
+        </button>
+      </div>
+    </div>
+
+    <!-- Result Card -->
+    <div class="card bg-dark border-secondary mt-4" id="mrResultCard" style="display:none;">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-bar-chart-line me-2"></i>Result
+        <span class="float-end" id="mrSource"></span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="mr-stat-label">Market Rate / Mile</div>
+            <div class="mr-stat-val" id="mrRatePerMile">—</div>
+          </div>
+          <div class="col-6">
+            <div class="mr-stat-label">All-In Estimate</div>
+            <div class="mr-stat-val" id="mrAllIn">—</div>
+          </div>
+          <div class="col-12" id="mrCompareRow" style="display:none;">
+            <div class="mr-stat-label">Comparison</div>
+            <div class="mr-compare-badge" id="mrCompareBadge"></div>
+          </div>
+        </div>
+        <div class="text-muted small mt-3" id="mrNote"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Common Lanes Table -->
+  <div class="col-lg-7">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-table me-2"></i>Common Lanes</span>
+        <span class="text-muted small">Internal estimates — Dry Van base rates</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Lane</th>
+              <th>Origin</th>
+              <th>Destination</th>
+              <th class="text-end">Est. $/Mile</th>
+              <th class="text-end">Direction</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lane in common_lanes %}
+            <tr class="lane-row" style="cursor:pointer;"
+                onclick="prefillLane('{{ lane.origin }}','{{ lane.dest }}')">
+              <td class="fw-semibold text-info">{{ lane.origin }} &rarr; {{ lane.dest }}</td>
+              <td>{{ lane.origin_name }}</td>
+              <td>{{ lane.dest_name }}</td>
+              <td class="text-end fw-semibold">${{ "%.2f"|format(lane.rate) }}</td>
+              <td class="text-end">
+                {% if lane.reverse_rate %}
+                <span class="text-muted small">Rev: ${{ "%.2f"|format(lane.reverse_rate) }}</span>
+                {% else %}
+                <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary mt-4">
+      <div class="card-body">
+        <div class="fw-semibold text-light mb-2"><i class="bi bi-lightbulb me-2 text-warning"></i>Rate Intelligence Tips</div>
+        <ul class="text-muted small mb-0" style="padding-left:18px;line-height:1.9;">
+          <li>Rates more than 10% above market — consider renegotiating</li>
+          <li>Rates more than 10% below market — lock in now, extend contract</li>
+          <li>CA&rarr;TX backhauls typically run 10–15% cheaper than outbound</li>
+          <li>Reefer lanes average $0.35/mile premium over Dry Van</li>
+          <li>Flatbed lanes average $0.25/mile premium — specialized equipment</li>
+          <li>Connect DAT RateView for live spot vs contract rate comparison</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style nonce="{{ csp_nonce }}">
+.mr-banner {
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+.mr-banner-live {
+  background: rgba(74,222,128,0.08);
+  border: 1px solid rgba(74,222,128,0.2);
+  color: #4ade80;
+}
+.mr-banner-estimate {
+  background: rgba(200,169,110,0.07);
+  border: 1px solid rgba(200,169,110,0.2);
+  color: #b0905a;
+}
+.mr-banner-estimate code {
+  background: transparent;
+  color: #c8a96e;
+  font-family: monospace;
+}
+.mr-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888;
+  display: block;
+  margin-bottom: 6px;
+}
+.mr-stat-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #666;
+  margin-bottom: 4px;
+}
+.mr-stat-val {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+.mr-compare-badge {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+.mr-compare-below  { background: rgba(74,222,128,0.12);  color: #4ade80;  border: 1px solid rgba(74,222,128,0.3); }
+.mr-compare-above  { background: rgba(248,113,113,0.12); color: #f87171;  border: 1px solid rgba(248,113,113,0.3); }
+.mr-compare-at     { background: rgba(255,255,255,0.06); color: #a0a0a0;  border: 1px solid rgba(255,255,255,0.1); }
+.lane-row:hover td { background: rgba(200,169,110,0.04) !important; }
+</style>
+
+<script nonce="{{ csp_nonce }}">
+function lookupRate() {
+  var origin    = document.getElementById('mrOrigin').value.trim().toUpperCase();
+  var dest      = document.getElementById('mrDest').value.trim().toUpperCase();
+  var equip     = document.getElementById('mrEquip').value;
+  var miles     = document.getElementById('mrMiles').value || 0;
+  var yourRate  = document.getElementById('mrYourRate').value || 0;
+
+  if (!origin || !dest) {
+    alert('Please enter both origin and destination state codes.');
+    return;
+  }
+
+  var url = '/tms/market-rates/lookup?origin=' + origin + '&dest=' + dest +
+            '&equipment=' + encodeURIComponent(equip) +
+            '&miles=' + miles + '&your_rate=' + yourRate;
+
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      document.getElementById('mrResultCard').style.display = 'block';
+      document.getElementById('mrRatePerMile').textContent = '$' + d.rate_per_mile.toFixed(2);
+      document.getElementById('mrAllIn').textContent = d.all_in_rate ? '$' + d.all_in_rate.toFixed(0) : '—';
+
+      var srcEl = document.getElementById('mrSource');
+      srcEl.innerHTML = '<span style="font-size:0.65rem;background:rgba(255,255,255,0.06);padding:3px 8px;border-radius:5px;color:#888;">' +
+                        (d.source || 'estimate').toUpperCase() + '</span>';
+
+      document.getElementById('mrNote').textContent = d.note || '';
+
+      var compareRow = document.getElementById('mrCompareRow');
+      if (d.comparison) {
+        compareRow.style.display = 'block';
+        var badge = document.getElementById('mrCompareBadge');
+        badge.textContent = d.comparison.label;
+        badge.className = 'mr-compare-badge';
+        if (d.comparison.status === 'below_market')      badge.classList.add('mr-compare-below');
+        else if (d.comparison.status === 'above_market') badge.classList.add('mr-compare-above');
+        else                                              badge.classList.add('mr-compare-at');
+      } else {
+        compareRow.style.display = 'none';
+      }
+
+      document.getElementById('mrResultCard').scrollIntoView({behavior:'smooth', block:'nearest'});
+    })
+    .catch(function(e) {
+      alert('Error fetching rate data. Please try again.');
+    });
+}
+
+function prefillLane(origin, dest) {
+  document.getElementById('mrOrigin').value = origin;
+  document.getElementById('mrDest').value   = dest;
+  document.getElementById('mrOrigin').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+// Allow Enter in input fields
+['mrOrigin','mrDest','mrMiles','mrYourRate'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') lookupRate();
+  });
+});
+</script>
+
+{% endblock %}

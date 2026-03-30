@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#06080d;color:#e7edf7;font-family:'Segoe UI',Arial,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#06080d;padding:28px 14px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#0d1320;border:1px solid #1e2a3f;border-radius:18px;overflow:hidden;">
+            <tr>
+              <td style="padding:28px 32px;background:linear-gradient(135deg,#1a2640 0%,#0a0f19 100%);border-bottom:1px solid #25324a;">
+                <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#d4a943;font-weight:700;">TMS Master</div>
+                <h1 style="margin:12px 0 8px;font-size:28px;line-height:1.2;color:#f5f7fb;">Shipment In Transit</h1>
+                <p style="margin:0;color:#aab6cb;font-size:15px;line-height:1.6;">Live tracking is available for the move below.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 32px;">
+                <p style="margin:0 0 20px;font-size:16px;line-height:1.7;color:#dce5f5;">Shipment <strong style="color:#ffffff;">{{shipment_ref}}</strong> is now moving from <strong style="color:#ffffff;">{{origin}}</strong> to <strong style="color:#ffffff;">{{destination}}</strong>.</p>
+                <div style="padding:18px 20px;background:#111827;border:1px solid #202d45;border-radius:14px;">
+                  <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#7f8ba3;">Current Plan</div>
+                  <div style="margin-top:10px;font-size:17px;color:#ffffff;font-weight:600;">{{lane_label}}</div>
+                  <div style="margin-top:8px;color:#aab6cb;font-size:14px;line-height:1.7;">Carrier: {{carrier_name}}<br>ETA: {{eta_display}}<br>Cargo: {{cargo_description}}</div>
+                </div>
+                <div style="margin:26px 0 12px;">
+                  <a href="{{tracking_url}}" style="display:inline-block;padding:14px 22px;background:#d4a943;color:#05070b;text-decoration:none;border-radius:999px;font-weight:700;">Open Tracking Link</a>
+                </div>
+                <p style="margin:0;color:#8f9ab0;font-size:13px;line-height:1.6;">This link points to the public customer tracking page for shipment {{shipment_ref}}.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 32px;border-top:1px solid #1d2739;color:#6f7c95;font-size:12px;line-height:1.7;">
+                {{company_name}} will continue posting milestone updates as the shipment progresses.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

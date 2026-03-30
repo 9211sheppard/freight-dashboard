@@ -1,0 +1,463 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}{{ load.load_number }} — LTL Builder{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+  /* ── Fill Meters ─────────────────────────────────────────────── */
+  .meter-track {
+    height: 1rem;
+    border-radius: 0.5rem;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+  .meter-bar {
+    height: 100%;
+    border-radius: 0.5rem;
+    transition: width 0.5s ease;
+    background: #10b981;
+  }
+  .meter-bar.yellow { background: #f59e0b; }
+  .meter-bar.red    { background: #ef4444; }
+
+  /* ── Ready-to-convert flash badge ───────────────────────────── */
+  @keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(234,179,8,0.5); }
+    50%       { box-shadow: 0 0 0 8px rgba(234,179,8,0); }
+  }
+  .ready-badge {
+    animation: pulse-gold 1.5s infinite;
+    background: #ca8a04;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    padding: 0.35rem 0.8rem;
+    border-radius: 0.5rem;
+    display: inline-block;
+  }
+  .lbs-to-ftl {
+    font-size: 1.05rem;
+    color: #eab308;
+    font-weight: 600;
+  }
+
+  /* ── Panels ──────────────────────────────────────────────────── */
+  .ltl-panel {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 0.875rem;
+    padding: 1.25rem 1.5rem;
+  }
+
+  /* ── FTL Modal ───────────────────────────────────────────────── */
+  .ftl-ref-box {
+    background: rgba(16,185,129,0.1);
+    border: 1px solid #10b981;
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #10b981;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+</style>
+{% endblock %}
+{% block tms_content %}
+
+<!-- ── Header ─────────────────────────────────────────────────────── -->
+<div class="d-flex align-items-start gap-3 mb-4 flex-wrap">
+  <a href="/tms/ltl" class="btn btn-sm btn-outline-secondary mt-1"><i class="bi bi-arrow-left"></i></a>
+  <div class="flex-grow-1">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <h2 class="mb-0">{{ load.load_number }}</h2>
+
+      {% if load.equipment_type == 'Reefer' %}{% set eq_icon = '❄️' %}
+      {% elif load.equipment_type == 'Flatbed' %}{% set eq_icon = '🏗️' %}
+      {% else %}{% set eq_icon = '🚛' %}{% endif %}
+      <span class="badge bg-secondary">{{ eq_icon }} {{ load.equipment_type }}</span>
+
+      {% if load.status == 'Building' %}{% set s_cls = 'bg-info text-dark' %}
+      {% elif load.status == 'Sealed' %}{% set s_cls = 'bg-warning text-dark' %}
+      {% elif load.status == 'Converted to FTL' %}{% set s_cls = 'bg-success' %}
+      {% elif load.status == 'Dispatched' %}{% set s_cls = 'bg-primary' %}
+      {% else %}{% set s_cls = 'bg-secondary' %}{% endif %}
+      <span class="badge {{ s_cls }}">{{ load.status }}</span>
+
+      {% if load.ftl_shipment_ref %}
+        <a href="/tms/shipments/{{ load.ftl_shipment_ref }}" class="badge bg-success text-decoration-none">
+          FTL: {{ load.ftl_shipment_ref }}
+        </a>
+      {% endif %}
+    </div>
+    <small class="text-muted">
+      {% if load.origin_city or load.destination_city %}
+        {{ load.origin_city or '?' }} → {{ load.destination_city or '?' }}
+        {% if load.pickup_date %} · Pickup {{ load.pickup_date }}{% endif %}
+      {% endif %}
+      {% if load.carrier %} · {{ load.carrier }}{% endif %}
+      {% if load.trailer_number %} · Trailer {{ load.trailer_number }}{% endif %}
+    </small>
+  </div>
+
+  <button id="convertBtn"
+          class="btn btn-success"
+          {% if load.status != 'Building' %}disabled{% endif %}>
+    <i class="bi bi-arrow-repeat me-1"></i>Convert to FTL
+  </button>
+</div>
+
+<!-- ── Fill Meters ────────────────────────────────────────────────── -->
+<div class="ltl-panel mb-4">
+  <div class="row g-4 align-items-center">
+
+    <!-- Weight meter -->
+    <div class="col-md-6">
+      <div class="d-flex justify-content-between mb-1">
+        <span class="small fw-semibold">Weight</span>
+        <span class="small text-muted" id="weightLabel">
+          {{ "{:,.0f}".format(load.current_weight_lbs or 0) }} / {{ "{:,.0f}".format(load.max_weight_lbs or 0) }} lbs
+          (<span id="weightPct">{{ weight_pct }}</span>%)
+        </span>
+      </div>
+      <div class="meter-track">
+        <div class="meter-bar{% if weight_pct >= 90 %} red{% elif weight_pct >= 70 %} yellow{% endif %}"
+             id="weightBar"
+             style="width:{{ [weight_pct, 100]|min }}%"></div>
+      </div>
+    </div>
+
+    <!-- Pallets meter -->
+    <div class="col-md-4">
+      <div class="d-flex justify-content-between mb-1">
+        <span class="small fw-semibold">Pallets</span>
+        <span class="small text-muted" id="palletLabel">
+          <span id="palletCurrent">{{ load.current_pallets or 0 }}</span> / {{ load.max_pallets or 0 }}
+          (<span id="palletPct">{{ pallet_pct }}</span>%)
+        </span>
+      </div>
+      <div class="meter-track">
+        <div class="meter-bar{% if pallet_pct >= 90 %} red{% elif pallet_pct >= 70 %} yellow{% endif %}"
+             id="palletBar"
+             style="width:{{ [pallet_pct, 100]|min }}%"></div>
+      </div>
+    </div>
+
+    <!-- lbs to FTL / ready badge -->
+    <div class="col-md-2 text-end">
+      <div id="lbsToFtlBlock"{% if weight_pct >= 90 %} style="display:none"{% endif %}>
+        <div class="lbs-to-ftl">{{ "{:,.0f}".format(lbs_to_ftl) }} lbs</div>
+        <div class="text-muted" style="font-size:0.7rem">to FTL</div>
+      </div>
+      <div id="readyBadge"{% if weight_pct < 90 %} style="display:none"{% endif %}>
+        <span class="ready-badge">READY TO CONVERT</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- ── Left: Shipments on this load ───────────────────────────── -->
+  <div class="col-lg-7">
+    <div class="ltl-panel h-100">
+      <h5 class="mb-3"><i class="bi bi-list-check me-2"></i>Shipments on Load
+        <span class="badge bg-secondary ms-1" id="shipmentCount">{{ shipments|length }}</span>
+      </h5>
+
+      <div class="table-responsive">
+        <table class="table table-dark table-sm align-middle mb-0" id="shipmentTable">
+          <thead class="text-muted small">
+            <tr>
+              <th>Ref</th>
+              <th>Description</th>
+              <th>Weight (lbs)</th>
+              <th>Pallets</th>
+              <th>Pickup</th>
+              <th>Delivery</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="shipmentTbody">
+          {% if not shipments %}
+            <tr id="emptyRow"><td colspan="7" class="text-center text-muted py-4">No shipments added yet.</td></tr>
+          {% endif %}
+          {% for s in shipments %}
+            <tr id="row-{{ s.shipment_ref }}">
+              <td class="fw-semibold text-info small">{{ s.shipment_ref }}</td>
+              <td class="small text-truncate" style="max-width:160px">{{ s.cargo_description or '—' }}</td>
+              <td class="small">{{ "{:,.0f}".format(s.weight_lbs or 0) }}</td>
+              <td class="small">{{ s.pallets or 0 }}</td>
+              <td class="small text-muted text-truncate" style="max-width:120px">{{ s.pickup_address or '—' }}</td>
+              <td class="small text-muted text-truncate" style="max-width:120px">{{ s.delivery_address or '—' }}</td>
+              <td>
+                {% if load.status == 'Building' %}
+                <button class="btn btn-sm btn-outline-danger remove-btn" data-ref="{{ s.shipment_ref }}"
+                        data-weight="{{ s.weight_lbs or 0 }}" data-pallets="{{ s.pallets or 0 }}">
+                  <i class="bi bi-trash3"></i>
+                </button>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right: Add Shipment ────────────────────────────────────── -->
+  <div class="col-lg-5">
+    {% if load.status == 'Building' %}
+    <div class="ltl-panel">
+      <h5 class="mb-3"><i class="bi bi-plus-circle me-2"></i>Add Shipment</h5>
+
+      <div class="mb-3">
+        <label class="form-label small">Select Shipment</label>
+        <select id="addRef" class="form-select bg-dark border-secondary text-light">
+          <option value="">-- Select --</option>
+          {% for s in available %}
+            <option value="{{ s.shipment_ref }}">
+              {{ s.shipment_ref }}{% if s.cargo_description %} — {{ s.cargo_description[:40] }}{% endif %}
+              {% if s.origin_port %} ({{ s.origin_port }}→{{ s.destination_port }}){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-6">
+          <label class="form-label small">Weight (lbs)</label>
+          <input type="number" id="addWeight" class="form-control bg-dark border-secondary text-light"
+                 min="0" step="0.1" placeholder="0">
+        </div>
+        <div class="col-6">
+          <label class="form-label small">Pallets</label>
+          <input type="number" id="addPallets" class="form-control bg-dark border-secondary text-light"
+                 min="0" step="1" placeholder="0">
+        </div>
+        <div class="col-12">
+          <label class="form-label small">Pickup Address</label>
+          <input type="text" id="addPickup" class="form-control bg-dark border-secondary text-light"
+                 placeholder="Street, City, State">
+        </div>
+        <div class="col-12">
+          <label class="form-label small">Delivery Address</label>
+          <input type="text" id="addDelivery" class="form-control bg-dark border-secondary text-light"
+                 placeholder="Street, City, State">
+        </div>
+      </div>
+
+      <button id="addBtn" class="btn btn-primary w-100">
+        <i class="bi bi-plus-lg me-1"></i>Add to Load
+      </button>
+      <div id="addMsg" class="mt-2 small"></div>
+    </div>
+    {% else %}
+    <div class="ltl-panel text-center text-muted py-5">
+      <i class="bi bi-lock fs-3 d-block mb-2"></i>
+      Load is <strong>{{ load.status }}</strong> — no changes allowed.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── FTL Conversion Modal ───────────────────────────────────────── -->
+<div class="modal fade" id="ftlModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2 text-success"></i>Converted to FTL</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <p class="text-muted mb-3">All BOLs on <strong>{{ load.load_number }}</strong> have been consolidated into master shipment:</p>
+        <div class="ftl-ref-box" id="ftlRefDisplay">—</div>
+        <p class="text-muted small mt-3">A new FTL shipment record has been created in Shipments.</p>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <a id="ftlViewLink" href="#" class="btn btn-success">
+          <i class="bi bi-box-seam me-1"></i>View FTL Shipment
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+(function(){
+  var LOAD_NUMBER  = {{ load.load_number | tojson }};
+  var maxWeight    = {{ load.max_weight_lbs or 44000 }};
+  var maxPallets   = {{ load.max_pallets or 26 }};
+  var curWeight    = {{ load.current_weight_lbs or 0 }};
+  var curPallets   = {{ load.current_pallets or 0 }};
+  var STATUS       = {{ load.status | tojson }};
+
+  // ── Meter refresh ────────────────────────────────────────────────
+  function refreshMeters() {
+    var wp = maxWeight  ? Math.round((curWeight  / maxWeight)  * 1000) / 10 : 0;
+    var pp = maxPallets ? Math.round((curPallets / maxPallets) * 1000) / 10 : 0;
+    wp = Math.min(wp, 100);
+    pp = Math.min(pp, 100);
+
+    // weight bar
+    var wb = document.getElementById('weightBar');
+    wb.style.width = wp + '%';
+    wb.className = 'meter-bar' + (wp >= 90 ? ' red' : wp >= 70 ? ' yellow' : '');
+    document.getElementById('weightPct').textContent = wp;
+    document.getElementById('weightLabel').querySelector('#weightPct').textContent = wp;
+
+    // pallet bar
+    var pb = document.getElementById('palletBar');
+    pb.style.width = pp + '%';
+    pb.className = 'meter-bar' + (pp >= 90 ? ' red' : pp >= 70 ? ' yellow' : '');
+    document.getElementById('palletPct').textContent = pp;
+    document.getElementById('palletCurrent').textContent = curPallets;
+
+    // lbs-to-FTL / ready badge
+    var lbs = Math.max(0, maxWeight - curWeight);
+    var lbsBlock = document.getElementById('lbsToFtlBlock');
+    var readyBadge = document.getElementById('readyBadge');
+    if (wp >= 90) {
+      lbsBlock.style.display = 'none';
+      readyBadge.style.display = '';
+      document.getElementById('convertBtn').disabled = STATUS !== 'Building';
+    } else {
+      lbsBlock.style.display = '';
+      readyBadge.style.display = 'none';
+      lbsBlock.querySelector('.lbs-to-ftl').textContent = lbs.toLocaleString(undefined, {maximumFractionDigits:0}) + ' lbs';
+    }
+  }
+
+  // ── Add shipment ─────────────────────────────────────────────────
+  var addBtn = document.getElementById('addBtn');
+  if (addBtn) {
+    addBtn.addEventListener('click', function(){
+      var ref     = document.getElementById('addRef').value;
+      var weight  = parseFloat(document.getElementById('addWeight').value) || 0;
+      var pallets = parseInt(document.getElementById('addPallets').value)  || 0;
+      var pickup  = document.getElementById('addPickup').value;
+      var delivery= document.getElementById('addDelivery').value;
+      var msg     = document.getElementById('addMsg');
+
+      if (!ref) { msg.innerHTML = '<span class="text-warning">Select a shipment.</span>'; return; }
+
+      addBtn.disabled = true;
+      fetch('/tms/ltl/' + LOAD_NUMBER + '/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          shipment_ref: ref, weight_lbs: weight, pallets: pallets,
+          pickup_address: pickup, delivery_address: delivery
+        })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.ok) {
+          msg.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>' + data.message + '</span>';
+          curWeight  += weight;
+          curPallets += pallets;
+          refreshMeters();
+          // Add row to table
+          var tbody = document.getElementById('shipmentTbody');
+          var empty = document.getElementById('emptyRow');
+          if (empty) empty.remove();
+          var tr = document.createElement('tr');
+          tr.id = 'row-' + ref;
+          tr.innerHTML = [
+            '<td class="fw-semibold text-info small">' + ref + '</td>',
+            '<td class="small">—</td>',
+            '<td class="small">' + weight.toLocaleString(undefined,{maximumFractionDigits:0}) + '</td>',
+            '<td class="small">' + pallets + '</td>',
+            '<td class="small text-muted">' + (pickup || '—') + '</td>',
+            '<td class="small text-muted">' + (delivery || '—') + '</td>',
+            '<td><button class="btn btn-sm btn-outline-danger remove-btn" data-ref="' + ref + '" data-weight="' + weight + '" data-pallets="' + pallets + '"><i class="bi bi-trash3"></i></button></td>',
+          ].join('');
+          tbody.appendChild(tr);
+          bindRemove(tr.querySelector('.remove-btn'));
+          // Remove from dropdown
+          var sel = document.getElementById('addRef');
+          for (var i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === ref) { sel.remove(i); break; }
+          }
+          document.getElementById('addRef').value = '';
+          document.getElementById('addWeight').value = '';
+          document.getElementById('addPallets').value = '';
+          document.getElementById('addPickup').value = '';
+          document.getElementById('addDelivery').value = '';
+          // update count badge
+          var cnt = document.getElementById('shipmentCount');
+          cnt.textContent = parseInt(cnt.textContent) + 1;
+        } else {
+          msg.innerHTML = '<span class="text-danger">' + data.message + '</span>';
+        }
+      })
+      .catch(function(){ msg.innerHTML = '<span class="text-danger">Request failed.</span>'; })
+      .finally(function(){ addBtn.disabled = false; });
+    });
+  }
+
+  // ── Remove shipment ──────────────────────────────────────────────
+  function bindRemove(btn) {
+    btn.addEventListener('click', function(){
+      var ref     = btn.dataset.ref;
+      var weight  = parseFloat(btn.dataset.weight) || 0;
+      var pallets = parseInt(btn.dataset.pallets)  || 0;
+      if (!confirm('Remove ' + ref + ' from this load?')) return;
+      fetch('/tms/ltl/' + LOAD_NUMBER + '/remove/' + encodeURIComponent(ref), { method: 'POST' })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.ok) {
+          var row = document.getElementById('row-' + ref);
+          if (row) row.remove();
+          curWeight  -= weight;
+          curPallets -= pallets;
+          if (curWeight < 0) curWeight = 0;
+          if (curPallets < 0) curPallets = 0;
+          refreshMeters();
+          var cnt = document.getElementById('shipmentCount');
+          cnt.textContent = Math.max(0, parseInt(cnt.textContent) - 1);
+          if (parseInt(cnt.textContent) === 0) {
+            var tbody = document.getElementById('shipmentTbody');
+            tbody.innerHTML = '<tr id="emptyRow"><td colspan="7" class="text-center text-muted py-4">No shipments added yet.</td></tr>';
+          }
+        }
+      });
+    });
+  }
+  document.querySelectorAll('.remove-btn').forEach(bindRemove);
+
+  // ── Convert to FTL ──────────────────────────────────────────────
+  var convertBtn = document.getElementById('convertBtn');
+  convertBtn.addEventListener('click', function(){
+    if (!confirm('Convert load ' + LOAD_NUMBER + ' to FTL? This will seal the load and create a master FTL shipment.')) return;
+    convertBtn.disabled = true;
+    fetch('/tms/ltl/' + LOAD_NUMBER + '/convert', { method: 'POST' })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.ok) {
+        document.getElementById('ftlRefDisplay').textContent = data.ftl_ref;
+        document.getElementById('ftlViewLink').href = '/tms/shipments/' + data.ftl_ref;
+        var modal = new bootstrap.Modal(document.getElementById('ftlModal'));
+        modal.show();
+        STATUS = 'Converted to FTL';
+        // Update status badge
+        document.querySelectorAll('.badge').forEach(function(b){
+          if (b.textContent.trim() === 'Building') {
+            b.className = 'badge bg-success';
+            b.textContent = 'Converted to FTL';
+          }
+        });
+      } else {
+        alert('Error: ' + data.message);
+        convertBtn.disabled = false;
+      }
+    })
+    .catch(function(){ alert('Request failed.'); convertBtn.disabled = false; });
+  });
+
+  refreshMeters();
+})();
+</script>
+{% endblock %}

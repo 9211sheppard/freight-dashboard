@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TMS Master</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --gold: #d4a943;
+      --gold-light: #e8c06a;
+      --bg: #080808;
+      --surface: #0f0f0f;
+      --surface2: #141414;
+      --border: #1e1e1e;
+      --border2: #2a2a2a;
+      --text: #e0e0e0;
+      --muted: #666;
+      --green: #4ade80;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* NAV */
+    .pr-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.2rem 2rem;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(8,8,8,0.95);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+    }
+    .pr-nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .pr-nav-logo i { color: var(--gold); font-size: 1.3rem; }
+    .pr-nav-link {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .pr-nav-link:hover { color: var(--text); }
+    .btn-trial {
+      background: var(--gold);
+      color: #000;
+      border: none;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0.5rem 1.2rem;
+      border-radius: 7px;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-trial:hover { background: var(--gold-light); color: #000; }
+
+    /* HERO */
+    .pr-hero {
+      text-align: center;
+      padding: 5rem 1rem 3.5rem;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    .pr-hero-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--gold);
+      margin-bottom: 1rem;
+    }
+    .pr-hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+    }
+    .pr-hero p {
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    /* BASE PLAN CARD */
+    .base-card-wrap {
+      max-width: 520px;
+      margin: 0 auto 4rem;
+      padding: 0 1rem;
+    }
+    .base-card {
+      background: linear-gradient(135deg, #111 0%, #0d0d0d 100%);
+      border: 1.5px solid var(--gold);
+      border-radius: 16px;
+      padding: 2.5rem 2.5rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .base-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    }
+    .base-featured-badge {
+      position: absolute;
+      top: 1.2rem;
+      right: 1.2rem;
+      background: var(--gold);
+      color: #000;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.3rem 0.7rem;
+      border-radius: 20px;
+    }
+    .base-price-block { margin-bottom: 1.5rem; }
+    .base-price {
+      font-size: 3.5rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+    .base-price sup {
+      font-size: 1.5rem;
+      font-weight: 600;
+      vertical-align: super;
+      color: var(--muted);
+    }
+    .base-price-period { font-size: 0.9rem; color: var(--muted); margin-left: 0.3rem; }
+    .base-desc {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .base-features { list-style: none; padding: 0; margin: 0 0 2rem; }
+    .base-features li {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.88rem;
+      color: var(--text);
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .base-features li:last-child { border-bottom: none; }
+    .base-features li i { color: var(--green); font-size: 0.9rem; }
+    .btn-cta {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: var(--gold);
+      color: #000;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 0.85rem;
+      border-radius: 9px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-cta:hover { background: var(--gold-light); color: #000; transform: translateY(-1px); }
+    .btn-cta-sub {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 0.75rem;
+    }
+
+    /* ADDONS SECTION */
+    .addons-section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 1rem 6rem;
+    }
+    .addons-section-title {
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    .addons-section-title h2 {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 800;
+      color: #fff;
+    }
+    .addons-section-subtitle {
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+    }
+
+    /* Category tabs */
+    .cat-tabs {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+    .cat-tab {
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--muted);
+      font-size: 0.8rem;
+      padding: 0.4rem 1rem;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cat-tab:hover, .cat-tab.active {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(212,169,67,0.07);
+    }
+
+    .addon-grid {
+      display: none;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 1rem;
+    }
+    .addon-grid.visible { display: grid; }
+
+    .addon-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.3rem 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      transition: border-color 0.2s, transform 0.15s;
+      cursor: default;
+    }
+    .addon-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+    .addon-card.selected { border-color: var(--gold); background: #0f0e09; }
+    .addon-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+    .addon-card-name { font-weight: 700; color: #fff; font-size: 0.95rem; }
+    .addon-card-price { color: var(--gold); font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
+    .addon-card-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
+    .addon-card-feats { display: flex; flex-direction: column; gap: 0.3rem; }
+    .addon-card-feat { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: #888; }
+    .addon-card-feat i { color: var(--green); font-size: 0.75rem; flex-shrink: 0; }
+    .addon-add-btn {
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--text);
+      font-size: 0.8rem;
+      padding: 0.4rem 0.9rem;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: auto;
+      text-align: center;
+    }
+    .addon-add-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .addon-add-btn.added { border-color: var(--green); color: var(--green); background: rgba(74,222,128,0.05); }
+
+    /* TOTAL CALCULATOR */
+    .calc-bar {
+      position: sticky;
+      bottom: 0;
+      background: rgba(8,8,8,0.97);
+      border-top: 1px solid var(--border2);
+      backdrop-filter: blur(12px);
+      z-index: 50;
+      padding: 1rem 2rem;
+      display: none;
+    }
+    .calc-bar.visible { display: block; }
+    .calc-bar-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .calc-breakdown {
+      font-size: 0.83rem;
+      color: var(--muted);
+      flex: 1;
+      min-width: 200px;
+    }
+    .calc-breakdown strong { color: var(--text); }
+    .calc-total {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--gold);
+    }
+    .calc-total-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; }
+    .calc-cta {
+      background: var(--gold);
+      color: #000;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 0.6rem 1.5rem;
+      border-radius: 8px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .calc-cta:hover { background: var(--gold-light); color: #000; }
+
+    /* FOOTER */
+    .pr-footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="pr-nav">
+  <a href="/tms/" class="pr-nav-logo">
+    <i class="bi bi-hexagon-fill"></i>
+    TMS Master
+  </a>
+  <div class="d-flex align-items-center gap-3">
+    <a href="/tms/" class="pr-nav-link">TMS</a>
+    <a href="/tms/pricing" class="pr-nav-link" style="color:#fff;">Pricing</a>
+    <a href="/tms/settings/billing" class="btn-trial">Start Free Trial</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="pr-hero">
+  <div class="pr-hero-label">Pricing</div>
+  <h1>Simple,<br>transparent pricing</h1>
+  <p>Start free for 14 days. No credit card required.<br>Add only the features you need.</p>
+</div>
+
+<!-- Base Plan -->
+<div class="base-card-wrap">
+  {% if base %}
+  <div class="base-card">
+    <div class="base-featured-badge">Most Popular</div>
+    <div class="base-price-block">
+      <div class="base-price">
+        <sup>$</sup>{{ "%.2f"|format(base.price_monthly) }}<span class="base-price-period">/month</span>
+      </div>
+    </div>
+    <div class="base-desc">Everything you need to run your freight operation — shipments, dispatch, drivers, fleet, documents, and customer tracking.</div>
+    <ul class="base-features">
+      {% for feat in base.features | from_json %}
+      <li><i class="bi bi-check-circle-fill"></i> {{ feat }}</li>
+      {% endfor %}
+    </ul>
+    <a href="/tms/settings/billing" class="btn-cta">Start Free Trial — 14 Days</a>
+    <div class="btn-cta-sub">No credit card required &bull; Cancel anytime</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Add-ons Section -->
+<div class="addons-section">
+  <div class="addons-section-title">
+    <h2>Power up with add-ons</h2>
+  </div>
+  <div class="addons-section-subtitle">
+    Bolt on only what you need. Each add-on is billed monthly on top of your base plan.
+  </div>
+
+  <!-- Category Tabs -->
+  <div class="cat-tabs">
+    <button class="cat-tab active" data-cat="all">All</button>
+    <button class="cat-tab" data-cat="integration">Integrations</button>
+    <button class="cat-tab" data-cat="intelligence">Intelligence</button>
+    <button class="cat-tab" data-cat="compliance">Compliance</button>
+    <button class="cat-tab" data-cat="operations">Operations</button>
+  </div>
+
+  <!-- Addon Cards by Category -->
+  {% set cat_labels = {'integration': 'Integrations', 'intelligence': 'Intelligence', 'compliance': 'Compliance', 'operations': 'Operations'} %}
+  {% for cat_key, cat_plans in categories.items() %}
+  <div class="addon-grid visible" id="grid-{{ cat_key }}" data-cat="{{ cat_key }}">
+    {% for plan in cat_plans %}
+    {% set feats = plan.features | from_json %}
+    <div class="addon-card" id="card-{{ plan.plan_key }}" data-key="{{ plan.plan_key }}" data-price="{{ plan.price_monthly }}" data-name="{{ plan.plan_name }}">
+      <div class="addon-card-top">
+        <div class="addon-card-name">{{ plan.plan_name }}</div>
+        <div class="addon-card-price">${{ "%.2f"|format(plan.price_monthly) }}/mo</div>
+      </div>
+      <div class="addon-card-desc">{{ plan.description }}</div>
+      <div class="addon-card-feats">
+        {% for feat in feats %}
+        <div class="addon-card-feat"><i class="bi bi-check2"></i> {{ feat }}</div>
+        {% endfor %}
+      </div>
+      <button class="addon-add-btn" onclick="toggleAddon('{{ plan.plan_key }}', {{ plan.price_monthly }}, '{{ plan.plan_name }}', this)">
+        Add to Plan
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Sticky Calc Bar -->
+<div class="calc-bar" id="calcBar">
+  <div class="calc-bar-inner">
+    <div class="calc-breakdown" id="calcBreakdown">
+      <strong>$9.99</strong> base plan
+    </div>
+    <div style="text-align:right;">
+      <div class="calc-total-label">Your monthly total</div>
+      <div class="calc-total" id="calcTotal">$9.99</div>
+    </div>
+    <a href="/tms/settings/billing" class="calc-cta">Get Started</a>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="pr-footer">
+  &copy; 2026 TMS Master &bull; <a href="/tms/" style="color:inherit;">TMS Login</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+var BASE_PRICE = {{ base.price_monthly if base else 9.99 }};
+var selected = {};
+
+function toggleAddon(key, price, name, btn) {
+  if (selected[key]) {
+    delete selected[key];
+    btn.textContent = 'Add to Plan';
+    btn.classList.remove('added');
+    document.getElementById('card-' + key).classList.remove('selected');
+  } else {
+    selected[key] = {price: price, name: name};
+    btn.textContent = '✓ Added';
+    btn.classList.add('added');
+    document.getElementById('card-' + key).classList.add('selected');
+  }
+  updateCalc();
+}
+
+function updateCalc() {
+  var keys = Object.keys(selected);
+  var addonsTotal = 0;
+  var parts = [];
+  keys.forEach(function(k) {
+    addonsTotal += selected[k].price;
+    parts.push('<strong>$' + selected[k].price.toFixed(2) + '</strong> ' + selected[k].name);
+  });
+  var total = BASE_PRICE + addonsTotal;
+  document.getElementById('calcTotal').textContent = '$' + total.toFixed(2);
+
+  var breakdown = '<strong>$' + BASE_PRICE.toFixed(2) + '</strong> base';
+  if (parts.length > 0) {
+    breakdown += ' + ' + parts.join(' + ');
+  }
+  document.getElementById('calcBreakdown').innerHTML = breakdown;
+
+  var bar = document.getElementById('calcBar');
+  if (keys.length > 0) {
+    bar.classList.add('visible');
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+// Category tabs
+document.querySelectorAll('.cat-tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    var cat = this.getAttribute('data-cat');
+    document.querySelectorAll('.cat-tab').forEach(function(t) { t.classList.remove('active'); });
+    this.classList.add('active');
+    document.querySelectorAll('.addon-grid').forEach(function(grid) {
+      if (cat === 'all' || grid.getAttribute('data-cat') === cat) {
+        grid.classList.add('visible');
+      } else {
+        grid.classList.remove('visible');
+      }
+    });
+  });
+});
+</script>
+</body>
+</html>

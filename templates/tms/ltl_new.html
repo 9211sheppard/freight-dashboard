@@ -1,0 +1,118 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}New LTL Load{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+  .eq-radio-card {
+    cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    transition: border-color 0.2s, background 0.2s;
+    background: rgba(255,255,255,0.03);
+  }
+  .eq-radio-card:hover { border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.06); }
+  .eq-radio-card.selected { border-color: #3b82f6; background: rgba(59,130,246,0.1); }
+  .eq-radio-card .eq-icon { font-size: 1.75rem; }
+  .eq-radio-card .eq-label { font-weight: 600; margin-top: 0.3rem; }
+  .eq-radio-card .eq-meta { font-size: 0.75rem; color: #9ca3af; }
+  .form-section { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 0.875rem; padding: 1.5rem; }
+</style>
+{% endblock %}
+{% block tms_content %}
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="/tms/ltl" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+  <div>
+    <h2 class="mb-0"><i class="bi bi-boxes me-2"></i>New LTL Load</h2>
+    <small class="text-muted">Create a load shell — then add shipments to it.</small>
+  </div>
+</div>
+
+<form method="POST" action="/tms/ltl/new" class="row g-4" style="max-width:700px;">
+
+  <!-- Equipment Type -->
+  <div class="col-12">
+    <div class="form-section">
+      <label class="form-label fw-semibold mb-3">Equipment Type</label>
+      <div class="row g-3" id="eqCards">
+        {% set eq_data = [
+          ('Dry Van',  '🚛', '44,000 lbs · 26 pallets'),
+          ('Reefer',   '❄️', '42,500 lbs · 24 pallets'),
+          ('Flatbed',  '🏗️', '48,000 lbs · 24 pallets'),
+        ] %}
+        {% for eq, icon, meta in eq_data %}
+        <div class="col-4">
+          <label class="eq-radio-card w-100 text-center{% if loop.first %} selected{% endif %}" data-eq="{{ eq }}">
+            <input type="radio" name="equipment_type" value="{{ eq }}" class="d-none" {% if loop.first %}checked{% endif %}>
+            <div class="eq-icon">{{ icon }}</div>
+            <div class="eq-label">{{ eq }}</div>
+            <div class="eq-meta">{{ meta }}</div>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Load details -->
+  <div class="col-12">
+    <div class="form-section">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label small">Load Number <span class="text-muted">(auto-generated)</span></label>
+          <input type="text" name="load_number" class="form-control bg-dark border-secondary text-light"
+                 placeholder="e.g. LTL-123456 (leave blank to auto)">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small">Trailer Number</label>
+          <input type="text" name="trailer_number" class="form-control bg-dark border-secondary text-light"
+                 placeholder="e.g. TR-4821">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small">Origin City</label>
+          <input type="text" name="origin_city" class="form-control bg-dark border-secondary text-light"
+                 placeholder="e.g. Chicago, IL">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small">Destination City</label>
+          <input type="text" name="destination_city" class="form-control bg-dark border-secondary text-light"
+                 placeholder="e.g. Dallas, TX">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small">Pickup Date</label>
+          <input type="date" name="pickup_date" class="form-control bg-dark border-secondary text-light">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small">Carrier <span class="text-muted">(optional)</span></label>
+          <input type="text" name="carrier" class="form-control bg-dark border-secondary text-light"
+                 placeholder="e.g. NorthStar Freight">
+        </div>
+        <div class="col-12">
+          <label class="form-label small">Notes</label>
+          <textarea name="notes" rows="2" class="form-control bg-dark border-secondary text-light"
+                    placeholder="Internal notes..."></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <button type="submit" class="btn btn-primary px-4">
+      <i class="bi bi-plus-circle me-2"></i>Create Load
+    </button>
+    <a href="/tms/ltl" class="btn btn-outline-secondary ms-2">Cancel</a>
+  </div>
+
+</form>
+
+<script nonce="{{ csp_nonce }}">
+(function(){
+  document.querySelectorAll('#eqCards label.eq-radio-card').forEach(function(card){
+    card.addEventListener('click', function(){
+      document.querySelectorAll('#eqCards label.eq-radio-card').forEach(function(c){ c.classList.remove('selected'); });
+      card.classList.add('selected');
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,331 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}New Shipment{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0"><i class="bi bi-plus-circle me-2"></i>New Shipment</h2>
+  <div class="d-flex gap-2">
+    <a href="/tms/rates/shop" class="btn btn-outline-warning">Shop Rates</a>
+    <a href="/tms/drivers" class="btn btn-outline-info">Drivers</a>
+    <a href="/tms/fleet" class="btn btn-outline-info">Fleet</a>
+    <a href="/tms/shipments" class="btn btn-outline-secondary">Cancel</a>
+  </div>
+</div>
+
+{% if form_values.get('rate_source') %}
+<div class="alert alert-info">
+  Prefilled from {{ form_values.get('rate_source') }} pricing{% if form_values.get('selected_rate_label') %} via {{ form_values.get('selected_rate_label') }}{% endif %}.
+  {% if form_values.get('selected_transit_days') %}Estimated transit: {{ form_values.get('selected_transit_days') }} day(s).{% endif %}
+</div>
+{% endif %}
+
+<form method="POST" action="/tms/shipments/new">
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-person-fill me-2"></i>Shipper</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label text-muted">Shipper Name</label>
+            <input type="text" name="shipper_name" value="{{ form_values.get('shipper_name', '') }}" class="form-control bg-black text-white border-secondary" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Shipper Address</label>
+            <input type="text" name="shipper_address" value="{{ form_values.get('shipper_address', '') }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Customer Name</label>
+            <input type="text" name="customer_name" value="{{ form_values.get('customer_name', '') }}" class="form-control bg-black text-white border-secondary" placeholder="Optional billing customer">
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label text-muted">Customer PO #</label>
+              <input type="text" name="po_number" value="{{ form_values.get('po_number', '') }}" class="form-control bg-black text-white border-secondary" placeholder="PO-12345">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">PRO # / Tracking #</label>
+              <input type="text" name="pro_number" value="{{ form_values.get('pro_number', '') }}" class="form-control bg-black text-white border-secondary" placeholder="PRO-98765">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label text-muted">Pickup # / Release #</label>
+              <input type="text" name="pickup_number" value="{{ form_values.get('pickup_number', '') }}" class="form-control bg-black text-white border-secondary" placeholder="PU-001">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">Delivery # / Ref #</label>
+              <input type="text" name="delivery_number" value="{{ form_values.get('delivery_number', '') }}" class="form-control bg-black text-white border-secondary" placeholder="DEL-001">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label text-muted">Shipper Contact</label>
+              <input type="text" name="shipper_contact_name" value="{{ form_values.get('shipper_contact_name', '') }}" class="form-control bg-black text-white border-secondary" placeholder="Name">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">Shipper Phone</label>
+              <input type="tel" name="shipper_contact_phone" value="{{ form_values.get('shipper_contact_phone', '') }}" class="form-control bg-black text-white border-secondary" placeholder="905-555-0100">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-person me-2"></i>Consignee</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label text-muted">Consignee Name</label>
+            <input type="text" name="consignee_name" value="{{ form_values.get('consignee_name', '') }}" class="form-control bg-black text-white border-secondary" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Consignee Address</label>
+            <input type="text" name="consignee_address" value="{{ form_values.get('consignee_address', '') }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Consignee Contact</label>
+            <div class="row g-2">
+              <div class="col-6">
+                <input type="text" name="consignee_contact_name" value="{{ form_values.get('consignee_contact_name', '') }}" class="form-control bg-black text-white border-secondary" placeholder="Name">
+              </div>
+              <div class="col-6">
+                <input type="tel" name="consignee_contact_phone" value="{{ form_values.get('consignee_contact_phone', '') }}" class="form-control bg-black text-white border-secondary" placeholder="905-555-0100">
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="form-label text-muted">Status</label>
+            <select name="status" class="form-select bg-black text-white border-secondary">
+              {% for st in ['Draft','Active','Booked','In Transit','Delivered','Cancelled'] %}
+              <option value="{{ st }}" {% if form_values.get('status', 'Draft') == st %}selected{% endif %}>{{ st }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-geo-alt me-2"></i>Route & Carrier</div>
+        <div class="card-body">
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label text-muted">Origin</label>
+              <input type="text" name="origin_port" value="{{ form_values.get('origin_port', '') }}" class="form-control bg-black text-white border-secondary" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">Destination</label>
+              <input type="text" name="destination_port" value="{{ form_values.get('destination_port', '') }}" class="form-control bg-black text-white border-secondary" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Mode</label>
+            <input type="text" name="mode" value="{{ form_values.get('mode', '') }}" class="form-control bg-black text-white border-secondary" placeholder="FTL, LTL, Ocean, Air" required>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label text-muted">ETD (Pickup Date)</label>
+              <input type="date" name="etd" value="{{ form_values.get('etd', '') }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">ETA (Delivery Date)</label>
+              <input type="date" name="eta" value="{{ form_values.get('eta', '') }}" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label text-muted">Pickup Appointment</label>
+              <input type="time" name="pickup_appt" value="{{ form_values.get('pickup_appt', '') }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">Delivery Appointment</label>
+              <input type="time" name="delivery_appt" value="{{ form_values.get('delivery_appt', '') }}" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label text-muted">Trailer #</label>
+              <input type="text" name="trailer_number" value="{{ form_values.get('trailer_number', '') }}" class="form-control bg-black text-white border-secondary" placeholder="TRL-1234">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">Seal #</label>
+              <input type="text" name="seal_number" value="{{ form_values.get('seal_number', '') }}" class="form-control bg-black text-white border-secondary" placeholder="SL-9876">
+            </div>
+          </div>
+          <div>
+            <label class="form-label text-muted">Carrier</label>
+            <select name="carrier_id" class="form-select bg-black text-white border-secondary">
+              <option value="">-- Select Carrier --</option>
+              {% for carrier in carriers %}
+              <option value="{{ carrier.id }}" {% if form_values.get('carrier_id', '') == carrier.id|string %}selected{% endif %}>{{ carrier.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mt-3">
+            <label class="form-label text-muted">Carrier Name Override</label>
+            <input type="text" name="carrier_name" value="{{ form_values.get('carrier_name', '') }}" class="form-control bg-black text-white border-secondary" placeholder="Optional for spot or market selections">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-person-workspace me-2"></i>Dispatch Assignment</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label text-muted">Driver</label>
+            <select name="driver_id" class="form-select bg-black text-white border-secondary">
+              <option value="">-- Unassigned --</option>
+              {% for driver in drivers %}
+              <option value="{{ driver.id }}" {% if form_values.get('driver_id', '') == driver.id|string %}selected{% endif %}>
+                {{ driver.name }} · {{ driver.license_number }} · {{ driver.status }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Vehicle</label>
+            <select name="vehicle_id" class="form-select bg-black text-white border-secondary">
+              <option value="">-- Unassigned --</option>
+              {% for vehicle in vehicles %}
+              <option value="{{ vehicle.id }}" {% if form_values.get('vehicle_id', '') == vehicle.id|string %}selected{% endif %}>
+                {{ vehicle.truck_number }} · {{ vehicle.vehicle_type }} · {{ vehicle.status }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="small text-muted">Assigned drivers receive a mobile check-in link on the shipment detail page.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-box me-2"></i>Cargo Details</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label text-muted">Cargo Description</label>
+            <input type="text" name="cargo_description" value="{{ form_values.get('cargo_description', '') }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">BOL # (Bill of Lading)</label>
+            <input type="text" name="bol_number" value="{{ form_values.get('bol_number', '') }}" class="form-control bg-black text-white border-secondary" placeholder="BOL-2026-XXXX">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-4">
+              <label class="form-label text-muted">Pieces</label>
+              <input type="number" name="pieces" value="{{ form_values.get('pieces', '') }}" class="form-control bg-black text-white border-secondary" placeholder="0">
+            </div>
+            <div class="col-4">
+              <label class="form-label text-muted">Pallets</label>
+              <input type="number" name="pallets" value="{{ form_values.get('pallets', '') }}" class="form-control bg-black text-white border-secondary" placeholder="0">
+            </div>
+            <div class="col-4">
+              <label class="form-label text-muted">Dimensions (L×W×H in)</label>
+              <input type="text" name="dimensions" value="{{ form_values.get('dimensions', '') }}" class="form-control bg-black text-white border-secondary" placeholder='48×40×48'>
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-12">
+              <div class="d-flex gap-4 align-items-center p-2 rounded" style="background:#111;">
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" name="hazmat" value="1" id="hazmatChk" {% if form_values.get('hazmat') %}checked{% endif %} onchange="document.getElementById('hazmatBadge').style.display=this.checked?'inline-block':'none'">
+                  <label class="form-check-label text-warning fw-bold" for="hazmatChk"><i class="bi bi-radioactive me-1"></i>Hazmat / DG</label>
+                </div>
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" name="temp_required" value="1" id="tempChk" {% if form_values.get('temp_required') %}checked{% endif %} onchange="document.getElementById('tempFields').style.display=this.checked?'flex':'none'">
+                  <label class="form-check-label text-info fw-bold" for="tempChk"><i class="bi bi-thermometer-half me-1"></i>Temp Control</label>
+                </div>
+                <span id="hazmatBadge" class="badge bg-warning text-dark" style="display:none;">HAZMAT</span>
+              </div>
+            </div>
+            <div id="tempFields" class="col-12 d-none" style="display:none!important;">
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label text-muted small">Min Temp (°F)</label>
+                  <input type="number" name="temp_min_f" value="{{ form_values.get('temp_min_f', '') }}" class="form-control bg-black text-white border-secondary" placeholder="34">
+                </div>
+                <div class="col-6">
+                  <label class="form-label text-muted small">Max Temp (°F)</label>
+                  <input type="number" name="temp_max_f" value="{{ form_values.get('temp_max_f', '') }}" class="form-control bg-black text-white border-secondary" placeholder="38">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Truck / Container Type</label>
+            <input type="text" name="containers" value="{{ form_values.get('containers', '') }}" class="form-control bg-black text-white border-secondary" placeholder="53' Dry Van, 53' Reefer, 2x40HC">
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label text-muted">Weight (kg)</label>
+              <input type="number" name="weight_kg" value="{{ form_values.get('weight_kg', '') }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-muted">Volume (CBM)</label>
+              <input type="number" name="volume_cbm" value="{{ form_values.get('volume_cbm', '') }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-header"><i class="bi bi-currency-dollar me-2"></i>Financials</div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label text-muted">Freight Rate</label>
+              <input type="number" name="freight_rate" value="{{ form_values.get('freight_rate', '') }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-muted">Currency</label>
+              <select name="currency" class="form-select bg-black text-white border-secondary">
+                {% for cur in ['CAD','USD','EUR','CNY','GBP'] %}
+                <option value="{{ cur }}" {% if form_values.get('currency', 'USD') == cur %}selected{% endif %}>{{ cur }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mt-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted">Payment Terms</label>
+              <select name="payment_terms" class="form-select bg-black text-white border-secondary">
+                {% for t in ['NET30','NET15','NET60','NET45','DUE ON RECEIPT','PREPAID','COD'] %}
+                <option value="{{ t }}" {% if form_values.get('payment_terms','NET30') == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Incoterm</label>
+              <select name="incoterm" class="form-select bg-black text-white border-secondary">
+                {% for term in ['FOB','CIF','CFR','EXW','DAP','DDP','FCA','CPT','CIP'] %}
+                <option value="{{ term }}" {% if form_values.get('incoterm', 'FOB') == term %}selected{% endif %}>{{ term }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label text-muted">Special Instructions</label>
+            <textarea name="special_instructions" class="form-control bg-black text-white border-secondary" rows="2" placeholder="e.g. Call ahead 1hr before delivery. Dock hours 08:00–16:00. No lift gate available.">{{ form_values.get('special_instructions', '') }}</textarea>
+          </div>
+          <div class="mt-3">
+            <label class="form-label text-muted">Notes (Internal)</label>
+            <input type="text" name="notes" value="{{ form_values.get('notes', '') }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="form-text text-muted mt-2">If a contract rate matches the lane, it overrides the manual freight rate.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 text-end">
+      <button type="submit" class="btn btn-primary btn-lg px-5">
+        <i class="bi bi-check-lg me-1"></i>Create Shipment
+      </button>
+    </div>
+  </div>
+</form>
+{% endblock %}

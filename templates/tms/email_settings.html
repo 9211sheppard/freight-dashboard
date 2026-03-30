@@ -1,0 +1,179 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Email &amp; SMTP - TMS Master{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width:860px;">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h4 class="mb-0 fw-semibold">Email &amp; SMTP Settings</h4>
+      <p class="text-secondary small mb-0 mt-1">Configure outbound SMTP and inbound IMAP for rate requests and reply parsing.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-info btn-sm" id="testSmtpBtn">
+        <i class="bi bi-lightning me-1"></i>Test Connection
+      </button>
+    </div>
+  </div>
+
+  {% if saved %}
+  <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+    <i class="bi bi-check-circle me-1"></i> Settings saved.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+  {% if error %}
+  <div class="alert alert-danger py-2" role="alert">
+    <i class="bi bi-exclamation-triangle me-1"></i> {{ error }}
+  </div>
+  {% endif %}
+
+  <div id="testResult" class="alert py-2 d-none" role="alert"></div>
+
+  <form method="POST" action="/tms/settings/email">
+    <div class="card bg-body-tertiary border-secondary-subtle mb-4">
+      <div class="card-header d-flex align-items-center gap-2 border-secondary-subtle">
+        <i class="bi bi-send text-info"></i>
+        <span class="fw-semibold">Outbound - SMTP</span>
+        {% if smtp_ok %}
+        <span class="badge bg-success ms-auto">Configured</span>
+        {% else %}
+        <span class="badge bg-secondary ms-auto">Not configured</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label small text-secondary">SMTP Host</label>
+            <input type="text" name="smtp_host" class="form-control form-control-sm bg-body border-secondary"
+              placeholder="smtp.gmail.com" value="{{ cfg.smtp_host }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-secondary">Port</label>
+            <input type="number" name="smtp_port" class="form-control form-control-sm bg-body border-secondary"
+              value="{{ cfg.smtp_port or '587' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-secondary">Username / Login</label>
+            <input type="text" name="smtp_user" class="form-control form-control-sm bg-body border-secondary"
+              placeholder="you@yourdomain.com" value="{{ cfg.smtp_user }}" autocomplete="username">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-secondary">Password / App Password</label>
+            <input type="password" name="smtp_pass" class="form-control form-control-sm bg-body border-secondary"
+              placeholder="{% if cfg.smtp_pass_configured %}Saved password kept unless replaced{% else %}********{% endif %}" value="" autocomplete="current-password">
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="checkbox" name="clear_smtp_pass" id="clearSmtpPass" value="true">
+              <label class="form-check-label small text-secondary" for="clearSmtpPass">Clear saved SMTP password</label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-secondary">From Address</label>
+            <input type="email" name="smtp_from" class="form-control form-control-sm bg-body border-secondary"
+              placeholder="rates@yourcompany.com" value="{{ cfg.smtp_from }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-secondary">From Name</label>
+            <input type="text" name="smtp_from_name" class="form-control form-control-sm bg-body border-secondary"
+              placeholder="Summit Freight" value="{{ cfg.smtp_from_name }}">
+          </div>
+          <div class="col-md-6">
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" name="smtp_use_tls" id="smtpTls"
+                value="true" {% if cfg.smtp_use_tls not in ('false','0','no','off') %}checked{% endif %}>
+              <label class="form-check-label small" for="smtpTls">Use STARTTLS</label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" name="smtp_use_ssl" id="smtpSsl"
+                value="true" {% if cfg.smtp_use_ssl in ('true','1','yes','on') %}checked{% endif %}>
+              <label class="form-check-label small" for="smtpSsl">Use SSL (port 465)</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-body-tertiary border-secondary-subtle mb-4">
+      <div class="card-header d-flex align-items-center gap-2 border-secondary-subtle">
+        <i class="bi bi-inbox text-info"></i>
+        <span class="fw-semibold">Inbound - IMAP (reply fetching)</span>
+        {% if imap_ok %}
+        <span class="badge bg-success ms-auto">Configured</span>
+        {% else %}
+        <span class="badge bg-secondary ms-auto">Not configured</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <p class="small text-secondary mb-3">Used to pull carrier replies and parse rates automatically.</p>
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label small text-secondary">IMAP Host</label>
+            <input type="text" name="imap_host" class="form-control form-control-sm bg-body border-secondary"
+              placeholder="imap.gmail.com" value="{{ cfg.imap_host }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-secondary">Port</label>
+            <input type="number" name="imap_port" class="form-control form-control-sm bg-body border-secondary"
+              value="{{ cfg.imap_port or '993' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-secondary">Username</label>
+            <input type="text" name="imap_user" class="form-control form-control-sm bg-body border-secondary"
+              placeholder="you@yourdomain.com" value="{{ cfg.imap_user }}" autocomplete="username">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-secondary">Password / App Password</label>
+            <input type="password" name="imap_pass" class="form-control form-control-sm bg-body border-secondary"
+              placeholder="{% if cfg.imap_pass_configured %}Saved password kept unless replaced{% else %}********{% endif %}" value="" autocomplete="current-password">
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="checkbox" name="clear_imap_pass" id="clearImapPass" value="true">
+              <label class="form-check-label small text-secondary" for="clearImapPass">Clear saved IMAP password</label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" name="imap_ssl" id="imapSsl"
+                value="true" {% if cfg.imap_ssl not in ('false','0','no','off') %}checked{% endif %}>
+              <label class="form-check-label small" for="imapSsl">Use SSL/TLS</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end">
+      <button type="submit" class="btn btn-info px-4">
+        <i class="bi bi-floppy me-1"></i>Save Settings
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+document.getElementById('testSmtpBtn').addEventListener('click', function () {
+  var btn = this;
+  var res = document.getElementById('testResult');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing...';
+  res.className = 'alert py-2';
+  res.classList.remove('d-none');
+  res.textContent = 'Connecting...';
+
+  fetch('/tms/settings/email/test', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      res.className = 'alert py-2 ' + (d.ok ? 'alert-success' : 'alert-danger');
+      res.textContent = d.message;
+    })
+    .catch(function (e) {
+      res.className = 'alert py-2 alert-danger';
+      res.textContent = 'Request failed: ' + e;
+    })
+    .finally(function () {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-lightning me-1"></i>Test Connection';
+    });
+});
+</script>
+{% endblock %}

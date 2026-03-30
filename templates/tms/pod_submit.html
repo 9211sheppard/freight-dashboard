@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Proof of Delivery — {{ shipment.shipment_ref }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d0d0f;
+      color: #e5e5e7;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 16px;
+      padding: 1rem;
+      min-height: 100vh;
+    }
+    .pod-card {
+      max-width: 540px;
+      margin: 0 auto;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 1.2rem;
+      overflow: hidden;
+    }
+    .pod-header {
+      background: linear-gradient(135deg, #1a4480 0%, #0f2d5c 100%);
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .pod-header h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.25rem;
+    }
+    .pod-header .ref {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.6);
+    }
+    .pod-body {
+      padding: 1.5rem;
+    }
+    .instruction {
+      background: rgba(99,179,237,0.12);
+      border: 1px solid rgba(99,179,237,0.25);
+      border-radius: 0.75rem;
+      padding: 0.9rem 1rem;
+      margin-bottom: 1.5rem;
+      color: #90cdf4;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .field-group {
+      margin-bottom: 1.25rem;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.45rem;
+    }
+    input[type="text"], textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #fff;
+      border-radius: 0.75rem;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    input[type="text"]:focus, textarea:focus {
+      border-color: rgba(99,179,237,0.5);
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    .photo-upload-area {
+      border: 2px dashed rgba(255,255,255,0.18);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .photo-upload-area.has-file {
+      border-color: rgba(72,187,120,0.5);
+      background: rgba(72,187,120,0.06);
+    }
+    .photo-upload-area input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .photo-upload-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .photo-upload-label { font-size: 0.9rem; color: rgba(255,255,255,0.6); }
+    .photo-upload-hint { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-top: 0.25rem; }
+    .photo-preview {
+      width: 100%;
+      max-height: 220px;
+      object-fit: contain;
+      border-radius: 0.75rem;
+      margin-top: 0.75rem;
+      display: none;
+    }
+    .sig-section { margin-top: 0.25rem; }
+    .sig-canvas-wrap {
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: #1a1a1c;
+      position: relative;
+    }
+    canvas#sigCanvas {
+      display: block;
+      width: 100%;
+      height: 160px;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .sig-clear-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.6rem;
+      background: rgba(255,255,255,0.08);
+      border: none;
+      color: rgba(255,255,255,0.5);
+      border-radius: 0.4rem;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .sig-hint {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.3);
+      margin-top: 0.4rem;
+      text-align: center;
+    }
+    .cargo-info {
+      background: rgba(255,255,255,0.04);
+      border-radius: 0.75rem;
+      padding: 0.9rem 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.85rem;
+    }
+    .cargo-info .cargo-label {
+      color: rgba(255,255,255,0.4);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+    .submit-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #1a4480, #2563eb);
+      color: #fff;
+      border: none;
+      border-radius: 0.9rem;
+      padding: 1rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 1.5rem;
+      letter-spacing: 0.02em;
+    }
+    .submit-btn:active { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <div class="pod-card">
+    <div class="pod-header">
+      <div style="font-size:2rem;margin-bottom:0.5rem;">📦</div>
+      <h1>Proof of Delivery</h1>
+      <div class="ref">{{ shipment.shipment_ref }}</div>
+    </div>
+    <div class="pod-body">
+      <div class="instruction">
+        <strong>📸 Take a photo</strong> of the signed delivery receipt, fill in the details below, and tap Submit.
+      </div>
+
+      {% if shipment.cargo_description %}
+      <div class="cargo-info">
+        <div class="cargo-label">Cargo</div>
+        <div>{{ shipment.cargo_description }}</div>
+      </div>
+      {% endif %}
+
+      <form method="POST" enctype="multipart/form-data" id="podForm">
+        <input type="hidden" name="signature_data" id="sigData">
+
+        <!-- Photo Upload -->
+        <div class="field-group">
+          <label>Delivery Receipt Photo *</label>
+          <div class="photo-upload-area" id="photoArea">
+            <input type="file" name="pod_image" id="photoInput" accept="image/*" capture="camera">
+            <div class="photo-upload-icon">📷</div>
+            <div class="photo-upload-label">Tap to take a photo</div>
+            <div class="photo-upload-hint">Opens camera on your phone</div>
+          </div>
+          <img id="photoPreview" class="photo-preview" alt="Preview">
+        </div>
+
+        <!-- Recipient Name -->
+        <div class="field-group">
+          <label>Recipient Name *</label>
+          <input type="text" name="recipient_name" placeholder="Full name of person who received delivery" required>
+        </div>
+
+        <!-- BOL Numbers -->
+        <div class="field-group">
+          <label>BOL Number(s)</label>
+          <input type="text" name="bol_numbers" placeholder="e.g. BOL-12345 or BOL-001, BOL-002">
+        </div>
+
+        <!-- Delivery Notes -->
+        <div class="field-group">
+          <label>Delivery Notes</label>
+          <textarea name="delivery_notes" placeholder="Any issues, damages, or notes about the delivery…"></textarea>
+        </div>
+
+        <!-- Signature Pad -->
+        <div class="field-group sig-section">
+          <label>Driver Signature</label>
+          <div class="sig-canvas-wrap">
+            <canvas id="sigCanvas"></canvas>
+            <button type="button" class="sig-clear-btn" id="sigClearBtn">Clear</button>
+          </div>
+          <div class="sig-hint">Sign with your finger</div>
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">
+          ✅ Submit Delivery
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    // Photo preview
+    var photoInput  = document.getElementById('photoInput');
+    var photoPreview = document.getElementById('photoPreview');
+    var photoArea   = document.getElementById('photoArea');
+    photoInput.addEventListener('change', function(){
+      if (photoInput.files && photoInput.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e){
+          photoPreview.src = e.target.result;
+          photoPreview.style.display = 'block';
+          photoArea.classList.add('has-file');
+        };
+        reader.readAsDataURL(photoInput.files[0]);
+      }
+    });
+
+    // Signature pad
+    var canvas  = document.getElementById('sigCanvas');
+    var ctx     = canvas.getContext('2d');
+    var sigData = document.getElementById('sigData');
+    var drawing = false;
+    var hasSignature = false;
+
+    function resizeCanvas(){
+      var w = canvas.parentElement.clientWidth;
+      canvas.width  = w;
+      canvas.height = 160;
+      ctx.strokeStyle = '#63b3ed';
+      ctx.lineWidth   = 2.5;
+      ctx.lineCap     = 'round';
+      ctx.lineJoin    = 'round';
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    function getPos(e){
+      var rect = canvas.getBoundingClientRect();
+      var scaleX = canvas.width  / rect.width;
+      var scaleY = canvas.height / rect.height;
+      if (e.touches) {
+        return {
+          x: (e.touches[0].clientX - rect.left) * scaleX,
+          y: (e.touches[0].clientY - rect.top)  * scaleY
+        };
+      }
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top)  * scaleY
+      };
+    }
+
+    canvas.addEventListener('mousedown',  function(e){ drawing = true; ctx.beginPath(); var p=getPos(e); ctx.moveTo(p.x,p.y); });
+    canvas.addEventListener('mousemove',  function(e){ if(!drawing) return; var p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); hasSignature=true; });
+    canvas.addEventListener('mouseup',    function(){ drawing=false; });
+    canvas.addEventListener('touchstart', function(e){ e.preventDefault(); drawing=true; ctx.beginPath(); var p=getPos(e); ctx.moveTo(p.x,p.y); }, {passive:false});
+    canvas.addEventListener('touchmove',  function(e){ e.preventDefault(); if(!drawing) return; var p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); hasSignature=true; }, {passive:false});
+    canvas.addEventListener('touchend',   function(){ drawing=false; });
+
+    document.getElementById('sigClearBtn').addEventListener('click', function(){
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hasSignature = false;
+      sigData.value = '';
+    });
+
+    // On submit, export signature
+    document.getElementById('podForm').addEventListener('submit', function(){
+      if (hasSignature) {
+        sigData.value = canvas.toDataURL('image/png');
+      }
+      document.getElementById('submitBtn').textContent = 'Submitting…';
+      document.getElementById('submitBtn').disabled = true;
+    });
+  })();
+  </script>
+</body>
+</html>

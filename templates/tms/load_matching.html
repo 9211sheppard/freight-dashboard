@@ -1,0 +1,411 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Load Matching{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+  .lm-shell {
+    --lm-panel: rgba(15, 23, 42, 0.82);
+    --lm-border: rgba(148, 163, 184, 0.18);
+    --lm-muted: #94a3b8;
+    --lm-strong: #f8fafc;
+    --lm-accent: #a78bfa;
+    --lm-green: #22c55e;
+    --lm-amber: #f59e0b;
+    --lm-red: #f87171;
+  }
+
+  .lm-stat-card {
+    background: var(--lm-panel);
+    border: 1px solid var(--lm-border);
+    border-radius: 1rem;
+    padding: 1.1rem 1.4rem;
+    flex: 1;
+    min-width: 130px;
+  }
+  .lm-stat-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--lm-muted);
+    margin-bottom: 0.2rem;
+  }
+  .lm-stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--lm-strong);
+  }
+  .lm-stat-value.danger { color: var(--lm-red); }
+  .lm-stat-value.success { color: var(--lm-green); }
+
+  .lm-card {
+    background: var(--lm-panel);
+    border: 1px solid var(--lm-border);
+    border-radius: 1.25rem;
+    margin-bottom: 1.25rem;
+    overflow: hidden;
+    transition: border-color 0.2s;
+    position: relative;
+  }
+  .lm-card.assigned {
+    border-color: rgba(34, 197, 94, 0.5);
+  }
+
+  .assigned-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(15,23,42,0.75);
+    z-index: 10;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1.25rem;
+  }
+  .lm-card.assigned .assigned-overlay { display: flex; }
+  .assigned-check {
+    background: rgba(34,197,94,0.15);
+    border: 2px solid #22c55e;
+    border-radius: 999px;
+    color: #22c55e;
+    font-size: 2rem;
+    width: 4rem;
+    height: 4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .lm-shipment-col {
+    padding: 1.1rem 1.25rem;
+    border-right: 1px solid var(--lm-border);
+  }
+  .lm-ref {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--lm-accent);
+    margin-bottom: 0.3rem;
+  }
+  .lm-route {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--lm-strong);
+    margin-bottom: 0.5rem;
+  }
+  .lm-route-arrow {
+    color: var(--lm-muted);
+    margin: 0 0.35rem;
+  }
+  .lm-meta-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .lm-chip {
+    font-size: 0.72rem;
+    background: rgba(148,163,184,0.1);
+    border: 1px solid rgba(148,163,184,0.15);
+    border-radius: 999px;
+    padding: 0.15em 0.6em;
+    color: #94a3b8;
+  }
+  .lm-chip.accent {
+    background: rgba(167,139,250,0.1);
+    border-color: rgba(167,139,250,0.25);
+    color: #a78bfa;
+  }
+
+  .lm-drivers-col {
+    padding: 1rem 1.25rem;
+  }
+  .lm-no-drivers {
+    color: var(--lm-muted);
+    font-size: 0.85rem;
+    padding: 0.5rem 0;
+  }
+
+  .lm-driver-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(148,163,184,0.08);
+  }
+  .lm-driver-row:last-child { border-bottom: none; }
+
+  .lm-rank-badge {
+    font-size: 0.7rem;
+    font-weight: 800;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .lm-rank-1 { background: rgba(250,204,21,0.18); color: #fbbf24; border: 1px solid rgba(250,204,21,0.3); }
+  .lm-rank-2 { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.2); }
+  .lm-rank-3 { background: rgba(180,83,9,0.15); color: #d97706; border: 1px solid rgba(180,83,9,0.2); }
+
+  .lm-driver-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--lm-strong);
+    flex: 1;
+    min-width: 0;
+  }
+  .lm-driver-sub {
+    font-size: 0.72rem;
+    color: var(--lm-muted);
+  }
+
+  .lm-score-wrap {
+    flex-shrink: 0;
+    width: 80px;
+  }
+  .lm-score-num {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-align: right;
+    margin-bottom: 2px;
+  }
+  .score-bar-wrap {
+    background: rgba(148,163,184,0.12);
+    border-radius: 999px;
+    height: 5px;
+  }
+  .score-bar-fill {
+    border-radius: 999px;
+    height: 5px;
+    transition: width 0.5s;
+  }
+  .score-high  { background: #22c55e; color: #22c55e; }
+  .score-mid   { background: #f59e0b; color: #f59e0b; }
+  .score-low   { background: #f87171; color: #f87171; }
+
+  .lm-reasons {
+    font-size: 0.68rem;
+    color: #64748b;
+    flex: 1;
+    min-width: 0;
+  }
+  .lm-reasons span {
+    display: inline-block;
+    margin-right: 0.4rem;
+  }
+  .lm-reasons .ok  { color: #22c55e; }
+  .lm-reasons .warn { color: #f59e0b; }
+
+  .lm-assign-btn {
+    background: rgba(167,139,250,0.12);
+    border: 1px solid rgba(167,139,250,0.3);
+    border-radius: 0.5rem;
+    color: #a78bfa;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.65rem;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .lm-assign-btn:hover {
+    background: rgba(167,139,250,0.22);
+    color: #c4b5fd;
+  }
+  .lm-assign-btn.assigning {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .lm-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--lm-muted);
+  }
+  .lm-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.4;
+  }
+</style>
+{% endblock %}
+{% block tms_content %}
+<div class="lm-shell">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <div style="font-size:0.78rem;font-weight:700;letter-spacing:0.12em;color:#a78bfa;text-transform:uppercase;margin-bottom:0.25rem;">Fleet</div>
+      <h2 class="mb-0 text-white"><i class="bi bi-lightning-charge me-2"></i>Load Matching</h2>
+      <div class="text-muted small mt-1">AI-ranked driver suggestions for open shipments.</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/tms/dispatch" class="btn btn-outline-secondary btn-sm"><i class="bi bi-kanban me-1"></i>Dispatch</a>
+      <a href="/tms/drivers" class="btn btn-outline-info btn-sm"><i class="bi bi-person-badge me-1"></i>Manage Drivers</a>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="d-flex gap-3 mb-4 flex-wrap">
+    <div class="lm-stat-card">
+      <div class="lm-stat-label">Open Loads</div>
+      <div class="lm-stat-value">{{ summary.open_loads }}</div>
+    </div>
+    <div class="lm-stat-card">
+      <div class="lm-stat-label">Active Drivers</div>
+      <div class="lm-stat-value success">{{ summary.active_drivers }}</div>
+    </div>
+    <div class="lm-stat-card">
+      <div class="lm-stat-label">Unassigned</div>
+      <div class="lm-stat-value {% if summary.unassigned > 0 %}danger{% endif %}">{{ summary.unassigned }}</div>
+    </div>
+  </div>
+
+  <!-- Match Cards -->
+  {% if suggestions %}
+    {% for item in suggestions %}
+    {% set ship = item.shipment %}
+    {% set matches = item.top_matches %}
+    <div class="lm-card" id="lm-card-{{ ship.shipment_ref | replace('/', '-') }}">
+      <!-- Assigned overlay -->
+      <div class="assigned-overlay">
+        <div class="assigned-check"><i class="bi bi-check-lg"></i></div>
+      </div>
+
+      <div class="row g-0">
+        <!-- Shipment info -->
+        <div class="col-md-4 lm-shipment-col">
+          <div class="lm-ref">{{ ship.shipment_ref or '—' }}</div>
+          <div class="lm-route">
+            {{ ship.origin_port or ship.origin or '?' }}
+            <span class="lm-route-arrow">→</span>
+            {{ ship.destination_port or ship.destination or '?' }}
+          </div>
+          <div class="lm-meta-chips">
+            {% if ship.etd %}
+              <span class="lm-chip"><i class="bi bi-calendar2 me-1"></i>ETD {{ ship.etd }}</span>
+            {% endif %}
+            {% if ship.container_type or ship.mode %}
+              <span class="lm-chip accent">{{ ship.container_type or ship.mode }}</span>
+            {% endif %}
+            {% if ship.weight %}
+              <span class="lm-chip">{{ ship.weight }} lbs</span>
+            {% endif %}
+            <span class="lm-chip {% if ship.status == 'Draft' %}text-warning{% else %}text-info{% endif %}">
+              {{ ship.status or 'Draft' }}
+            </span>
+          </div>
+          <div class="mt-2">
+            <a href="/tms/shipments/{{ ship.shipment_ref }}" class="text-muted small">
+              <i class="bi bi-box-arrow-up-right me-1"></i>View shipment
+            </a>
+          </div>
+        </div>
+
+        <!-- Driver matches -->
+        <div class="col-md-8 lm-drivers-col">
+          {% if matches %}
+            {% for m in matches %}
+            {% set drv = m.driver %}
+            {% set score = m.score %}
+            {% set score_cls = 'score-high' if score >= 70 else ('score-mid' if score >= 45 else 'score-low') %}
+            <div class="lm-driver-row">
+              <div class="lm-rank-badge lm-rank-{{ loop.index }}">{{ loop.index }}</div>
+              <div class="flex-grow-1 min-width-0">
+                <div class="lm-driver-name">{{ drv.name or 'Driver #' ~ drv.id }}</div>
+                <div class="lm-driver-sub">
+                  {{ drv.license_class or '' }}
+                  {% if drv.truck_type or drv.vehicle_type %}
+                    &nbsp;·&nbsp; {{ drv.truck_type or drv.vehicle_type }}
+                  {% endif %}
+                  {% if drv.state or drv.location %}
+                    &nbsp;·&nbsp; {{ drv.state or drv.location }}
+                  {% endif %}
+                </div>
+                <div class="lm-reasons mt-1">
+                  {% for r in m.reasons %}
+                    <span class="{% if '✓' in r or 'Active' in r or 'match' in r or 'CDL' in r or 'Near' in r %}ok{% elif 'Different' in r %}warn{% endif %}">
+                      {{ r }}
+                    </span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="lm-score-wrap">
+                <div class="lm-score-num {{ score_cls }}">{{ score }}</div>
+                <div class="score-bar-wrap">
+                  <div class="score-bar-fill {{ score_cls }}" style="width:{{ score }}%"></div>
+                </div>
+              </div>
+              <button class="lm-assign-btn"
+                      data-ref="{{ ship.shipment_ref }}"
+                      data-driver-id="{{ drv.id }}"
+                      data-driver-name="{{ drv.name or 'Driver' }}">
+                Assign
+              </button>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="lm-no-drivers">
+              <i class="bi bi-person-x me-1"></i>
+              No available drivers — <a href="/tms/drivers" class="text-info">add drivers in Fleet</a>.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="lm-empty">
+      <div class="lm-empty-icon"><i class="bi bi-lightning-charge"></i></div>
+      <div class="text-white mb-1" style="font-size:1.1rem;font-weight:600;">No open shipments to match</div>
+      <div class="text-muted small">Shipments in Draft or Booked status will appear here.</div>
+      <a href="/tms/shipments/new" class="btn btn-outline-info btn-sm mt-3">
+        <i class="bi bi-plus-lg me-1"></i>Create Shipment
+      </a>
+    </div>
+  {% endif %}
+
+</div>
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+  document.querySelectorAll('.lm-assign-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var ref = btn.dataset.ref;
+      var driverId = btn.dataset.driverId;
+      var driverName = btn.dataset.driverName;
+
+      if (!confirm('Assign ' + driverName + ' to shipment ' + ref + '?')) return;
+
+      btn.classList.add('assigning');
+      btn.textContent = '…';
+
+      fetch('/tms/load-matching/' + encodeURIComponent(ref) + '/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driver_id: parseInt(driverId, 10) })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            var card = document.getElementById('lm-card-' + ref.replace(/\//g, '-'));
+            if (card) card.classList.add('assigned');
+          } else {
+            btn.classList.remove('assigning');
+            btn.textContent = 'Assign';
+            alert('Assignment failed.');
+          }
+        })
+        .catch(function (err) {
+          btn.classList.remove('assigning');
+          btn.textContent = 'Assign';
+          alert('Error: ' + err);
+        });
+    });
+  });
+})();
+</script>
+{% endblock %}
