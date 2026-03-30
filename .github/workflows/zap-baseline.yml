@@ -39,7 +39,7 @@ jobs:
           docker run --rm --network host \
             -v "$PWD/zap-report:/zap/wrk" \
             ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py -t http://127.0.0.1:4173/login -J zap-report.json -r zap-report.html
+            zap-baseline.py -t http://127.0.0.1:4173/login -I -J zap-report.json -r zap-report.html
       - name: Upload ZAP artifacts
         if: always()
         uses: actions/upload-artifact@v4
