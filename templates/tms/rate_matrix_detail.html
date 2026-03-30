@@ -1,0 +1,283 @@
+{% extends "tms/tms_base.html" %}
+{% block tms_content %}
+
+<!-- Header -->
+<div class="d-flex align-items-center gap-3 mb-1">
+  <a href="/tms/rate-matrix" class="btn btn-xs btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Matrices
+  </a>
+  <h4 class="mb-0 fw-bold">{{ matrix.matrix_name }}</h4>
+  <span class="badge {% if matrix.status == 'Active' %}bg-success bg-opacity-20 text-success border border-success border-opacity-25{% else %}bg-secondary bg-opacity-20 text-muted{% endif %} ms-1">
+    {{ matrix.status }}
+  </span>
+</div>
+<p class="text-muted small mb-4">
+  {{ matrix.service_type }} &bull; {{ matrix.equipment_type }}
+  {% if matrix.effective_date %}&bull; Effective {{ matrix.effective_date }}{% endif %}
+  {% if matrix.expiry_date %}&bull; Expires {{ matrix.expiry_date }}{% endif %}
+  {% if matrix.notes %}&bull; {{ matrix.notes }}{% endif %}
+</p>
+
+<div class="row g-4">
+
+  <!-- Left: Entries Table + Add Form -->
+  <div class="col-lg-8">
+
+    <!-- Rate Entries Table -->
+    <div class="tms-card mb-4">
+      <div class="tms-card-header">
+        <span><i class="bi bi-table me-2"></i>Rate Entries ({{ entries | length }})</span>
+      </div>
+      {% if entries %}
+      <div class="table-responsive">
+        <table class="tms-table" style="font-size:.8rem;">
+          <thead>
+            <tr>
+              <th>Origin Zone</th>
+              <th>Dest Zone</th>
+              <th>Weight Range (lbs)</th>
+              <th>Rate/CWT</th>
+              <th>Flat Rate</th>
+              <th>Per Mile</th>
+              <th>Min Charge</th>
+              <th>FSC</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in entries %}
+            <tr id="entry-row-{{ e.id }}">
+              <td class="fw-semibold">{{ e.origin_zone }}</td>
+              <td class="fw-semibold">{{ e.destination_zone }}</td>
+              <td class="text-muted">{{ e.min_weight | int }}–{{ e.max_weight | int }}</td>
+              <td>{% if e.rate_per_cwt %}<span class="text-info">${{ "%.2f"|format(e.rate_per_cwt) }}</span>{% else %}—{% endif %}</td>
+              <td>{% if e.rate_flat %}<span class="text-warning">${{ "%.2f"|format(e.rate_flat) }}</span>{% else %}—{% endif %}</td>
+              <td>{% if e.rate_per_mile %}<span>${{ "%.3f"|format(e.rate_per_mile) }}</span>{% else %}—{% endif %}</td>
+              <td>{% if e.min_charge %}<span class="text-muted">${{ "%.2f"|format(e.min_charge) }}</span>{% else %}—{% endif %}</td>
+              <td>
+                {% if e.fuel_surcharge_included %}
+                  <i class="bi bi-check-circle-fill text-success" title="Included"></i>
+                {% else %}
+                  <i class="bi bi-dash text-muted" title="Not included"></i>
+                {% endif %}
+              </td>
+              <td class="text-muted small">{{ e.notes or '' }}</td>
+              <td>
+                <button class="btn btn-xs btn-outline-danger"
+                        onclick="deleteEntry({{ e.id }})"
+                        title="Delete entry">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="p-4 text-center text-muted">
+        <i class="bi bi-table" style="font-size:1.5rem;opacity:.3;"></i>
+        <p class="mt-2 mb-0 small">No rate entries yet. Add one below.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Add Rate Entry Form -->
+    <div class="tms-card">
+      <div class="tms-card-header">
+        <span><i class="bi bi-plus-circle me-2"></i>Add Rate Entry</span>
+      </div>
+      <div class="p-3">
+        <form method="POST" action="/tms/rate-matrix/{{ matrix.id }}/entries">
+          <div class="row g-2 mb-2">
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-muted mb-1">Origin Zone</label>
+              <input type="text" name="origin_zone" class="form-control form-control-sm bg-dark text-light border-secondary"
+                     placeholder="e.g. CA, SE, ALL" value="ALL">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-muted mb-1">Dest Zone</label>
+              <input type="text" name="destination_zone" class="form-control form-control-sm bg-dark text-light border-secondary"
+                     placeholder="e.g. TX, NE, ALL" value="ALL">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-muted mb-1">Min Weight (lbs)</label>
+              <input type="number" name="min_weight" class="form-control form-control-sm bg-dark text-light border-secondary"
+                     value="0" min="0" step="1">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-muted mb-1">Max Weight (lbs)</label>
+              <input type="number" name="max_weight" class="form-control form-control-sm bg-dark text-light border-secondary"
+                     value="99999" min="0" step="1">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-muted mb-1">Rate/CWT ($)</label>
+              <input type="number" name="rate_per_cwt" class="form-control form-control-sm bg-dark text-light border-secondary"
+                     value="0" min="0" step="0.01" placeholder="Per 100 lbs">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-muted mb-1">Flat Rate ($)</label>
+              <input type="number" name="rate_flat" class="form-control form-control-sm bg-dark text-light border-secondary"
+                     value="0" min="0" step="0.01">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-muted mb-1">Per Mile ($)</label>
+              <input type="number" name="rate_per_mile" class="form-control form-control-sm bg-dark text-light border-secondary"
+                     value="0" min="0" step="0.001">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small text-muted mb-1">Min Charge ($)</label>
+              <input type="number" name="min_charge" class="form-control form-control-sm bg-dark text-light border-secondary"
+                     value="0" min="0" step="0.01">
+            </div>
+          </div>
+          <div class="row g-2 align-items-end">
+            <div class="col-auto">
+              <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" name="fuel_surcharge_included" id="fscCheck" value="1">
+                <label class="form-check-label small text-muted" for="fscCheck">FSC Included</label>
+              </div>
+            </div>
+            <div class="col">
+              <label class="form-label small text-muted mb-1">Notes (optional)</label>
+              <input type="text" name="notes" class="form-control form-control-sm bg-dark text-light border-secondary"
+                     placeholder="e.g. Hazmat surcharge applies">
+            </div>
+            <div class="col-auto">
+              <button type="submit" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Add Entry
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div><!-- /col-lg-8 -->
+
+  <!-- Right: Live Rate Calculator -->
+  <div class="col-lg-4">
+    <div class="tms-card" style="position:sticky;top:1rem;">
+      <div class="tms-card-header">
+        <span><i class="bi bi-calculator me-2"></i>Rate Calculator</span>
+      </div>
+      <div class="p-3">
+        <p class="text-muted small mb-3">Look up a rate from active matrices for any lane and weight.</p>
+
+        <div class="mb-2">
+          <label class="form-label small text-muted mb-1">Origin Zone</label>
+          <input type="text" id="calcOrigin" class="form-control form-control-sm bg-dark text-light border-secondary"
+                 placeholder="e.g. CA">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small text-muted mb-1">Destination Zone</label>
+          <input type="text" id="calcDest" class="form-control form-control-sm bg-dark text-light border-secondary"
+                 placeholder="e.g. TX">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small text-muted mb-1">Weight (lbs)</label>
+          <input type="number" id="calcWeight" class="form-control form-control-sm bg-dark text-light border-secondary"
+                 placeholder="e.g. 1500" min="0">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small text-muted mb-1">Service Type</label>
+          <select id="calcService" class="form-select form-select-sm bg-dark text-light border-secondary">
+            <option value="LTL">LTL</option>
+            <option value="FTL">FTL</option>
+            <option value="Expedited">Expedited</option>
+            <option value="Intermodal">Intermodal</option>
+            <option value="Partial">Partial</option>
+          </select>
+        </div>
+
+        <button class="btn btn-sm btn-outline-info w-100 mb-3" onclick="lookupRate()">
+          <i class="bi bi-search me-1"></i>Calculate Rate
+        </button>
+
+        <div id="calcResult" style="display:none;">
+          <div class="p-3 rounded" style="background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);">
+            <div class="text-muted small mb-1">Calculated Rate</div>
+            <div class="fs-3 fw-bold text-info" id="calcAmount">$0.00</div>
+            <div class="text-muted small mt-2" id="calcMeta"></div>
+          </div>
+        </div>
+
+        <div id="calcNoResult" style="display:none;">
+          <div class="p-3 rounded text-muted small" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);">
+            <i class="bi bi-x-circle me-1 text-danger"></i>
+            No active rate found for this lane and weight. Check your matrix entries.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /row -->
+
+<script nonce="{{ csp_nonce }}">
+function deleteEntry(entryId) {
+  if (!confirm('Delete this rate entry?')) return;
+  fetch('/tms/rate-matrix/entries/' + entryId, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        var row = document.getElementById('entry-row-' + entryId);
+        if (row) row.remove();
+      }
+    })
+    .catch(() => alert('Error deleting entry.'));
+}
+
+function lookupRate() {
+  var origin  = document.getElementById('calcOrigin').value.trim().toUpperCase();
+  var dest    = document.getElementById('calcDest').value.trim().toUpperCase();
+  var weight  = parseFloat(document.getElementById('calcWeight').value) || 0;
+  var service = document.getElementById('calcService').value;
+
+  if (!origin || !dest || !weight) {
+    alert('Please fill in Origin, Destination, and Weight.');
+    return;
+  }
+
+  var url = '/tms/rate-matrix/lookup?origin=' + encodeURIComponent(origin)
+          + '&dest=' + encodeURIComponent(dest)
+          + '&weight=' + weight
+          + '&service=' + encodeURIComponent(service);
+
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      var resultDiv   = document.getElementById('calcResult');
+      var noResultDiv = document.getElementById('calcNoResult');
+
+      if (data && data.calculated_rate !== undefined) {
+        document.getElementById('calcAmount').textContent = '$' + data.calculated_rate.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        var meta = data.matrix_name || '';
+        if (data.fuel_surcharge_included) meta += ' · FSC Included';
+        document.getElementById('calcMeta').textContent = meta;
+        resultDiv.style.display = 'block';
+        noResultDiv.style.display = 'none';
+      } else {
+        resultDiv.style.display = 'none';
+        noResultDiv.style.display = 'block';
+      }
+    })
+    .catch(() => {
+      document.getElementById('calcResult').style.display = 'none';
+      document.getElementById('calcNoResult').style.display = 'block';
+    });
+}
+
+// Allow Enter key in calculator inputs
+['calcOrigin','calcDest','calcWeight','calcService'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); lookupRate(); }
+  });
+});
+</script>
+
+{% endblock %}

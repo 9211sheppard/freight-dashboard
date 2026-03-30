@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | TMS Sandbox{% endblock %}
+{% block content %}
+<section class="metric-grid">
+  <article class="metric-card">
+    <p class="eyebrow">Live Loads</p>
+    <h3>{{ metrics.active_loads }}</h3>
+  </article>
+  <article class="metric-card">
+    <p class="eyebrow">Priority Watch</p>
+    <h3>{{ metrics.priority_loads }}</h3>
+  </article>
+  <article class="metric-card">
+    <p class="eyebrow">Exceptions</p>
+    <h3>{{ metrics.watchlist }}</h3>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <p class="eyebrow">Role Summary</p>
+    <h3>{{ role_labels[current_user["role"]] }} access</h3>
+  </div>
+  <p class="hint">
+    {% if current_user["role"] == "admin" %}
+    Full access to user administration, dispatch activity, and shared reporting.
+    {% elif current_user["role"] == "dispatcher" %}
+    Operational access to dispatch boards and shared reporting. Admin controls are hidden.
+    {% else %}
+    Read-only access to the dashboard and reporting views. Dispatch actions are blocked.
+    {% endif %}
+  </p>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <p class="eyebrow">Sandbox Freight</p>
+    <h3>Today’s sample movements</h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ref</th>
+          <th>Lane</th>
+          <th>Mode</th>
+          <th>Status</th>
+          <th>ETA</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for load in loads %}
+        <tr>
+          <td>{{ load.reference }}</td>
+          <td>{{ load.lane }}</td>
+          <td>{{ load.mode }}</td>
+          <td>{{ load.status }}</td>
+          <td>{{ load.eta }}</td>
+          <td>{{ load.priority }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Load Board Credentials — TMS Master{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width:900px;">
+
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <a href="/tms/load-board" class="btn btn-outline-secondary btn-sm">← Load Boards</a>
+    <div>
+      <h4 class="mb-0 fw-semibold">Load Board API Credentials</h4>
+      <p class="text-secondary small mb-0 mt-1">Enter credentials for each board you want to use. Leave blank to skip.</p>
+    </div>
+  </div>
+
+  {% if saved %}<div class="alert alert-success py-2 mb-3"><i class="bi bi-check-circle me-1"></i>Saved.</div>{% endif %}
+
+  <form method="POST" action="/tms/load-board/settings">
+
+    {% set regions = providers | groupby('region') %}
+    {% for region, region_providers in regions %}
+    {% set has_creds = region_providers | selectattr('settings_keys') | list %}
+    {% if has_creds %}
+    <div class="mb-4">
+      <div class="text-secondary small fw-semibold mb-2 text-uppercase" style="letter-spacing:.06em;">
+        <i class="bi bi-globe2 me-1"></i>{{ region }}
+      </div>
+      {% for p in region_providers %}
+      {% if p.settings_keys %}
+      <div class="card bg-body-tertiary border-secondary-subtle mb-2" id="{{ p.key }}">
+        <div class="card-header border-secondary-subtle d-flex align-items-center gap-2">
+          <span class="small fw-semibold">{{ p.name }}</span>
+          {% if p.api_status == 'verified' %}
+            {% if p.creds_saved %}<span class="badge bg-success ms-1">Configured</span>
+            {% else %}<span class="badge bg-warning text-dark ms-1">Missing</span>{% endif %}
+          {% elif p.api_status == 'contact' %}
+          <span class="badge bg-secondary ms-1">Contact vendor first</span>
+          {% endif %}
+          <a href="{{ p.docs_url }}" target="_blank" rel="noopener" class="ms-auto text-secondary small">
+            <i class="bi bi-box-arrow-up-right me-1"></i>API Docs
+          </a>
+        </div>
+        <div class="card-body">
+          {% if p.notes %}<p class="text-secondary small mb-2">{{ p.notes }}</p>{% endif %}
+          <div class="row g-2">
+            {% for key in p.settings_keys %}
+            <div class="col-md-6">
+              <label class="form-label small text-secondary">{{ p.settings_labels[key] }}</label>
+              <input type="{{ 'password' if 'password' in key or 'secret' in key else 'text' }}"
+                name="{{ key }}"
+                class="form-control form-control-sm bg-body border-secondary"
+                value="{{ settings.get(key, '') }}"
+                placeholder="{{ p.settings_labels[key] }}"
+                autocomplete="off">
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <div class="d-flex justify-content-end mt-3">
+      <button type="submit" class="btn btn-info px-4">
+        <i class="bi bi-floppy me-1"></i>Save All Credentials
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

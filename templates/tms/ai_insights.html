@@ -1,0 +1,217 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}AI Insights — TMS Master{% endblock %}
+
+{% block tms_content %}
+<div class="tms-page-header">
+  <div>
+    <h1 class="tms-page-title"><i class="bi bi-cpu me-2" style="color:var(--gold-accent)"></i>AI Insights</h1>
+    <p class="tms-page-sub">Predictive ETA · Lane Scoring · Late-Risk Detection · Carrier Performance</p>
+  </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-label">Active Shipments</div>
+      <div class="tms-stat-value">{{ total_active }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-label">High Risk</div>
+      <div class="tms-stat-value" style="color:#f87171">{{ high_risk_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-label">Avg Lane Score</div>
+      <div class="tms-stat-value">{{ avg_lane_score }}<span style="font-size:.7em;color:#666">/100</span></div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-label">Top Lanes Scored</div>
+      <div class="tms-stat-value">{{ top_lanes|length }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ETA Predictor -->
+<div class="tms-card mb-4">
+  <div class="tms-card-header">
+    <span><i class="bi bi-clock-history me-2"></i>Predict ETA</span>
+  </div>
+  <div class="tms-card-body">
+    <form id="etaForm" class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label">Origin Port</label>
+        <input type="text" class="form-control" id="etaOrigin" placeholder="e.g. CNSHA">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Destination Port</label>
+        <input type="text" class="form-control" id="etaDest" placeholder="e.g. USLAX">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">ETD</label>
+        <input type="date" class="form-control" id="etaEtd">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Carrier (optional)</label>
+        <input type="text" class="form-control" id="etaCarrier" placeholder="Carrier name">
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-gold w-100">Predict</button>
+      </div>
+    </form>
+    <div id="etaResult" class="mt-3" style="display:none"></div>
+  </div>
+</div>
+
+<!-- At-Risk Shipments -->
+{% if at_risk_shipments %}
+<div class="tms-card mb-4">
+  <div class="tms-card-header">
+    <span><i class="bi bi-exclamation-triangle-fill me-2" style="color:#f87171"></i>At-Risk Shipments</span>
+    <span class="badge bg-danger">{{ at_risk_shipments|length }}</span>
+  </div>
+  <div class="tms-card-body p-0">
+    <div class="table-responsive">
+      <table class="table tms-table mb-0">
+        <thead>
+          <tr>
+            <th>Ref</th><th>Carrier</th><th>Lane</th><th>ETA</th><th>Status</th>
+            <th>Risk Score</th><th>Flags</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in at_risk_shipments %}
+          <tr>
+            <td><a href="/tms/shipments/{{ s.shipment_ref }}" class="tms-link">{{ s.shipment_ref }}</a></td>
+            <td>{{ s.carrier_name or '—' }}</td>
+            <td class="text-muted small">{{ s.origin_port or '?' }} → {{ s.destination_port or '?' }}</td>
+            <td>{{ s.eta or '—' }}</td>
+            <td><span class="tms-badge tms-badge-warning">{{ s.status }}</span></td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="progress flex-grow-1" style="height:6px;width:80px">
+                  <div class="progress-bar {% if s.risk_level == 'high' %}bg-danger{% else %}bg-warning{% endif %}"
+                       style="width:{{ s.risk_score }}%"></div>
+                </div>
+                <span class="small {% if s.risk_level == 'high' %}text-danger{% else %}text-warning{% endif %}">
+                  {{ s.risk_score }}
+                </span>
+              </div>
+            </td>
+            <td class="small text-muted">{{ s.reasons[0] if s.reasons else '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="tms-card mb-4">
+  <div class="tms-card-body text-center text-muted py-4">
+    <i class="bi bi-check-circle-fill text-success" style="font-size:2rem"></i>
+    <div class="mt-2">No at-risk shipments detected.</div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Top Lanes by Score -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-7">
+    <div class="tms-card h-100">
+      <div class="tms-card-header"><i class="bi bi-signpost-split me-2"></i>Top Lane Scores</div>
+      <div class="tms-card-body p-0">
+        <div class="table-responsive">
+          <table class="table tms-table mb-0">
+            <thead>
+              <tr><th>Lane</th><th>Score</th><th>Volume</th><th>Reliability</th><th>Revenue</th></tr>
+            </thead>
+            <tbody>
+              {% for lane in top_lanes %}
+              <tr>
+                <td class="fw-600">{{ lane.origin }} → {{ lane.destination }}</td>
+                <td>
+                  <span class="fw-700 {% if lane.score >= 80 %}text-success{% elif lane.score >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                    {{ lane.grade }} <span class="text-muted small">({{ lane.score }})</span>
+                  </span>
+                </td>
+                <td class="small">{{ lane.shipment_count }} ships</td>
+                <td>
+                  <div class="progress" style="height:5px;width:60px">
+                    <div class="progress-bar bg-info" style="width:{{ lane.reliability_score }}%"></div>
+                  </div>
+                </td>
+                <td class="small text-muted">${{ "%.0f"|format(lane.avg_revenue) }}</td>
+              </tr>
+              {% endfor %}
+              {% if not top_lanes %}
+              <tr><td colspan="5" class="text-center text-muted py-3">No lane data yet</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Carrier Scores -->
+  <div class="col-lg-5">
+    <div class="tms-card h-100">
+      <div class="tms-card-header"><i class="bi bi-truck-front me-2"></i>Carrier Performance AI</div>
+      <div class="tms-card-body p-0">
+        {% for c in top_carriers %}
+        <div class="d-flex align-items-center gap-3 px-3 py-2" style="border-bottom:1px solid var(--tms-border)">
+          <div class="text-center" style="min-width:40px">
+            <div class="fw-700 {% if c.score >= 80 %}text-success{% elif c.score >= 50 %}text-warning{% else %}text-danger{% endif %}" style="font-size:1.1rem">{{ c.grade }}</div>
+            <div class="text-muted" style="font-size:.65rem">{{ c.score }}/100</div>
+          </div>
+          <div class="flex-grow-1">
+            <div class="fw-600 small">{{ c.carrier_name }}</div>
+            <div class="d-flex gap-2 mt-1">
+              <span style="font-size:.65rem;color:#8a9bb0">OT: {{ c.on_time_score }}%</span>
+              <span style="font-size:.65rem;color:#8a9bb0">Claims: {{ c.claim_score }}</span>
+              <span style="font-size:.65rem;color:#8a9bb0">{{ c.total_deliveries }} deliveries</span>
+            </div>
+          </div>
+          <a href="/tms/benchmarking/carrier/{{ c.carrier_id }}" class="btn btn-sm btn-outline-secondary" style="font-size:.7rem">Detail</a>
+        </div>
+        {% endfor %}
+        {% if not top_carriers %}
+        <div class="text-center text-muted py-4">No carrier data yet</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+document.getElementById('etaForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var origin = document.getElementById('etaOrigin').value.trim();
+  var dest   = document.getElementById('etaDest').value.trim();
+  var etd    = document.getElementById('etaEtd').value;
+  var carrier = document.getElementById('etaCarrier').value.trim();
+  if (!origin || !dest || !etd) return;
+  var url = '/tms/ai-insights/predict-eta?origin='+encodeURIComponent(origin)+'&destination='+encodeURIComponent(dest)+'&etd='+etd;
+  if (carrier) url += '&carrier='+encodeURIComponent(carrier);
+  fetch(url).then(r=>r.json()).then(function(d) {
+    var conf = {'high':'<span class="text-success">High</span>','medium':'<span class="text-warning">Medium</span>','low':'<span class="text-danger">Low</span>'};
+    var html = '<div class="row g-3">';
+    html += '<div class="col-auto"><div class="tms-stat-card"><div class="tms-stat-label">Predicted ETA</div><div class="tms-stat-value">'+d.predicted_eta+'</div></div></div>';
+    html += '<div class="col-auto"><div class="tms-stat-card"><div class="tms-stat-label">Avg Transit</div><div class="tms-stat-value">'+d.avg_transit_days+' days</div></div></div>';
+    html += '<div class="col-auto"><div class="tms-stat-card"><div class="tms-stat-label">Confidence</div><div class="tms-stat-value">'+(conf[d.confidence]||d.confidence)+'</div></div></div>';
+    html += '<div class="col-auto"><div class="tms-stat-card"><div class="tms-stat-label">Sample Size</div><div class="tms-stat-value">'+d.sample_size+' shipments</div></div></div>';
+    if (d.on_time_pct !== null) html += '<div class="col-auto"><div class="tms-stat-card"><div class="tms-stat-label">On-Time %</div><div class="tms-stat-value">'+d.on_time_pct+'%</div></div></div>';
+    html += '</div>';
+    var el = document.getElementById('etaResult');
+    el.innerHTML = html;
+    el.style.display = '';
+  });
+});
+</script>
+{% endblock %}

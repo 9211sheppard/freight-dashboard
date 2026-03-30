@@ -1,0 +1,292 @@
+{% extends "tms/tms_base.html" %}
+{% block tms_content %}
+<style nonce="{{ csp_nonce }}">
+.atd-header-card {
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 1.4rem 1.8rem;
+  margin-bottom: 1.5rem;
+}
+.atd-section-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 1rem;
+  margin-top: 1.8rem;
+}
+.badge-active { background: #1a3a20; color: #4ade80; border: 1px solid #2d5a34; }
+.badge-trialing { background: #1a2a4a; color: #60a5fa; border: 1px solid #2a4070; }
+.badge-suspended { background: #3a1a1a; color: #f87171; border: 1px solid #5a2a2a; }
+.badge-cancelled { background: #2a2a2a; color: #888; border: 1px solid #333; }
+.info-row { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.info-item { display: flex; flex-direction: column; gap: 0.2rem; }
+.info-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #555; }
+.info-value { font-size: 0.88rem; color: #ccc; }
+.plan-card {
+  background: #0d0d0d;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  transition: border-color 0.15s;
+}
+.plan-card:hover { border-color: #2a2a2a; }
+.plan-card.base-plan { border-color: #2a3a2a; background: #0a110a; }
+.plan-card-name { font-weight: 600; color: #fff; font-size: 0.9rem; }
+.plan-card-desc { font-size: 0.78rem; color: #666; margin-top: 0.15rem; }
+.plan-card-price { color: #d4a943; font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
+.plan-card-badge { background: #1a3a20; color: #4ade80; border: 1px solid #2d5a34; font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px; }
+.addon-cat-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #444;
+  padding: 0.5rem 0 0.3rem 0;
+  margin-top: 0.5rem;
+  border-top: 1px solid #1a1a1a;
+}
+.addon-cat-title:first-child { border-top: none; margin-top: 0; }
+.add-btn {
+  font-size: 0.75rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 5px;
+  border: 1px solid #333;
+  background: transparent;
+  color: #ccc;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.add-btn:hover { border-color: #d4a943; color: #d4a943; }
+.cancel-btn {
+  font-size: 0.75rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 5px;
+  border: 1px solid #3a1a1a;
+  background: transparent;
+  color: #f87171;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.cancel-btn:hover { background: #3a1a1a; }
+.features-list { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.3rem; }
+.feature-pill {
+  font-size: 0.68rem;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 20px;
+  padding: 0.15rem 0.5rem;
+  color: #666;
+}
+.danger-zone {
+  background: #0d0000;
+  border: 1px solid #3a1a1a;
+  border-radius: 10px;
+  padding: 1.2rem 1.5rem;
+  margin-top: 2rem;
+}
+.btn-gold {
+  background: #d4a943;
+  color: #000;
+  border: none;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.btn-gold:hover { background: #c49830; color: #000; }
+</style>
+
+<!-- Back link -->
+<div class="mb-3">
+  <a href="/tms/admin" class="text-decoration-none" style="font-size:0.8rem;color:#555;">
+    <i class="bi bi-arrow-left me-1"></i>Platform Admin
+  </a>
+</div>
+
+<!-- Header Card -->
+<div class="atd-header-card">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <h4 class="mb-1 fw-bold text-white">{{ tenant.company_name }}</h4>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        {% if tenant.status == 'active' %}
+          <span class="badge badge-active">Active</span>
+        {% elif tenant.status == 'trialing' %}
+          <span class="badge badge-trialing">Trial</span>
+        {% elif tenant.status == 'suspended' %}
+          <span class="badge badge-suspended">Suspended</span>
+        {% else %}
+          <span class="badge badge-cancelled">{{ tenant.status|title }}</span>
+        {% endif %}
+        <span style="color:#555;font-size:0.8rem;">{{ tenant.tenant_id }}</span>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:2rem;font-weight:700;color:#d4a943;line-height:1;">${{ "%.2f"|format(tenant.monthly_total) }}</div>
+      <div style="font-size:0.72rem;color:#555;text-transform:uppercase;letter-spacing:0.07em;">/month</div>
+    </div>
+  </div>
+</div>
+
+<!-- Info Row -->
+<div class="info-row">
+  <div class="info-item">
+    <div class="info-label">Owner Email</div>
+    <div class="info-value">{{ tenant.owner_email }}</div>
+  </div>
+  {% if tenant.owner_name %}
+  <div class="info-item">
+    <div class="info-label">Owner Name</div>
+    <div class="info-value">{{ tenant.owner_name }}</div>
+  </div>
+  {% endif %}
+  {% if tenant.phone %}
+  <div class="info-item">
+    <div class="info-label">Phone</div>
+    <div class="info-value">{{ tenant.phone }}</div>
+  </div>
+  {% endif %}
+  <div class="info-item">
+    <div class="info-label">Created</div>
+    <div class="info-value">{{ tenant.created_at[:10] if tenant.created_at else '—' }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Last Login</div>
+    <div class="info-value">{{ tenant.last_login[:10] if tenant.last_login else 'Never' }}</div>
+  </div>
+  <div class="info-item">
+    <div class="info-label">Users</div>
+    <div class="info-value">{{ tenant.user_count }}</div>
+  </div>
+  {% if tenant.stripe_customer_id %}
+  <div class="info-item">
+    <div class="info-label">Stripe Customer</div>
+    <div class="info-value">{{ tenant.stripe_customer_id }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Active Subscriptions -->
+<div class="atd-section-title">Active Subscriptions</div>
+
+{% set active_keys = tenant.subscriptions | map(attribute='plan_key') | list %}
+{% for sub in tenant.subscriptions %}
+{% if sub.plan_key == 'base' %}
+<div class="plan-card base-plan">
+  <div>
+    <div class="plan-card-name">{{ sub.plan_name }} <span style="font-size:0.72rem;color:#2d5a34;margin-left:0.3rem;">BASE</span></div>
+    <div class="plan-card-desc">Core TMS platform — cannot be removed</div>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <span class="plan-card-price">${{ "%.2f"|format(sub.price_monthly) }}/mo</span>
+    <span class="plan-card-badge">Active</span>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+{% for sub in tenant.subscriptions %}
+{% if sub.plan_key != 'base' %}
+<div class="plan-card" id="sub-{{ sub.plan_key }}">
+  <div>
+    <div class="plan-card-name">{{ sub.plan_name }}</div>
+    <div class="plan-card-desc">{{ sub.description }}</div>
+    {% if sub.features %}
+    <div class="features-list">
+      {% for feat in sub.features | from_json %}
+      <span class="feature-pill">{{ feat }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <span class="plan-card-price">${{ "%.2f"|format(sub.price_monthly) }}/mo</span>
+    <button class="cancel-btn" onclick="removeAddon('{{ tenant.tenant_id }}','{{ sub.plan_key }}')">Cancel</button>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Add-on Marketplace -->
+<div class="atd-section-title">Add-on Marketplace</div>
+
+{% set cat_labels = {'integration': 'Integrations', 'intelligence': 'Intelligence', 'compliance': 'Compliance', 'operations': 'Operations'} %}
+{% set ns = namespace(current_cat='') %}
+{% for plan in plans %}
+{% if plan.is_addon %}
+  {% if plan.category != ns.current_cat %}
+    {% set ns.current_cat = plan.category %}
+    <div class="addon-cat-title">{{ cat_labels.get(plan.category, plan.category|title) }}</div>
+  {% endif %}
+  <div class="plan-card" id="mkt-{{ plan.plan_key }}">
+    <div style="flex:1;">
+      <div class="plan-card-name">{{ plan.plan_name }}</div>
+      <div class="plan-card-desc">{{ plan.description }}</div>
+      {% if plan.features %}
+      <div class="features-list">
+        {% for feat in plan.features | from_json %}
+        <span class="feature-pill">{{ feat }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+      <span class="plan-card-price">${{ "%.2f"|format(plan.price_monthly) }}/mo</span>
+      {% if plan.plan_key in active_keys %}
+      <span class="plan-card-badge">Active ✓</span>
+      {% else %}
+      <button class="add-btn" onclick="addAddon('{{ tenant.tenant_id }}','{{ plan.plan_key }}')">
+        Add — ${{ "%.2f"|format(plan.price_monthly) }}/mo
+      </button>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+{% endfor %}
+
+<!-- Danger Zone -->
+<div class="danger-zone">
+  <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;color:#f87171;margin-bottom:0.8rem;">Danger Zone</div>
+  {% if tenant.status == 'suspended' %}
+  <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+    <div style="font-size:0.85rem;color:#888;">This tenant is currently suspended. Activate to restore access.</div>
+    <button class="btn btn-gold btn-sm" onclick="tenantAction('activate')">Activate Tenant</button>
+  </div>
+  {% else %}
+  <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+    <div style="font-size:0.85rem;color:#888;">Suspend this tenant to block all access. Their data is preserved.</div>
+    <button class="btn btn-sm" style="background:transparent;border:1px solid #f87171;color:#f87171;font-size:0.83rem;" onclick="tenantAction('suspend')">Suspend Tenant</button>
+  </div>
+  {% endif %}
+</div>
+
+<script nonce="{{ csp_nonce }}">
+var TENANT_ID = '{{ tenant.tenant_id }}';
+
+function addAddon(tid, plan_key) {
+  fetch('/tms/admin/tenants/' + tid + '/addons/' + plan_key, {method:'POST'})
+    .then(r => r.json())
+    .then(d => { if (d.ok) location.reload(); });
+}
+
+function removeAddon(tid, plan_key) {
+  if (!confirm('Cancel this add-on? It will be deactivated.')) return;
+  fetch('/tms/admin/tenants/' + tid + '/addons/' + plan_key, {method:'DELETE'})
+    .then(r => r.json())
+    .then(d => { if (d.ok) location.reload(); });
+}
+
+function tenantAction(action) {
+  if (!confirm('Are you sure you want to ' + action + ' this tenant?')) return;
+  fetch('/tms/admin/tenants/' + TENANT_ID + '/' + action, {method:'POST'})
+    .then(r => r.json())
+    .then(d => { if (d.ok) location.reload(); });
+}
+</script>
+{% endblock %}

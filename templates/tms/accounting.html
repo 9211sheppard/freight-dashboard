@@ -1,0 +1,145 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Accounting — TMS Master{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h4 class="mb-0 fw-semibold">Accounting Integration</h4>
+      <p class="text-secondary small mb-0 mt-1">Push invoices and pull payments from QuickBooks, Xero, Zoho, MYOB and more.</p>
+    </div>
+    <a href="/tms/accounting/settings" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-gear me-1"></i>API Credentials
+    </a>
+  </div>
+
+  {% if push_result %}
+  <div class="alert alert-{{ 'success' if push_result.ok else 'danger' }} py-2 mb-3">
+    <i class="bi bi-{{ 'check-circle' if push_result.ok else 'exclamation-triangle' }} me-1"></i>
+    {{ push_result.message }}
+  </div>
+  {% endif %}
+
+  <!-- Provider cards -->
+  <div class="row g-3 mb-4">
+    {% for p in providers %}
+    <div class="col-sm-6 col-md-4 col-lg-3">
+      <div class="card bg-body-tertiary border-secondary-subtle h-100">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="fw-semibold small">{{ p.name }}</span>
+            {% if p.creds_saved %}
+            <span class="badge bg-success">Live</span>
+            {% else %}
+            <span class="badge bg-secondary">No creds</span>
+            {% endif %}
+          </div>
+          <div class="text-secondary mb-3" style="font-size:.72rem;">{{ p.region }}</div>
+          <div class="d-flex gap-1 flex-wrap">
+            <button class="btn btn-outline-info btn-sm py-0 px-2 test-btn" data-key="{{ p.key }}">
+              <i class="bi bi-lightning"></i> Test
+            </button>
+            <a href="/tms/accounting/settings#{{ p.key }}" class="btn btn-outline-secondary btn-sm py-0 px-2">
+              <i class="bi bi-key"></i>
+            </a>
+            <a href="{{ p.docs_url }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm py-0 px-2">
+              <i class="bi bi-box-arrow-up-right"></i>
+            </a>
+          </div>
+          <div class="test-result mt-2" id="test-{{ p.key }}" style="font-size:.72rem;"></div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Push invoice -->
+  <div class="card bg-body-tertiary border-secondary-subtle mb-4">
+    <div class="card-header border-secondary-subtle fw-semibold small">
+      <i class="bi bi-upload me-1 text-info"></i>Push Invoice to Accounting
+    </div>
+    <div class="card-body">
+      <form method="POST" action="/tms/accounting/push">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label small text-secondary">Invoice</label>
+            <select name="invoice_id" class="form-select form-select-sm bg-body border-secondary" required>
+              <option value="">— Select invoice —</option>
+              {% for inv in invoices %}
+              <option value="{{ inv.invoice_number }}">{{ inv.invoice_number }} — {{ inv.customer_name }} — ${{ '%.2f' | format(inv.total_amount or 0) }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small text-secondary">Push to</label>
+            <select name="provider_key" class="form-select form-select-sm bg-body border-secondary" required>
+              {% for p in providers %}
+              {% if p.creds_saved %}
+              <option value="{{ p.key }}">{{ p.name }}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <button type="submit" class="btn btn-info btn-sm w-100">
+              <i class="bi bi-upload me-1"></i>Push
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Sync log -->
+  <div class="card bg-body-tertiary border-secondary-subtle">
+    <div class="card-header border-secondary-subtle fw-semibold small">
+      <i class="bi bi-journal-text me-1 text-info"></i>Sync Log
+    </div>
+    <div class="card-body p-0">
+      {% if sync_log %}
+      <div class="table-responsive">
+        <table class="table table-sm table-dark table-hover mb-0">
+          <thead>
+            <tr><th>Provider</th><th>Direction</th><th>Type</th><th>Entity</th><th>Status</th><th>Date</th></tr>
+          </thead>
+          <tbody>
+          {% for row in sync_log %}
+          <tr>
+            <td class="small">{{ row.provider_key }}</td>
+            <td class="small">{{ row.direction }}</td>
+            <td class="small">{{ row.entity_type }}</td>
+            <td class="small">{{ row.entity_id }}</td>
+            <td><span class="badge {% if row.status == 'success' %}bg-success{% else %}bg-danger{% endif %}">{{ row.status }}</span></td>
+            <td class="small text-secondary">{{ row.created_at[:10] if row.created_at else '—' }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="p-4 text-center text-secondary small">No sync activity yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<script>
+document.querySelectorAll('.test-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var key = this.dataset.key;
+    var el = document.getElementById('test-' + key);
+    el.className = 'test-result mt-2 text-secondary';
+    el.textContent = 'Testing…';
+    fetch('/tms/accounting/test/' + key, {method:'POST'})
+      .then(r => r.json())
+      .then(d => {
+        el.className = 'test-result mt-2 ' + (d.ok ? 'text-success' : 'text-danger');
+        el.textContent = d.message;
+      })
+      .catch(e => { el.className = 'test-result mt-2 text-danger'; el.textContent = String(e); });
+  });
+});
+</script>
+{% endblock %}

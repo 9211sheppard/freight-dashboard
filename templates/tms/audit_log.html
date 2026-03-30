@@ -1,0 +1,149 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Audit Log{% endblock %}
+
+{% block tms_content %}
+<style nonce="{{ csp_nonce }}">
+.audit-filter-bar { background:#1a1f2e; border:1px solid #2a3050; border-radius:10px; padding:.85rem 1rem; margin-bottom:1.25rem; display:flex; gap:.65rem; align-items:flex-end; flex-wrap:wrap; }
+.audit-filter-bar label { font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; color:#6c7a99; display:block; margin-bottom:.25rem; }
+.audit-filter-bar input, .audit-filter-bar select { background:#12172a; border:1px solid #2a3050; color:#c4cde0; border-radius:6px; padding:.3rem .6rem; font-size:.78rem; min-width:130px; }
+.audit-filter-bar input:focus, .audit-filter-bar select:focus { outline:none; border-color:#3b82f6; }
+.btn-filter { background:#1e3a5f; border:1px solid #2a4e80; color:#93c5fd; border-radius:6px; padding:.32rem .85rem; font-size:.78rem; cursor:pointer; white-space:nowrap; }
+.btn-filter:hover { background:#1a4a7a; }
+.btn-export { background:#1a3a20; border:1px solid #2a5030; color:#86efac; border-radius:6px; padding:.32rem .85rem; font-size:.78rem; text-decoration:none; white-space:nowrap; }
+.btn-export:hover { background:#1e4a26; color:#bbf7d0; }
+.btn-clear { background:transparent; border:1px solid #2a3050; color:#64748b; border-radius:6px; padding:.32rem .65rem; font-size:.78rem; text-decoration:none; white-space:nowrap; }
+.btn-clear:hover { border-color:#3b4a66; color:#94a3b8; }
+
+.audit-table-wrap { background:#1a1f2e; border:1px solid #2a3050; border-radius:10px; overflow:hidden; }
+.audit-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+.audit-table th { text-align:left; padding:.45rem .7rem; color:#6c7a99; font-size:.65rem; text-transform:uppercase; letter-spacing:.07em; border-bottom:1px solid #2a3050; background:#12172a; position:sticky; top:0; z-index:1; }
+.audit-table td { padding:.4rem .7rem; border-bottom:1px solid #1a2040; color:#b0bbd6; vertical-align:middle; }
+.audit-table tr:last-child td { border-bottom:none; }
+.audit-table tr:hover td { background:#1e2540; }
+
+/* Action badges */
+.ab { display:inline-block; padding:.1rem .38rem; border-radius:4px; font-size:.65rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.ab-CREATE  { background:#1e3a5f; color:#93c5fd; }
+.ab-UPDATE  { background:#3d2a0a; color:#fcd34d; }
+.ab-DELETE  { background:#3d0a0a; color:#fca5a5; }
+.ab-LOGIN   { background:#0a3d1e; color:#86efac; }
+.ab-LOGOUT  { background:#1e293b; color:#94a3b8; }
+.ab-EXPORT  { background:#2e1a4a; color:#c4b5fd; }
+.ab-READ    { background:#0f2235; color:#7dd3fc; }
+.ab-default { background:#1e293b; color:#94a3b8; }
+
+/* Result badges */
+.rb-success { color:#22c55e; }
+.rb-failure, .rb-denied { color:#ef4444; }
+
+.empty-state { text-align:center; padding:3rem; color:#6c7a99; font-size:.85rem; }
+.result-count { font-size:.73rem; color:#6c7a99; margin-bottom:.5rem; }
+
+.monospace { font-family:monospace; font-size:.72rem; }
+.truncate { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h4 class="mb-0 fw-bold text-white"><i class="bi bi-journal-text me-2 text-info"></i>Audit Log</h4>
+    <div style="font-size:.75rem;color:#6c7a99;margin-top:.2rem;">All significant system events — SOC 2 CC6 compliance record</div>
+  </div>
+  <a href="/tms/compliance" class="btn-clear" style="font-size:.75rem;">
+    <i class="bi bi-arrow-left me-1"></i>Compliance
+  </a>
+</div>
+
+<!-- Filter Bar -->
+<form method="GET" action="/tms/compliance/audit-log">
+  <div class="audit-filter-bar">
+    <div>
+      <label for="f-user">User / Email</label>
+      <input id="f-user" name="user" type="text" value="{{ user }}" placeholder="user@domain.com">
+    </div>
+    <div>
+      <label for="f-resource">Resource Type</label>
+      <select id="f-resource" name="resource">
+        <option value="" {% if not resource %}selected{% endif %}>All Types</option>
+        <option value="shipment" {% if resource == 'shipment' %}selected{% endif %}>Shipment</option>
+        <option value="invoice" {% if resource == 'invoice' %}selected{% endif %}>Invoice</option>
+        <option value="driver" {% if resource == 'driver' %}selected{% endif %}>Driver</option>
+        <option value="pod" {% if resource == 'pod' %}selected{% endif %}>POD</option>
+        <option value="carrier" {% if resource == 'carrier' %}selected{% endif %}>Carrier</option>
+        <option value="user" {% if resource == 'user' %}selected{% endif %}>User</option>
+      </select>
+    </div>
+    <div>
+      <label for="f-action">Action</label>
+      <select id="f-action" name="action">
+        <option value="" {% if not action %}selected{% endif %}>All Actions</option>
+        <option value="CREATE" {% if action == 'CREATE' %}selected{% endif %}>CREATE</option>
+        <option value="UPDATE" {% if action == 'UPDATE' %}selected{% endif %}>UPDATE</option>
+        <option value="DELETE" {% if action == 'DELETE' %}selected{% endif %}>DELETE</option>
+        <option value="LOGIN" {% if action == 'LOGIN' %}selected{% endif %}>LOGIN</option>
+        <option value="LOGOUT" {% if action == 'LOGOUT' %}selected{% endif %}>LOGOUT</option>
+        <option value="EXPORT" {% if action == 'EXPORT' %}selected{% endif %}>EXPORT</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-filter"><i class="bi bi-funnel me-1"></i>Filter</button>
+    <a href="/tms/compliance/audit-log" class="btn-clear">Clear</a>
+    <a href="/tms/compliance/audit-log?user={{ user }}&resource={{ resource }}&action={{ action }}&export=csv" class="btn-export">
+      <i class="bi bi-download me-1"></i>Export CSV
+    </a>
+  </div>
+</form>
+
+<div class="result-count">Showing {{ logs | length }} events</div>
+
+<div class="audit-table-wrap">
+  {% if logs %}
+  <table class="audit-table">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>User</th>
+        <th>Action</th>
+        <th>Resource</th>
+        <th>Resource ID</th>
+        <th>Result</th>
+        <th>IP Address</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td class="monospace" style="white-space:nowrap;color:#6c7a99;">{{ log.event_time[:19] if log.event_time else '—' }}</td>
+        <td>
+          {% if log.user_email %}
+            <span class="truncate" style="color:#93c5fd;" title="{{ log.user_email }}">{{ log.user_email }}</span>
+          {% elif log.user_id %}
+            <span class="monospace" style="color:#64748b;">{{ log.user_id }}</span>
+          {% else %}
+            <span style="color:#374151;">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {%- set action_upper = log.action | upper if log.action else '' -%}
+          {%- set known = ['CREATE','UPDATE','DELETE','LOGIN','LOGOUT','EXPORT','READ'] -%}
+          <span class="ab {% if action_upper in known %}ab-{{ action_upper }}{% else %}ab-default{% endif %}">
+            {{ log.action or '—' }}
+          </span>
+        </td>
+        <td style="color:#c4cde0;">{{ log.resource_type or '—' }}</td>
+        <td class="monospace truncate" title="{{ log.resource_id }}">{{ log.resource_id or '—' }}</td>
+        <td>
+          {%- set result = log.result | lower if log.result else '' -%}
+          <span class="rb-{{ result }}">{{ log.result or '—' }}</span>
+        </td>
+        <td class="monospace" style="color:#6c7a99;">{{ log.ip_address or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-journal" style="font-size:2rem;display:block;margin-bottom:.5rem;"></i>
+    No audit events found for the selected filters.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

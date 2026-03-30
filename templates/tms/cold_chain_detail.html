@@ -1,0 +1,364 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Cold Chain {{ shipment_ref }}{% endblock %}
+{% block tms_content %}
+<div class="container-fluid py-4 cold-detail-page">
+  <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+      <div class="small text-uppercase text-muted mb-1">Cold Chain Detail</div>
+      <h2 class="mb-1 fw-bold">{{ shipment_ref }}</h2>
+      <p class="text-muted small mb-0">{{ range_label }} - {{ excursion_count }} total excursion{{ '' if excursion_count == 1 else 's' }}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/tms/cold-chain" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
+      <a href="/tms/shipments/{{ shipment_ref }}" class="btn btn-outline-secondary btn-sm">Shipment</a>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-12 col-xl-5">
+      <div class="card detail-card h-100">
+        <div class="card-body d-flex flex-column flex-md-row align-items-center gap-4">
+          <div class="temp-gauge-wrap">
+            <div class="temp-gauge temp-gauge-{{ current_status_class }}" style="--gauge-pct: {{ gauge_pct }}%;">
+              <div class="temp-gauge-inner">
+                <div class="temp-gauge-value">{{ current_temp_display }}</div>
+                <div class="temp-gauge-label">{{ current_status_label }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="flex-grow-1">
+            <div class="small text-uppercase text-muted mb-2">Current Sensor State</div>
+            <div class="row g-3">
+              <div class="col-sm-6">
+                <div class="detail-metric-label">Humidity</div>
+                <div class="detail-metric-value">{{ current_humidity_display }}</div>
+              </div>
+              <div class="col-sm-6">
+                <div class="detail-metric-label">Location</div>
+                <div class="detail-metric-value">{{ current_location_display }}</div>
+              </div>
+              <div class="col-sm-6">
+                <div class="detail-metric-label">Provider</div>
+                <div class="detail-metric-value">{{ current_provider_name }}</div>
+              </div>
+              <div class="col-sm-6">
+                <div class="detail-metric-label">Sensor ID</div>
+                <div class="detail-metric-value">{{ current_sensor_id }}</div>
+              </div>
+              <div class="col-sm-6">
+                <div class="detail-metric-label">Gauge Window</div>
+                <div class="detail-metric-value">{{ "%.1f"|format(gauge_min) }}C to {{ "%.1f"|format(gauge_max) }}C</div>
+              </div>
+              <div class="col-sm-6">
+                <div class="detail-metric-label">Reading Window</div>
+                <div class="detail-metric-value">Last {{ hours }} hours</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-7">
+      <div class="card detail-card h-100">
+        <div class="card-header detail-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">Temperature Chart</span>
+          <span class="small text-muted">CSS-only bars from the last {{ hours }} hours</span>
+        </div>
+        <div class="card-body">
+          {% if readings %}
+          <div class="chart-shell">
+            {% for reading in readings %}
+            <div class="chart-slot">
+              <div class="chart-value">{{ reading.temperature_display }}</div>
+              <div class="chart-track">
+                <div class="chart-bar chart-bar-{{ reading.status_class }}" style="height: {{ reading.chart_pct }}%;"></div>
+              </div>
+              <div class="chart-time">{{ reading.recorded_at[11:16] if reading.recorded_at else '-' }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5">No readings available in the selected window.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-12 col-xl-4">
+      <div class="card detail-card h-100">
+        <div class="card-header detail-header">
+          <span class="fw-semibold">Config Settings</span>
+        </div>
+        <div class="card-body">
+          <form method="post" action="/tms/cold-chain/{{ shipment_ref }}/config" class="row g-3">
+            <input type="hidden" name="provider" value="{{ config.get('provider') or (latest_reading.get('provider') if latest_reading else '') }}">
+            <input type="hidden" name="sensor_id" value="{{ config.get('sensor_id') or (latest_reading.get('sensor_id') if latest_reading else '') }}">
+
+            <div class="col-12">
+              <div class="small text-muted mb-2">Provider</div>
+              <div class="config-pill">{{ current_provider_name }}</div>
+            </div>
+            <div class="col-12">
+              <div class="small text-muted mb-2">Sensor ID</div>
+              <div class="config-pill">{{ current_sensor_id }}</div>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label small text-muted mb-1">Min Temp (C)</label>
+              <input type="number" step="0.1" name="min_temp_c" class="form-control bg-black text-white border-secondary" value="{{ config.get('min_temp_c') if config.get('min_temp_c') is not none else '' }}">
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label small text-muted mb-1">Max Temp (C)</label>
+              <input type="number" step="0.1" name="max_temp_c" class="form-control bg-black text-white border-secondary" value="{{ config.get('max_temp_c') if config.get('max_temp_c') is not none else '' }}">
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label small text-muted mb-1">Min Humidity (%)</label>
+              <input type="number" step="0.1" name="min_humidity" class="form-control bg-black text-white border-secondary" value="{{ config.get('min_humidity') if config.get('min_humidity') is not none else '' }}">
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label small text-muted mb-1">Max Humidity (%)</label>
+              <input type="number" step="0.1" name="max_humidity" class="form-control bg-black text-white border-secondary" value="{{ config.get('max_humidity') if config.get('max_humidity') is not none else '' }}">
+            </div>
+            <div class="col-12">
+              <label class="form-label small text-muted mb-1">Alert Email</label>
+              <input type="email" name="alert_email" class="form-control bg-black text-white border-secondary" value="{{ config.get('alert_email') or '' }}" placeholder="alerts@example.com">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn detail-btn-primary w-100">Save Monitoring Config</button>
+            </div>
+          </form>
+          {% if ingest_token %}
+          <hr class="border-secondary-subtle my-4">
+          <div class="small text-uppercase text-muted mb-2">Sensor Ingest</div>
+          <p class="small text-muted mb-3">Use this endpoint and signed token for device or webhook pushes.</p>
+          <div class="mb-3">
+            <label class="form-label small text-muted mb-1">Endpoint</label>
+            <input type="text" readonly class="form-control bg-black text-white border-secondary" value="{{ ingest_endpoint }}">
+          </div>
+          <div>
+            <label class="form-label small text-muted mb-1">Ingest Token</label>
+            <input type="text" readonly class="form-control bg-black text-white border-secondary" value="{{ ingest_token }}">
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-8">
+      <div class="card detail-card">
+        <div class="card-header detail-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">Reading History</span>
+          <span class="small text-muted">{{ readings|length }} reading{{ '' if readings|length == 1 else 's' }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-dark align-middle mb-0 detail-table">
+            <thead>
+              <tr>
+                <th>Recorded</th>
+                <th>Temp</th>
+                <th>Humidity</th>
+                <th>Location</th>
+                <th>Provider</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for reading in readings|reverse %}
+              <tr>
+                <td class="small">{{ reading.recorded_at_display }}</td>
+                <td class="fw-semibold {% if reading.alert_triggered %}text-danger{% else %}text-info{% endif %}">{{ reading.temperature_display }}</td>
+                <td>{{ reading.humidity_display }}</td>
+                <td class="small text-muted">{{ reading.location_display }}</td>
+                <td>{{ reading.provider_name }}</td>
+                <td><span class="badge bg-{{ reading.status_class }}">{{ reading.status_label }}</span></td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">No reading history available.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style nonce="{{ csp_nonce }}">
+.cold-detail-page {
+  --detail-accent: #58d1ff;
+  --detail-danger: #ff6b6b;
+  --detail-muted: #8d99aa;
+}
+
+.detail-card {
+  background: linear-gradient(180deg, rgba(18, 23, 30, 0.98), rgba(8, 11, 15, 0.98));
+  border: 1px solid rgba(88, 209, 255, 0.14);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+}
+
+.detail-header {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.temp-gauge-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.temp-gauge {
+  --gauge-color: #7f8a99;
+  width: 210px;
+  height: 210px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at center, rgba(9, 12, 16, 0.96) 0 56%, transparent 57%),
+    conic-gradient(var(--gauge-color) 0 calc(var(--gauge-pct) * 1%), rgba(255, 255, 255, 0.08) 0 100%);
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.35), 0 0 28px rgba(0, 0, 0, 0.18);
+}
+
+.temp-gauge-success {
+  --gauge-color: var(--detail-accent);
+}
+
+.temp-gauge-danger {
+  --gauge-color: var(--detail-danger);
+}
+
+.temp-gauge-secondary {
+  --gauge-color: #7f8a99;
+}
+
+.temp-gauge-inner {
+  text-align: center;
+  width: 118px;
+}
+
+.temp-gauge-value {
+  color: #fff;
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.temp-gauge-label {
+  color: var(--detail-muted);
+  font-size: 0.8rem;
+  margin-top: 0.45rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.detail-metric-label {
+  color: var(--detail-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.detail-metric-value {
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.chart-shell {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.85rem;
+  min-height: 280px;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.chart-slot {
+  min-width: 52px;
+  text-align: center;
+}
+
+.chart-value {
+  color: #c7d0db;
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.chart-track {
+  height: 190px;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: flex-end;
+  padding: 0.35rem;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.22);
+}
+
+.chart-bar {
+  width: 100%;
+  min-height: 8px;
+  border-radius: 0.8rem;
+}
+
+.chart-bar-success {
+  background: linear-gradient(180deg, #79e3ff, #2fa7df);
+  box-shadow: 0 0 14px rgba(88, 209, 255, 0.26);
+}
+
+.chart-bar-danger {
+  background: linear-gradient(180deg, #ff9b9b, #ff5f5f);
+  box-shadow: 0 0 14px rgba(255, 95, 95, 0.24);
+}
+
+.chart-time {
+  color: var(--detail-muted);
+  font-size: 0.72rem;
+  margin-top: 0.55rem;
+}
+
+.config-pill {
+  background: rgba(88, 209, 255, 0.12);
+  border: 1px solid rgba(88, 209, 255, 0.2);
+  border-radius: 0.8rem;
+  color: #c6f4ff;
+  padding: 0.7rem 0.8rem;
+}
+
+.detail-btn-primary {
+  background: linear-gradient(135deg, #38aede, #68d5ff);
+  border: 1px solid #58d1ff;
+  color: #081018;
+  font-weight: 700;
+}
+
+.detail-btn-primary:hover {
+  background: linear-gradient(135deg, #52bee8, #83dfff);
+  color: #081018;
+}
+
+.detail-table thead th {
+  color: var(--detail-muted);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.detail-table td,
+.detail-table th {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.06);
+  padding: 0.95rem 1rem;
+}
+
+.detail-table tbody tr:hover td {
+  background: rgba(88, 209, 255, 0.04) !important;
+}
+</style>
+{% endblock %}

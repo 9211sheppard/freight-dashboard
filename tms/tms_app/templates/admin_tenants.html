@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Tenants | TMS Sandbox{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <p class="eyebrow">Admin</p>
+    <h3>Tenant controls</h3>
+  </div>
+  <form method="post" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="action" value="create">
+    <label><span>Company Name</span><input type="text" name="company_name" value="{{ form_values.company_name }}" required></label>
+    <label><span>Plan</span>
+      <select name="plan">
+        {% for plan in ("starter", "pro", "enterprise") %}
+        <option value="{{ plan }}" {% if form_values.plan == plan %}selected{% endif %}>{{ plan }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label><span>Max Users</span><input type="number" name="max_users" min="1" value="{{ form_values.max_users }}" required></label>
+    <label><span>Data Region</span><input type="text" name="data_region" value="{{ form_values.data_region }}" required></label>
+    <label><span>Allowed IPs</span><textarea name="allowed_ip_cidrs" rows="2">{{ form_values.allowed_ip_cidrs }}</textarea></label>
+    <label><span>Session Timeout (min)</span><input type="number" name="session_timeout_minutes" min="5" value="{{ form_values.session_timeout_minutes }}" required></label>
+    <label><span>SAML Entity ID</span><input type="text" name="saml_entity_id" value="{{ form_values.saml_entity_id }}"></label>
+    <label><span>SAML SSO URL</span><input type="url" name="saml_sso_url" value="{{ form_values.saml_sso_url }}"></label>
+    <label><span>SAML Metadata URL</span><input type="url" name="saml_metadata_url" value="{{ form_values.saml_metadata_url }}"></label>
+    <label><span>SAML Certificate</span><textarea name="saml_x509_cert" rows="3">{{ form_values.saml_x509_cert }}</textarea></label>
+    <button type="submit">Create Tenant</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <p class="eyebrow">Directory</p>
+    <h3>Tenant status</h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>Plan</th>
+          <th>Users</th>
+          <th>Region</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tenant in tenants %}
+        <tr>
+          <td>{{ tenant.company_name }}<br><span class="hint">{{ tenant.tenant_id }}</span></td>
+          <td>{{ tenant.plan }}</td>
+          <td>{{ tenant.max_users }}</td>
+          <td>{{ tenant.data_region }}</td>
+          <td>{{ tenant.status }}</td>
+          <td>
+            {% if tenant.status != "active" %}
+            <form method="post" class="inline-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="action" value="activate">
+              <input type="hidden" name="tenant_id" value="{{ tenant.tenant_id }}">
+              <button type="submit">Activate</button>
+            </form>
+            {% endif %}
+            {% if tenant.status == "active" and tenant.tenant_id != "tenant-default" %}
+            <form method="post" class="inline-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="action" value="suspend">
+              <input type="hidden" name="tenant_id" value="{{ tenant.tenant_id }}">
+              <button class="ghost" type="submit">Suspend</button>
+            </form>
+            {% endif %}
+            {% if tenant.tenant_id != "tenant-default" and tenant.status != "deleted" %}
+            <form method="post" class="inline-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="tenant_id" value="{{ tenant.tenant_id }}">
+              <button class="ghost" type="submit">Delete</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

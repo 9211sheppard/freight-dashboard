@@ -1,0 +1,302 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Fleet{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0"><i class="bi bi-truck-front me-2"></i>Fleet</h2>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/drivers" class="btn btn-outline-info"><i class="bi bi-person-badge me-1"></i>Drivers</a>
+    <a href="/tms/shipments/new" class="btn btn-outline-secondary"><i class="bi bi-plus-lg me-1"></i>New Shipment</a>
+    <a href="/tms/fleet/new" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Vehicle</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul me-2"></i>Vehicle Registry</span>
+        <span class="text-muted small">{{ vehicles|length }} vehicles</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0 align-middle">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Truck</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Capacity</th>
+              <th>Current Load</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for vehicle in vehicles %}
+            <tr>
+              <td>
+                <a href="/tms/fleet?vehicle_id={{ vehicle.id }}" class="text-info text-decoration-none fw-semibold">{{ vehicle.truck_number }}</a>
+                <div class="small text-muted">{{ vehicle.country or '-' }}</div>
+              </td>
+              <td>{{ vehicle.vehicle_type }}</td>
+              <td>
+                <span class="tms-status tms-status-{{ {'Active':'active','Inactive':'cancelled','On Trip':'transit','Maintenance':'hold'}.get(vehicle.status, 'draft') }}">{{ vehicle.status }}</span>
+              </td>
+              <td>
+                <div>{{ "{:,.0f}".format(vehicle.capacity_weight or 0) }} kg</div>
+                <div class="small text-muted">{{ "{:,.1f}".format(vehicle.capacity_cbm or 0) }} cbm</div>
+              </td>
+              <td>
+                {% if vehicle.active_shipment_ref %}
+                <div class="fw-semibold">{{ vehicle.active_shipment_ref }}</div>
+                <div class="small text-muted">{{ vehicle.active_driver_name or 'Driver pending' }}</div>
+                {% else %}
+                <span class="text-muted">Unassigned</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="/tms/fleet/{{ vehicle.id }}/edit" class="btn btn-sm btn-outline-secondary">Edit</a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">No vehicles yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if selected_vehicle %}
+    <div class="row g-3 mt-1">
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center p-3 h-100">
+          <div class="fs-4 fw-bold text-info">{{ vehicle_stats.shipments }}</div>
+          <div class="text-muted small">Assigned Loads</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center p-3 h-100">
+          <div class="fs-4 fw-bold text-warning">{{ vehicle_stats.active_shipments }}</div>
+          <div class="text-muted small">Open Trips</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center p-3 h-100">
+          <div class="fs-4 fw-bold text-success">{{ "{:,.0f}".format(vehicle_stats.total_weight) }}</div>
+          <div class="text-muted small">Tracked Weight</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center p-3 h-100">
+          <div class="fs-4 fw-bold text-primary">{{ "{:,.1f}".format(vehicle_stats.total_cbm) }}</div>
+          <div class="text-muted small">Tracked CBM</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary mt-4">
+      <div class="card-header"><i class="bi bi-box-seam me-2"></i>Assignment History</div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Reference</th>
+              <th>Status</th>
+              <th>Driver</th>
+              <th>Route</th>
+              <th>ETA</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for shipment in vehicle_shipments %}
+            <tr>
+              <td><a href="/tms/shipments/{{ shipment.shipment_ref }}" class="text-info text-decoration-none">{{ shipment.shipment_ref }}</a></td>
+              <td>{{ shipment.status }}</td>
+              <td>{{ shipment.driver_name or '-' }}</td>
+              <td>{{ shipment.origin_port or '-' }} &rarr; {{ shipment.destination_port or '-' }}</td>
+              <td>{{ shipment.eta or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No assignment history yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header">
+        {% if form_mode == 'edit' %}<i class="bi bi-pencil me-2"></i>Edit Vehicle{% else %}<i class="bi bi-plus-circle me-2"></i>Vehicle Profile{% endif %}
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{% if form_mode == 'edit' and form_vehicle and form_vehicle.id %}/tms/fleet/{{ form_vehicle.id }}/edit{% else %}/tms/fleet/new{% endif %}">
+          <div class="mb-3">
+            <label class="form-label text-muted">Truck Number</label>
+            <input type="text" name="truck_number" value="{{ form_vehicle.truck_number if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary" required>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted">VIN</label>
+              <input type="text" name="vin" value="{{ form_vehicle.vin if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">License Plate</label>
+              <input type="text" name="license_plate" value="{{ form_vehicle.license_plate if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="row g-3 mt-0">
+            <div class="col-md-4">
+              <label class="form-label text-muted">Year</label>
+              <input type="number" name="year" value="{{ form_vehicle.year if form_vehicle else '' }}" step="1" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-muted">Make</label>
+              <input type="text" name="make" value="{{ form_vehicle.make if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-muted">Model</label>
+              <input type="text" name="model" value="{{ form_vehicle.model if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Vehicle Type</label>
+            <input type="text" name="vehicle_type" value="{{ form_vehicle.vehicle_type if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary" placeholder="53' Dry Van, Reefer, Straight Truck" required>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted">Capacity Weight (kg)</label>
+              <input type="number" name="capacity_weight" value="{{ form_vehicle.capacity_weight if form_vehicle else '' }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Capacity CBM</label>
+              <input type="number" name="capacity_cbm" value="{{ form_vehicle.capacity_cbm if form_vehicle else '' }}" step="0.01" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="row g-3 mt-0">
+            <div class="col-md-6">
+              <label class="form-label text-muted">Country</label>
+              <input type="text" name="country" value="{{ form_vehicle.country if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Odometer</label>
+              <input type="number" name="odometer" value="{{ form_vehicle.odometer if form_vehicle else '' }}" step="1" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="row g-3 mt-0">
+            <div class="col-md-6">
+              <label class="form-label text-muted">Registration Expiry</label>
+              <input type="date" name="registration_expiry" value="{{ form_vehicle.registration_expiry if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Insurance Expiry</label>
+              <input type="date" name="insurance_expiry" value="{{ form_vehicle.insurance_expiry if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label text-muted">Insurance Carrier</label>
+            <input type="text" name="insurance_carrier" value="{{ form_vehicle.insurance_carrier if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="row g-3 mt-0">
+            <div class="col-md-6">
+              <label class="form-label text-muted">Last Inspection Date</label>
+              <input type="date" name="last_inspection_date" value="{{ form_vehicle.last_inspection_date if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Next Inspection Due</label>
+              <input type="date" name="next_inspection_due" value="{{ form_vehicle.next_inspection_due if form_vehicle else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="mt-3 mb-4">
+            <label class="form-label text-muted">Status</label>
+            <select name="status" class="form-select bg-black text-white border-secondary">
+              {% for status in vehicle_statuses %}
+              <option value="{{ status }}" {% if (form_vehicle.status if form_vehicle else 'Active') == status %}selected{% endif %}>{{ status }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-fill">{% if form_mode == 'edit' %}Save Vehicle{% else %}Create Vehicle{% endif %}</button>
+            {% if form_mode == 'edit' and form_vehicle and form_vehicle.id %}
+            <a href="/tms/fleet?vehicle_id={{ form_vehicle.id }}" class="btn btn-outline-secondary">Cancel</a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% if selected_vehicle %}
+    <div class="card bg-dark border-secondary mt-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-info-circle me-2"></i>Selected Vehicle</span>
+        <form method="POST" action="/tms/fleet/{{ selected_vehicle.id }}/delete" onsubmit="return confirm('Delete this vehicle?');">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="text-muted small">TYPE</div>
+            <div class="fw-semibold">{{ selected_vehicle.vehicle_type }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">STATUS</div>
+            <div class="fw-semibold">{{ selected_vehicle.status }}</div>
+          </div>
+          {% if selected_vehicle.year or selected_vehicle.make or selected_vehicle.model %}
+          <div class="col-12">
+            <div class="text-muted small">YEAR / MAKE / MODEL</div>
+            <div class="fw-semibold">{{ [selected_vehicle.year|string, selected_vehicle.make, selected_vehicle.model] | reject('none') | select | join(' ') or '-' }}</div>
+          </div>
+          {% endif %}
+          <div class="col-6">
+            <div class="text-muted small">VIN</div>
+            <div class="fw-semibold">{{ selected_vehicle.vin or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">LICENSE PLATE</div>
+            <div class="fw-semibold">{{ selected_vehicle.license_plate or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">CAPACITY WEIGHT</div>
+            <div class="fw-semibold">{{ "{:,.0f}".format(selected_vehicle.capacity_weight or 0) }} kg</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">CAPACITY CBM</div>
+            <div class="fw-semibold">{{ "{:,.1f}".format(selected_vehicle.capacity_cbm or 0) }} cbm</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">ODOMETER</div>
+            <div class="fw-semibold">{{ "{:,.0f}".format(selected_vehicle.odometer or 0) }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">COUNTRY</div>
+            <div class="fw-semibold">{{ selected_vehicle.country or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">REGISTRATION EXPIRY</div>
+            <div class="fw-semibold {% if selected_vehicle.registration_expiry and selected_vehicle.registration_expiry < now_date %}text-danger{% endif %}">{{ selected_vehicle.registration_expiry or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">INSURANCE EXPIRY</div>
+            <div class="fw-semibold {% if selected_vehicle.insurance_expiry and selected_vehicle.insurance_expiry < now_date %}text-danger{% endif %}">{{ selected_vehicle.insurance_expiry or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">INSURANCE CARRIER</div>
+            <div class="fw-semibold">{{ selected_vehicle.insurance_carrier or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">LAST INSPECTION</div>
+            <div class="fw-semibold">{{ selected_vehicle.last_inspection_date or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">NEXT INSPECTION DUE</div>
+            <div class="fw-semibold {% if selected_vehicle.next_inspection_due and selected_vehicle.next_inspection_due < now_date %}text-danger{% endif %}">{{ selected_vehicle.next_inspection_due or '-' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

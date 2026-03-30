@@ -1,0 +1,146 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Load Matching — {{ ref }}{% endblock %}
+{% block tms_content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="/tms/load-matching" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>All Matches
+  </a>
+  <div>
+    <h2 class="mb-0 text-white"><i class="bi bi-lightning-charge me-2"></i>Match Detail</h2>
+    <div class="text-muted small">Shipment {{ ref }}</div>
+  </div>
+</div>
+
+{% if result %}
+  {% set ship = result.shipment %}
+  {% set matches = result.top_matches %}
+
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="card bg-dark border-secondary">
+        <div class="card-header"><i class="bi bi-box-seam me-1"></i>Shipment</div>
+        <div class="card-body">
+          <div class="mb-2">
+            <div class="text-muted small">Reference</div>
+            <div class="text-white fw-bold">{{ ship.shipment_ref or '—' }}</div>
+          </div>
+          <div class="mb-2">
+            <div class="text-muted small">Route</div>
+            <div class="text-white">{{ ship.origin_port or ship.origin or '?' }} → {{ ship.destination_port or ship.destination or '?' }}</div>
+          </div>
+          {% if ship.etd %}
+          <div class="mb-2">
+            <div class="text-muted small">ETD</div>
+            <div class="text-white">{{ ship.etd }}</div>
+          </div>
+          {% endif %}
+          {% if ship.container_type or ship.mode %}
+          <div class="mb-2">
+            <div class="text-muted small">Equipment</div>
+            <div class="text-white">{{ ship.container_type or ship.mode }}</div>
+          </div>
+          {% endif %}
+          {% if ship.weight %}
+          <div class="mb-2">
+            <div class="text-muted small">Weight</div>
+            <div class="text-white">{{ ship.weight }} lbs</div>
+          </div>
+          {% endif %}
+          <div>
+            <div class="text-muted small">Status</div>
+            <div class="text-info fw-semibold">{{ ship.status or '—' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card bg-dark border-secondary">
+        <div class="card-header"><i class="bi bi-person-badge me-1"></i>Top Driver Matches</div>
+        <div class="card-body p-0">
+          {% if matches %}
+            {% for m in matches %}
+            {% set drv = m.driver %}
+            {% set score = m.score %}
+            {% set score_cls = 'text-success' if score >= 70 else ('text-warning' if score >= 45 else 'text-danger') %}
+            {% set bar_cls = 'bg-success' if score >= 70 else ('bg-warning' if score >= 45 else 'bg-danger') %}
+            <div class="d-flex align-items-center gap-3 px-3 py-3 border-bottom border-secondary">
+              <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold"
+                   style="width:2rem;height:2rem;background:rgba(148,163,184,0.1);color:#94a3b8;font-size:0.8rem;flex-shrink:0;">
+                {{ loop.index }}
+              </div>
+              <div class="flex-grow-1">
+                <div class="text-white fw-semibold">{{ drv.name or 'Driver #' ~ drv.id }}</div>
+                <div class="text-muted small">
+                  {{ drv.license_class or '' }}
+                  {% if drv.truck_type or drv.vehicle_type %} · {{ drv.truck_type or drv.vehicle_type }}{% endif %}
+                  {% if drv.state or drv.location %} · {{ drv.state or drv.location }}{% endif %}
+                </div>
+                <div class="mt-1" style="font-size:0.72rem;color:#64748b;">
+                  {% for r in m.reasons %}<span class="me-2">{{ r }}</span>{% endfor %}
+                </div>
+              </div>
+              <div style="width:90px;flex-shrink:0;">
+                <div class="{{ score_cls }} fw-bold text-end" style="font-size:0.85rem;">{{ score }}/100</div>
+                <div class="progress mt-1" style="height:5px;background:rgba(148,163,184,0.12);">
+                  <div class="progress-bar {{ bar_cls }}" style="width:{{ score }}%"></div>
+                </div>
+              </div>
+              <button class="btn btn-outline-primary btn-sm assign-btn"
+                      data-ref="{{ ship.shipment_ref }}"
+                      data-driver-id="{{ drv.id }}"
+                      data-driver-name="{{ drv.name or 'Driver' }}"
+                      style="flex-shrink:0;">
+                Assign
+              </button>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="text-center text-muted py-5">
+              <i class="bi bi-person-x d-block mb-2" style="font-size:2rem;"></i>
+              No available drivers — <a href="/tms/drivers" class="text-info">add drivers in Fleet</a>.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% else %}
+  <div class="alert alert-warning">Shipment <strong>{{ ref }}</strong> not found or has no open status.</div>
+{% endif %}
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+  document.querySelectorAll('.assign-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var ref = btn.dataset.ref;
+      var driverId = btn.dataset.driverId;
+      var driverName = btn.dataset.driverName;
+      if (!confirm('Assign ' + driverName + ' to ' + ref + '?')) return;
+      btn.disabled = true;
+      btn.textContent = '…';
+      fetch('/tms/load-matching/' + encodeURIComponent(ref) + '/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driver_id: parseInt(driverId, 10) })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.ok) {
+            btn.textContent = 'Assigned';
+            btn.className = 'btn btn-success btn-sm';
+            document.querySelectorAll('.assign-btn').forEach(function (b) {
+              if (b !== btn) { b.disabled = true; b.className = 'btn btn-outline-secondary btn-sm'; }
+            });
+          } else {
+            btn.disabled = false;
+            btn.textContent = 'Assign';
+            alert('Assignment failed.');
+          }
+        });
+    });
+  });
+})();
+</script>
+{% endblock %}

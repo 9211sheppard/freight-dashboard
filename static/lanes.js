@@ -85,12 +85,13 @@
   }
 
   // ── DOM refs ──────────────────────────────────────────────────────────────
+  const filterLaneGroup   = document.getElementById("filterLaneGroup");
   const filterOrigin      = document.getElementById("filterOrigin");
   const filterDestination = document.getElementById("filterDestination");
   const filterCarrier     = document.getElementById("filterCarrier");
   const filterVessel      = document.getElementById("filterVessel");
   const clearVessel       = document.getElementById("clearVessel");
-  const lanesBody         = document.getElementById("lanesBody");
+  let lanesBody           = document.getElementById("lanesBody");
   const lanesResultCount  = document.getElementById("lanesResultCount");
   const lanesLastChecked  = document.getElementById("lanesLastChecked");
   const statTotal         = document.getElementById("statTotal");
@@ -171,12 +172,11 @@
   // ── Fetch & render ────────────────────────────────────────────────────────
   function fetchLanes() {
     const params = new URLSearchParams();
+    if (filterLaneGroup && filterLaneGroup.value) params.set("lane_group", filterLaneGroup.value);
     if (filterOrigin.value)      params.set("origin",      filterOrigin.value);
     if (filterDestination.value) params.set("destination", filterDestination.value);
     if (filterCarrier.value)     params.set("carrier",     filterCarrier.value);
     if (filterVessel.value.trim()) params.set("vessel",    filterVessel.value.trim());
-
-    if (lanesResultCount) lanesResultCount.textContent = "Loading…";
 
     fetch(`/api/lanes/search?${params}`)
       .then(r => r.json())
@@ -186,7 +186,13 @@
           if (lanesResultCount) lanesResultCount.textContent = "0 results";
           return;
         }
-        lanesBody.innerHTML = data.map(renderRow).join("");
+        // Swap entire tbody element — zero flash, no intermediate empty state
+        const newTbody = document.createElement("tbody");
+        newTbody.id    = "lanesBody";
+        newTbody.innerHTML = data.map(renderRow).join("");
+        lanesBody.parentNode.replaceChild(newTbody, lanesBody);
+        lanesBody = newTbody;
+
         if (lanesResultCount)
           lanesResultCount.textContent = `${data.length} sailing${data.length !== 1 ? "s" : ""}`;
         const checked = data.find(r => r.last_checked);
@@ -246,7 +252,7 @@
   }
 
   // ── Events ────────────────────────────────────────────────────────────────
-  [filterOrigin, filterDestination, filterCarrier].forEach(el => {
+  [filterLaneGroup, filterOrigin, filterDestination, filterCarrier].forEach(el => {
     if (el) el.addEventListener("change", fetchLanes);
   });
 

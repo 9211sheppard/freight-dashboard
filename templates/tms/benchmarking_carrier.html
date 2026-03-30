@@ -1,0 +1,59 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}{{ carrier_name }} — Benchmarking{% endblock %}
+
+{% block tms_content %}
+<div class="tms-page-header">
+  <div>
+    <a href="/tms/benchmarking" class="tms-back-link"><i class="bi bi-arrow-left me-1"></i>Benchmarking</a>
+    <h1 class="tms-page-title">{{ carrier_name }}</h1>
+    <p class="tms-page-sub">Rate position vs. all carriers on shared lanes</p>
+  </div>
+</div>
+
+<div class="tms-card mb-4">
+  <div class="tms-card-header"><i class="bi bi-table me-2"></i>Lane-by-Lane Comparison</div>
+  <div class="tms-card-body p-0">
+    <div class="table-responsive">
+      <table class="table tms-table mb-0">
+        <thead>
+          <tr>
+            <th>Lane</th>
+            <th>This Carrier Avg</th>
+            <th>Market Avg</th>
+            <th>Delta</th>
+            <th>Competitors</th>
+            <th>Shipments</th>
+            <th>Verdict</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in lane_comparisons %}
+          <tr>
+            <td class="fw-600">{{ c.origin }} → {{ c.destination }}</td>
+            <td>${{ "{:,.0f}".format(c.carrier_avg_rate) }}</td>
+            <td>${{ "{:,.0f}".format(c.market_avg_rate) }}</td>
+            <td class="fw-600 {% if c.delta_pct > 10 %}text-danger{% elif c.delta_pct < -10 %}text-success{% else %}text-muted{% endif %}">
+              {% if c.delta_pct > 0 %}+{% endif %}{{ c.delta_pct }}%
+            </td>
+            <td class="text-muted small">{{ c.total_carriers_on_lane }} carriers</td>
+            <td class="text-muted small">{{ c.carrier_shipments }}</td>
+            <td>
+              {% if c.verdict == 'expensive' %}
+                <span class="tms-badge" style="background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.2)">Expensive</span>
+              {% elif c.verdict == 'cheap' %}
+                <span class="tms-badge" style="background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.2)">Competitive</span>
+              {% else %}
+                <span class="tms-badge" style="background:rgba(99,179,237,.12);color:#63b3ed;border:1px solid rgba(99,179,237,.2)">Fair</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not lane_comparisons %}
+          <tr><td colspan="7" class="text-center text-muted py-4">No shared lane data available</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Privacy Requests (GDPR/CCPA){% endblock %}
+
+{% block tms_content %}
+<style nonce="{{ csp_nonce }}">
+.privacy-note { background:#1a2540; border:1px solid #2a3f6a; border-radius:8px; padding:.75rem 1rem; font-size:.78rem; color:#93c5fd; margin-bottom:1.5rem; }
+.privacy-note i { margin-right:.4rem; }
+
+.pr-table-wrap { background:#1a1f2e; border:1px solid #2a3050; border-radius:10px; overflow:hidden; margin-bottom:1.5rem; }
+.pr-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+.pr-table th { text-align:left; padding:.5rem .8rem; color:#6c7a99; font-size:.67rem; text-transform:uppercase; letter-spacing:.07em; border-bottom:1px solid #2a3050; background:#12172a; }
+.pr-table td { padding:.5rem .8rem; border-bottom:1px solid #1a2040; color:#b0bbd6; vertical-align:middle; }
+.pr-table tr:last-child td { border-bottom:none; }
+.pr-table tr:hover td { background:#1e2540; }
+
+.status-badge { display:inline-block; padding:.15rem .5rem; border-radius:5px; font-size:.68rem; font-weight:600; text-transform:uppercase; }
+.status-Pending    { background:#3d2a0a; color:#fcd34d; }
+.status-In.Progress { background:#1e3a5f; color:#93c5fd; }
+.status-Completed  { background:#0a3d1e; color:#86efac; }
+.status-Denied     { background:#3d0a0a; color:#fca5a5; }
+
+.type-badge { display:inline-block; padding:.12rem .45rem; border-radius:4px; font-size:.67rem; text-transform:uppercase; letter-spacing:.04em; background:#1e293b; color:#94a3b8; }
+
+.due-overdue { color:#ef4444; font-weight:600; }
+.due-ok { color:#6c7a99; }
+
+.empty-state { text-align:center; padding:3rem; color:#6c7a99; font-size:.85rem; }
+
+/* Modal */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:1000; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal-box { background:#1a1f2e; border:1px solid #2a3050; border-radius:12px; padding:1.75rem; width:90%; max-width:500px; }
+.modal-box h5 { font-size:1rem; font-weight:700; color:#e2e8f0; margin-bottom:1.25rem; }
+.modal-box label { font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; color:#6c7a99; display:block; margin-bottom:.3rem; margin-top:.9rem; }
+.modal-box input, .modal-box select, .modal-box textarea { width:100%; background:#12172a; border:1px solid #2a3050; color:#c4cde0; border-radius:7px; padding:.45rem .7rem; font-size:.82rem; box-sizing:border-box; }
+.modal-box input:focus, .modal-box select:focus, .modal-box textarea:focus { outline:none; border-color:#3b82f6; }
+.modal-box textarea { resize:vertical; min-height:70px; }
+.modal-footer { display:flex; gap:.6rem; justify-content:flex-end; margin-top:1.25rem; }
+.btn-submit { background:#1e4a2e; border:1px solid #2a6040; color:#86efac; border-radius:7px; padding:.45rem 1.1rem; font-size:.82rem; cursor:pointer; }
+.btn-submit:hover { background:#225535; }
+.btn-cancel { background:transparent; border:1px solid #2a3050; color:#64748b; border-radius:7px; padding:.45rem .9rem; font-size:.82rem; cursor:pointer; }
+.btn-cancel:hover { border-color:#3b4a66; color:#94a3b8; }
+.btn-new { display:inline-flex; align-items:center; gap:.4rem; background:#1e3a5f; border:1px solid #2a4e80; color:#93c5fd; padding:.42rem .9rem; border-radius:7px; font-size:.8rem; cursor:pointer; border:none; }
+.btn-new:hover { background:#1a4a7a; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h4 class="mb-0 fw-bold text-white"><i class="bi bi-person-lock me-2 text-info"></i>Privacy Requests</h4>
+    <div style="font-size:.75rem;color:#6c7a99;margin-top:.2rem;">GDPR / CCPA Data Subject Rights Management</div>
+  </div>
+  <div style="display:flex;gap:.6rem;align-items:center;">
+    <button class="btn-new" onclick="openModal()">
+      <i class="bi bi-plus-circle"></i> Submit Request
+    </button>
+    <a href="/tms/compliance" style="background:transparent;border:1px solid #2a3050;color:#64748b;border-radius:7px;padding:.35rem .75rem;font-size:.78rem;text-decoration:none;">
+      <i class="bi bi-arrow-left me-1"></i>Compliance
+    </a>
+  </div>
+</div>
+
+<div class="privacy-note">
+  <i class="bi bi-info-circle"></i>
+  Requests must be fulfilled within <strong>30 days</strong> per GDPR Article 12. Overdue requests are highlighted in red.
+  Data subjects may request: access to their data, deletion, correction, or portability.
+</div>
+
+<div class="pr-table-wrap">
+  {% if requests %}
+  <table class="pr-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Type</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Status</th>
+        <th>Submitted</th>
+        <th>Due Date</th>
+        <th>Completed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for req in requests %}
+      <tr>
+        <td style="color:#374151;font-size:.72rem;">{{ req.id }}</td>
+        <td><span class="type-badge">{{ req.request_type }}</span></td>
+        <td style="color:#c4cde0;">{{ req.requester_name or '—' }}</td>
+        <td style="color:#93c5fd;font-size:.78rem;">{{ req.requester_email }}</td>
+        <td>
+          {%- set st = req.status | replace(' ', '.') -%}
+          <span class="status-badge status-{{ st }}">{{ req.status }}</span>
+        </td>
+        <td style="font-size:.75rem;color:#6c7a99;">{{ req.submitted_at[:10] if req.submitted_at else '—' }}</td>
+        <td>
+          {% if req.due_at %}
+            {%- set due_str = req.due_at[:10] -%}
+            {%- set is_overdue = req.due_at < now_iso and req.status not in ['Completed', 'Denied'] -%}
+            <span class="{{ 'due-overdue' if is_overdue else 'due-ok' }}" style="font-size:.75rem;">
+              {{ due_str }}{% if is_overdue %} <i class="bi bi-exclamation-triangle"></i>{% endif %}
+            </span>
+          {% else %}
+            <span style="color:#374151;">—</span>
+          {% endif %}
+        </td>
+        <td style="font-size:.75rem;color:#6c7a99;">{{ req.completed_at[:10] if req.completed_at else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:.5rem;"></i>
+    No privacy requests on record.
+  </div>
+  {% endif %}
+</div>
+
+<!-- Submit Request Modal -->
+<div class="modal-overlay" id="privacyModal">
+  <div class="modal-box">
+    <h5><i class="bi bi-person-lock me-2 text-info"></i>Submit Privacy Request</h5>
+    <div id="modal-success" style="display:none;background:#0a3d1e;border:1px solid #2a6040;color:#86efac;border-radius:7px;padding:.6rem .85rem;font-size:.82rem;margin-bottom:.75rem;"></div>
+    <form id="privacyForm">
+      <label for="pr-type">Request Type</label>
+      <select id="pr-type" name="request_type" required>
+        <option value="access">Access — View my personal data</option>
+        <option value="deletion">Deletion — Delete my personal data</option>
+        <option value="correction">Correction — Correct my personal data</option>
+        <option value="portability">Portability — Export my personal data</option>
+      </select>
+      <label for="pr-name">Full Name</label>
+      <input id="pr-name" name="name" type="text" placeholder="Jane Smith" required>
+      <label for="pr-email">Email Address</label>
+      <input id="pr-email" name="email" type="email" placeholder="jane@example.com" required>
+      <label for="pr-notes">Details / Notes (optional)</label>
+      <textarea id="pr-notes" name="notes" placeholder="Any additional context about your request..."></textarea>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn-submit"><i class="bi bi-send me-1"></i>Submit Request</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+function openModal() {
+  document.getElementById('privacyModal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('privacyModal').classList.remove('open');
+  document.getElementById('privacyForm').reset();
+  document.getElementById('modal-success').style.display = 'none';
+}
+document.getElementById('privacyModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.getElementById('privacyForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var form = this;
+  var data = new FormData(form);
+  fetch('/tms/compliance/privacy/submit', { method: 'POST', body: data })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        var el = document.getElementById('modal-success');
+        el.textContent = d.message;
+        el.style.display = 'block';
+        form.reset();
+        setTimeout(function() { closeModal(); location.reload(); }, 2500);
+      }
+    })
+    .catch(function() {
+      alert('Submission failed. Please try again.');
+    });
+});
+</script>
+{% endblock %}

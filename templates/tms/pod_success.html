@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>POD Submitted — {{ ref }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d0d0f;
+      color: #e5e5e7;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .card {
+      max-width: 480px;
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 1.4rem;
+      padding: 2.5rem 2rem;
+      text-align: center;
+    }
+    .icon { font-size: 3.5rem; margin-bottom: 1.25rem; }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #48bb78;
+      margin-bottom: 0.6rem;
+    }
+    .ref-label {
+      color: rgba(255,255,255,0.4);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.2rem;
+    }
+    .ref-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #90cdf4;
+      margin-bottom: 1.5rem;
+    }
+    .info-box {
+      border-radius: 0.9rem;
+      padding: 1rem 1.2rem;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      text-align: left;
+    }
+    .info-box.auto {
+      background: rgba(72,187,120,0.1);
+      border: 1px solid rgba(72,187,120,0.25);
+      color: #9ae6b4;
+    }
+    .info-box.pending {
+      background: rgba(99,179,237,0.08);
+      border: 1px solid rgba(99,179,237,0.2);
+      color: #90cdf4;
+    }
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      margin: 1.5rem 0;
+    }
+    .footer-note {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✅</div>
+    <h1>Delivery Confirmed</h1>
+    <div class="ref-label">Shipment</div>
+    <div class="ref-value">{{ ref }}</div>
+
+    {% if auto_billed %}
+    <div class="info-box auto">
+      <strong>📋 Sent to Accounting</strong><br>
+      Your POD has been automatically forwarded to the accounting team for billing. No further action needed.
+    </div>
+    {% else %}
+    <div class="info-box pending">
+      <strong>🔎 Under Review</strong><br>
+      Your POD has been submitted. The dispatcher will review and release it to accounting shortly.
+    </div>
+    {% endif %}
+
+    <hr class="divider">
+    <div class="footer-note">You can close this window. Thank you!</div>
+  </div>
+</body>
+</html>

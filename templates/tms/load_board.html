@@ -1,0 +1,175 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Load Board — TMS Master{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h4 class="mb-0 fw-semibold">Global Load Boards</h4>
+      <p class="text-secondary small mb-0 mt-1">Post loads to freight marketplaces across 8 regions worldwide.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/tms/load-board/settings" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-gear me-1"></i>API Credentials
+      </a>
+    </div>
+  </div>
+
+  {% if post_results %}
+  <div class="alert alert-info py-2 mb-4">
+    <strong>Post results:</strong>
+    {% for board, r in post_results.items() %}
+    <span class="badge {% if r.ok %}bg-success{% else %}bg-danger{% endif %} me-1">
+      {{ board }}: {{ 'posted' if r.ok else r.error[:40] }}
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Post a Load -->
+  <div class="card bg-body-tertiary border-secondary-subtle mb-4">
+    <div class="card-header border-secondary-subtle fw-semibold small">
+      <i class="bi bi-send me-1 text-info"></i>Post a Shipment to Load Boards
+    </div>
+    <div class="card-body">
+      <form method="POST" action="/tms/load-board/post">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label small text-secondary">Shipment</label>
+            <select name="shipment_ref" class="form-select form-select-sm bg-body border-secondary" required>
+              <option value="">— Select shipment —</option>
+              {% for s in shipments %}
+              <option value="{{ s.shipment_ref }}">{{ s.shipment_ref }} — {{ s.origin_port }} → {{ s.destination_port }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-secondary">Post to boards (select multiple)</label>
+            <div class="d-flex flex-wrap gap-2">
+              {% for p in providers %}
+              {% if p.api_status == 'verified' %}
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="boards" value="{{ p.key }}"
+                  id="board_{{ p.key }}" {% if p.creds_saved %}{% else %}disabled{% endif %}>
+                <label class="form-check-label small" for="board_{{ p.key }}">
+                  {{ p.name }}
+                  {% if not p.creds_saved %}<span class="text-warning">(no creds)</span>{% endif %}
+                </label>
+              </div>
+              {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-info btn-sm w-100">
+              <i class="bi bi-upload me-1"></i>Post
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Provider Map by Region -->
+  {% set regions = providers | groupby('region') %}
+  {% for region, region_providers in regions %}
+  <div class="mb-4">
+    <div class="text-secondary small fw-semibold mb-2 text-uppercase" style="letter-spacing:.06em;">
+      <i class="bi bi-globe2 me-1"></i>{{ region }}
+    </div>
+    <div class="row g-2">
+      {% for p in region_providers %}
+      <div class="col-6 col-md-4 col-lg-3">
+        <div class="card bg-body-tertiary border-secondary-subtle h-100 p-3">
+          <div class="d-flex align-items-start justify-content-between mb-1">
+            <span class="small fw-semibold">{{ p.name }}</span>
+            {% if p.api_status == 'verified' %}
+              {% if p.creds_saved %}
+              <span class="badge bg-success">Live</span>
+              {% else %}
+              <span class="badge bg-warning text-dark">No creds</span>
+              {% endif %}
+            {% elif p.api_status == 'manual' %}
+            <span class="badge bg-secondary">Manual</span>
+            {% else %}
+            <span class="badge bg-secondary bg-opacity-50">Contact</span>
+            {% endif %}
+          </div>
+          <div class="text-secondary" style="font-size:.72rem;">{{ p.notes[:80] }}{% if p.notes|length > 80 %}…{% endif %}</div>
+          {% if p.api_status != 'manual' and p.api_status != 'contact' %}
+          <div class="mt-2">
+            <a href="/tms/load-board/settings#{{ p.key }}" class="text-info" style="font-size:.72rem;">
+              <i class="bi bi-key me-1"></i>Add credentials
+            </a>
+          </div>
+          {% elif p.api_status != 'manual' %}
+          <div class="mt-2">
+            <a href="{{ p.docs_url }}" target="_blank" rel="noopener" class="text-secondary" style="font-size:.72rem;">
+              <i class="bi bi-box-arrow-up-right me-1"></i>Visit portal
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Active Postings -->
+  <div class="card bg-body-tertiary border-secondary-subtle mt-2">
+    <div class="card-header border-secondary-subtle fw-semibold small">
+      <i class="bi bi-broadcast me-1 text-info"></i>Active Postings
+    </div>
+    <div class="card-body p-0">
+      {% if postings %}
+      <div class="table-responsive">
+        <table class="table table-sm table-dark table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Shipment</th><th>Board</th><th>Status</th>
+              <th>External ID</th><th>Posted</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for p in postings %}
+          <tr>
+            <td class="small">
+              <a href="/tms/shipments/{{ p.shipment_ref }}" class="text-info text-decoration-none">{{ p.shipment_ref }}</a>
+            </td>
+            <td class="small">{{ p.board_name }}</td>
+            <td>
+              <span class="badge {% if p.status == 'active' %}bg-success{% elif p.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %}">
+                {{ p.status }}
+              </span>
+            </td>
+            <td class="small text-secondary">{{ p.external_id or '—' }}</td>
+            <td class="small text-secondary">{{ p.posted_at[:10] if p.posted_at else '—' }}</td>
+            <td>
+              {% if p.status == 'active' %}
+              <form method="POST" action="/tms/load-board/delete/{{ p.id }}" class="d-inline">
+                <button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="return confirm('Remove this posting?')">
+                  <i class="bi bi-x"></i>
+                </button>
+              </form>
+              {% endif %}
+              {% if p.error %}
+              <span class="text-danger ms-1" style="font-size:.72rem;" title="{{ p.error }}">
+                <i class="bi bi-exclamation-triangle"></i>
+              </span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="p-4 text-center text-secondary small">No active postings yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

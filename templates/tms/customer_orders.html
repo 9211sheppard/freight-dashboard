@@ -1,0 +1,326 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Order Pipeline{% endblock %}
+
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+.pipeline-shell {
+  padding: 0.25rem 0;
+}
+
+.pipeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.pipeline-eyebrow {
+  color: #60a5fa;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.pipeline-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #f8fafc;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.pipeline-subtitle {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0;
+}
+
+.pipeline-board {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  min-height: 520px;
+}
+
+.pipeline-col {
+  min-width: 255px;
+  max-width: 255px;
+  background: #1a1a1a;
+  border-radius: 12px;
+  padding: 0.9rem;
+  flex-shrink: 0;
+}
+
+.pipeline-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.pipeline-col-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+}
+
+.pipeline-col-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 0.1rem 0.55rem;
+  color: #cbd5e1;
+}
+
+.order-card {
+  background: #242424;
+  border-radius: 9px;
+  padding: 0.7rem 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.78rem;
+  cursor: default;
+  transition: background 0.15s;
+  border-left: 3px solid transparent;
+}
+
+.order-card:hover {
+  background: #2a2a2a;
+}
+
+.order-card-ref {
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: #f1f5f9;
+  text-decoration: none;
+}
+
+.order-card-ref:hover {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+.order-card-customer {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.order-card-route {
+  color: #cbd5e1;
+  font-size: 0.77rem;
+  margin-bottom: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.4rem;
+}
+
+.order-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  background: rgba(255,255,255,0.07);
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+}
+
+.order-card-meta {
+  color: #64748b;
+  font-size: 0.72rem;
+  margin-bottom: 0.5rem;
+}
+
+.order-card-desc {
+  color: #64748b;
+  font-size: 0.71rem;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  margin-bottom: 0.5rem;
+}
+
+.btn-advance {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  color: #64748b;
+  font-size: 0.69rem;
+  font-weight: 600;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-align: center;
+}
+
+.btn-advance:hover {
+  background: rgba(255,255,255,0.1);
+  color: #94a3b8;
+}
+
+.btn-new-order {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #1d4ed8;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.btn-new-order:hover {
+  background: #2563eb;
+  color: #fff;
+}
+
+.pipeline-empty {
+  color: #334155;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 1.5rem 0;
+  font-style: italic;
+}
+
+/* Stage border colors */
+{% for stage, color in [
+  ('Received', '#888888'),
+  ('Quoted', '#60a5fa'),
+  ('Dispatched', '#fb923c'),
+  ('In Transit', '#facc15'),
+  ('Delivered', '#4ade80'),
+  ('Billed', '#a78bfa')
+] %}
+.order-card[data-stage="{{ stage }}"] { border-left-color: {{ color }}; }
+.pipeline-col[data-stage="{{ stage }}"] .pipeline-col-label { color: {{ color }}; }
+{% endfor %}
+</style>
+{% endblock %}
+
+{% block tms_content %}
+<div class="pipeline-shell">
+
+  <div class="pipeline-header">
+    <div>
+      <div class="pipeline-eyebrow">Order Management</div>
+      <h1 class="pipeline-title">Order Pipeline</h1>
+      <p class="pipeline-subtitle">{{ counts.values() | sum }} orders across {{ stages | length }} stages</p>
+    </div>
+    <a href="/tms/orders/submit" target="_blank" class="btn-new-order">
+      <i class="bi bi-plus-lg"></i> New Order
+    </a>
+  </div>
+
+  <div class="pipeline-board">
+    {% for stage in stages %}
+    {% set stage_i = loop.index0 %}
+    {% set next_stage = stages[stage_i + 1] if stage_i + 1 < stages | length else '' %}
+    <div class="pipeline-col" data-stage="{{ stage }}">
+      <div class="pipeline-col-header">
+        <span class="pipeline-col-label">{{ stage }}</span>
+        <span class="pipeline-col-count">{{ counts[stage] }}</span>
+      </div>
+
+      {% set col_orders = pipeline[stage] %}
+      {% if not col_orders %}
+        <div class="pipeline-empty">No orders</div>
+      {% else %}
+        {% for order in col_orders %}
+        <div class="order-card" data-stage="{{ stage }}" data-ref="{{ order.order_ref }}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.2rem;">
+            <a href="/tms/orders/{{ order.order_ref }}" class="order-card-ref">{{ order.order_ref }}</a>
+          </div>
+          <div class="order-card-customer">
+            {{ order.customer_name }}{% if order.customer_company %} &mdash; {{ order.customer_company }}{% endif %}
+          </div>
+          <div class="order-card-route">
+            {% set orig_parts = [] %}
+            {% if order.origin_city %}{% set _ = orig_parts.append(order.origin_city) %}{% endif %}
+            {% if order.origin_state %}{% set _ = orig_parts.append(order.origin_state) %}{% endif %}
+            {% set dest_parts = [] %}
+            {% if order.destination_city %}{% set _ = dest_parts.append(order.destination_city) %}{% endif %}
+            {% if order.destination_state %}{% set _ = dest_parts.append(order.destination_state) %}{% endif %}
+            {% if orig_parts or dest_parts %}
+              {{ orig_parts | join(', ') or '—' }} &rarr; {{ dest_parts | join(', ') or '—' }}
+            {% else %}
+              &mdash;
+            {% endif %}
+          </div>
+          <div class="order-card-badges">
+            <span class="order-badge">{{ order.equipment_type }}</span>
+            <span class="order-badge">{{ order.service_type }}</span>
+            {% if order.hazmat %}<span class="order-badge" style="color:#ef4444;">HAZMAT</span>{% endif %}
+            {% if order.temperature_controlled %}<span class="order-badge" style="color:#38bdf8;">TEMP</span>{% endif %}
+          </div>
+          <div class="order-card-meta">
+            {% if order.weight_lbs %}{{ order.weight_lbs | int }} lbs{% endif %}
+            {% if order.pallets %} &bull; {{ order.pallets }} plt{% endif %}
+            {% if order.pickup_date %} &bull; {{ order.pickup_date }}{% endif %}
+          </div>
+          {% if order.cargo_description %}
+          <div class="order-card-desc">{{ order.cargo_description }}</div>
+          {% endif %}
+
+          {% if next_stage %}
+          <button class="btn-advance"
+                  data-ref="{{ order.order_ref }}"
+                  data-next="{{ next_stage }}"
+                  onclick="advanceOrder(this)">
+            Move to {{ next_stage }} &rarr;
+          </button>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+
+<script nonce="{{ csp_nonce }}">
+function advanceOrder(btn) {
+  var ref = btn.dataset.ref;
+  var next = btn.dataset.next;
+  btn.disabled = true;
+  btn.textContent = 'Moving…';
+  fetch('/tms/orders/' + encodeURIComponent(ref) + '/advance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stage: next })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      window.location.reload();
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Error — retry';
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = 'Error — retry';
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Quote Request Submitted | {{ settings.get("company_name", "Customer Portal") }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --portal-brand: {{ settings.get("primary_color", "#0f766e") }};
+    --portal-border: rgba(255, 255, 255, 0.12);
+    --portal-soft: rgba(255, 255, 255, 0.05);
+    --portal-muted: #9ab0c5;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 28%),
+      linear-gradient(180deg, #112233 0%, #08131d 42%, #04070a 100%);
+    color: #f3f6fb;
+    font-family: Aptos, "Segoe UI", sans-serif;
+  }
+
+  .app-shell {
+    max-width: 1080px;
+    padding-top: 1.25rem;
+    padding-bottom: 2.5rem;
+  }
+
+  .portal-card {
+    border-radius: 24px;
+    border: 1px solid var(--portal-border);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(8px);
+  }
+
+  .check-mark {
+    width: 72px;
+    height: 72px;
+    border-radius: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(25, 135, 84, 0.18);
+    color: #8fe0b0;
+    font-size: 2rem;
+    border: 1px solid rgba(143, 224, 176, 0.3);
+  }
+
+  .eyebrow,
+  .detail-label {
+    font-size: 0.76rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--portal-muted);
+  }
+
+  .detail-tile {
+    border-radius: 18px;
+    border: 1px solid var(--portal-border);
+    background: var(--portal-soft);
+    padding: 1rem;
+    height: 100%;
+  }
+
+  .helper-copy {
+    color: var(--portal-muted);
+  }
+
+  .btn-soft {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .btn-soft:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .btn-brand {
+    border: none;
+    background: var(--portal-brand);
+    color: #fff;
+    font-weight: 700;
+  }
+
+  .btn-brand:hover {
+    color: #fff;
+    filter: brightness(1.04);
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.45rem 0.85rem;
+    background: rgba(255, 193, 7, 0.18);
+    color: #ffe08a;
+    font-weight: 700;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="portal-card p-4 p-lg-5 mb-4 text-center">
+  <div class="check-mark mx-auto mb-3">
+    <i class="bi bi-check2"></i>
+  </div>
+  <div class="eyebrow mb-2">Request Submitted</div>
+  <h1 class="h2 mb-2">Quote request received</h1>
+  <p class="helper-copy mb-3">Dispatch has your request and will update the rate in your portal history once it is quoted.</p>
+  <div class="display-6 fw-bold mb-3">{{ quote_request.reference }}</div>
+  <div class="status-pill">Status: {{ quote_request.status_label }}</div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-md-6 col-xl-3">
+    <div class="detail-tile">
+      <div class="detail-label mb-2">Route</div>
+      <div class="fw-semibold">{{ quote_request.route_label }}</div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-3">
+    <div class="detail-tile">
+      <div class="detail-label mb-2">Equipment</div>
+      <div class="fw-semibold">{{ quote_request.equipment_label or "-" }}</div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-3">
+    <div class="detail-tile">
+      <div class="detail-label mb-2">Pickup</div>
+      <div class="fw-semibold">{{ quote_request.pickup_date or "Pending" }}</div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-3">
+    <div class="detail-tile">
+      <div class="detail-label mb-2">Submitted</div>
+      <div class="fw-semibold">{{ quote_request.created_at[:16] if quote_request.created_at else "-" }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="portal-card p-4">
+  <div class="row g-4 align-items-start">
+    <div class="col-lg-8">
+      <div class="detail-label mb-2">Cargo Description</div>
+      <div class="fs-5 fw-semibold mb-2">{{ quote_request.cargo_description }}</div>
+      <div class="helper-copy">Customer: {{ portal_token.customer_name }}{% if portal_token.email %} | {{ portal_token.email }}{% endif %}</div>
+      {% if quote_request.notes %}
+      <div class="detail-label mt-4 mb-2">Notes</div>
+      <div class="helper-copy">{{ quote_request.notes }}</div>
+      {% endif %}
+    </div>
+    <div class="col-lg-4">
+      <div class="d-grid gap-2">
+        <a href="{{ url_for('portal.portal_quotes') }}" class="btn btn-brand">
+          <i class="bi bi-receipt me-1"></i>View My Quotes
+        </a>
+        <a href="{{ url_for('portal.portal_book') }}" class="btn btn-soft">
+          <i class="bi bi-plus-circle me-1"></i>Submit Another
+        </a>
+        <a href="{{ url_for('portal.portal_dashboard', token=portal_token.token) }}" class="btn btn-soft">
+          <i class="bi bi-speedometer2 me-1"></i>Return to Dashboard
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

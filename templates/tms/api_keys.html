@@ -1,0 +1,125 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}API Keys{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-key me-2"></i>API Keys</h2>
+    <div class="text-muted small">Generate and revoke customer bearer tokens for external TMS integrations.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{{ url_for('tms.api_docs') }}" class="btn btn-outline-info"><i class="bi bi-journal-code me-1"></i>API Docs</a>
+    <a href="{{ url_for('tms.dashboard') }}" class="btn btn-outline-secondary"><i class="bi bi-speedometer2 me-1"></i>TMS Master</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="mb-4">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+{% if generated_api_key %}
+<div class="alert alert-warning border border-warning-subtle mb-4">
+  <div class="fw-semibold mb-1">Copy this key now. It is only shown once.</div>
+  <code id="generated-api-key" class="d-block">{{ generated_api_key.key }}</code>
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-xl-4">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-plus-circle me-2"></i>Generate API Key</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('tms.api_keys') }}">
+          <input type="hidden" name="action" value="generate">
+          <div class="mb-3">
+            <label class="form-label text-muted">Customer Name</label>
+            <input
+              type="text"
+              name="customer_name"
+              value="{{ customer_name }}"
+              class="form-control bg-black text-white border-secondary"
+              placeholder="Lakefront Foods"
+              required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Permissions</label>
+            {% for option in permission_options %}
+            <label class="form-check d-flex gap-2 align-items-start mb-2">
+              <input
+                class="form-check-input mt-1"
+                type="checkbox"
+                name="permissions"
+                value="{{ option.value }}"
+                {% if option.value in selected_permissions %}checked{% endif %}>
+              <span>
+                <span class="d-block fw-semibold">{{ option.label }}</span>
+                <span class="text-muted small">{{ option.description }}</span>
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-key-fill me-1"></i>Generate Key
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-shield-lock me-2"></i>Active Keys</span>
+        <span class="badge bg-secondary">{{ api_keys|length }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0 align-middle">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Customer</th>
+              <th>Key</th>
+              <th>Permissions</th>
+              <th>Created</th>
+              <th>Last Used</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in api_keys %}
+            <tr>
+              <td class="fw-semibold">{{ item.customer_name }}</td>
+              <td><code>{{ item.masked_key }}</code></td>
+              <td>
+                {% for permission in item.permissions %}
+                <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle me-1 mb-1">{{ permission }}</span>
+                {% endfor %}
+              </td>
+              <td>{{ item.created_at or "-" }}</td>
+              <td>{{ item.last_used or "Never" }}</td>
+              <td class="text-end">
+                <form method="POST" action="{{ url_for('tms.api_keys') }}" class="d-inline">
+                  <input type="hidden" name="action" value="revoke">
+                  <input type="hidden" name="key" value="{{ item.key }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-slash-circle me-1"></i>Revoke
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">No API keys created yet.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

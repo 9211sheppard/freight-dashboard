@@ -1,0 +1,274 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Forecasting{% endblock %}
+{% block tms_content %}
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+  <div>
+    <h2 class="mb-0 fw-bold"><i class="bi bi-activity me-2"></i>Demand Forecasting</h2>
+    <p class="text-muted small mb-0 mt-1">12-week history with 4-week outlook for {{ scope_label }}</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/tms/forecasting" class="btn btn-outline-secondary btn-sm">All Lanes</a>
+    <a href="/tms/" class="btn btn-outline-secondary btn-sm">Back to TMS</a>
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-body">
+    <form method="get" action="/tms/forecasting/lane" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label text-muted small mb-1">Origin</label>
+        <select name="origin" class="form-select bg-black text-white border-secondary">
+          <option value="">All origins</option>
+          {% for origin in origins %}
+          <option value="{{ origin }}" {% if selected_origin == origin %}selected{% endif %}>{{ origin }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label text-muted small mb-1">Destination</label>
+        <select name="dest" class="form-select bg-black text-white border-secondary">
+          <option value="">All destinations</option>
+          {% for destination in destinations %}
+          <option value="{{ destination }}" {% if selected_destination == destination %}selected{% endif %}>{{ destination }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4 d-flex gap-2">
+        <button type="submit" class="btn forecast-btn-primary flex-grow-1">Apply Filter</button>
+        <a href="/tms/forecasting" class="btn btn-outline-secondary">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="card forecast-card h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Avg Weekly Shipments</div>
+        <div class="display-6 fw-bold text-white mt-2">{{ avg_weekly_shipments }}</div>
+        <div class="small text-muted mt-2">Based on the last 12 weeks</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card forecast-card h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Projected Next Month</div>
+        <div class="display-6 fw-bold forecast-gold mt-2">{{ projected_next_month }}</div>
+        <div class="small text-muted mt-2">${{ "{:,.0f}".format(projected_next_month_revenue or 0) }} projected revenue</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card forecast-card h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Top Lane</div>
+        <div class="fw-bold text-white fs-5 mt-2">{{ top_lane_label }}</div>
+        <div class="small text-muted mt-2">{{ top_lane_shipments }} shipments in scope</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card forecast-card h-100 border-{{ trend_class }}">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Trend</div>
+        <div class="d-flex align-items-center gap-2 mt-2">
+          <i class="bi {{ trend_icon }} text-{{ trend_class }} fs-2"></i>
+          <div class="display-6 fw-bold text-white mb-0">{{ trend_label }}</div>
+        </div>
+        <div class="small text-muted mt-2">Direction from weekly shipment trendline</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card forecast-card h-100">
+      <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Historical Volume</span>
+        <span class="small text-muted">Gold bars scale to weekly shipment count</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark align-middle mb-0 forecast-table">
+          <thead>
+            <tr>
+              <th>Week</th>
+              <th>Shipments</th>
+              <th class="w-50">Volume</th>
+              <th>Revenue</th>
+              <th>4W Avg</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in history_rows %}
+            <tr>
+              <td class="fw-semibold">{{ row.week }}</td>
+              <td>{{ row.count }}</td>
+              <td>
+                <div class="forecast-bar-track">
+                  <div class="forecast-bar" style="width: {{ row.bar_pct }}%"></div>
+                </div>
+              </td>
+              <td>${{ "{:,.0f}".format(row.revenue or 0) }}</td>
+              <td class="text-muted">{{ row.moving_avg_count }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-4">No shipment history available.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card forecast-card h-100">
+      <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Next 4 Weeks Forecast</span>
+        <span class="small text-muted">Trend plus last-year seasonality when available</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark align-middle mb-0 forecast-table">
+          <thead>
+            <tr>
+              <th>Week</th>
+              <th>Count</th>
+              <th>Revenue</th>
+              <th>Confidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in forecast_next_periods %}
+            <tr>
+              <td class="fw-semibold">{{ row.week_label }}</td>
+              <td>{{ row.forecast_count }}</td>
+              <td>${{ "{:,.0f}".format(row.forecast_revenue or 0) }}</td>
+              <td>
+                <span class="badge {% if row.confidence == 'high' %}bg-success{% elif row.confidence == 'med' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                  {{ row.confidence|upper }}
+                </span>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">No forecast available.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card forecast-card">
+      <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Top 5 Lanes by Volume</span>
+        <span class="small text-muted">Current 12-week window</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0 forecast-table">
+          <thead>
+            <tr>
+              <th>Origin</th>
+              <th>Destination</th>
+              <th>Shipments</th>
+              <th>Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lane in top_lanes %}
+            <tr>
+              <td class="fw-semibold">{{ lane.origin }}</td>
+              <td>{{ lane.destination }}</td>
+              <td><span class="badge forecast-pill">{{ lane.count }}</span></td>
+              <td class="forecast-gold">${{ "{:,.0f}".format(lane.revenue or 0) }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">No lane activity in the selected history window.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style nonce="{{ csp_nonce }}">
+.forecast-card {
+  background: linear-gradient(180deg, rgba(24, 24, 24, 0.96), rgba(10, 10, 10, 0.98));
+  border: 1px solid rgba(200, 169, 110, 0.16);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+}
+
+.forecast-btn-primary {
+  background: #c8a96e;
+  border: 1px solid #c8a96e;
+  color: #111;
+  font-weight: 700;
+}
+
+.forecast-btn-primary:hover {
+  background: #d8b67a;
+  border-color: #d8b67a;
+  color: #111;
+}
+
+.forecast-gold {
+  color: #c8a96e;
+}
+
+.forecast-pill {
+  background: rgba(200, 169, 110, 0.18);
+  color: #f0d7a6;
+  border: 1px solid rgba(200, 169, 110, 0.28);
+}
+
+.forecast-table thead th {
+  color: #8e8e8e;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.forecast-table td,
+.forecast-table th {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.06);
+  padding: 0.9rem 1rem;
+}
+
+.forecast-table tbody tr:hover td {
+  background: rgba(200, 169, 110, 0.04) !important;
+}
+
+.forecast-bar-track {
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.forecast-bar {
+  height: 100%;
+  min-width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8b6a34, #c8a96e 65%, #f2d9a2);
+  box-shadow: 0 0 14px rgba(200, 169, 110, 0.35);
+}
+
+@media (max-width: 991.98px) {
+  .forecast-table td,
+  .forecast-table th {
+    padding: 0.75rem;
+  }
+}
+</style>
+{% endblock %}

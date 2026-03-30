@@ -1,0 +1,107 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-clock-history me-2"></i>Audit Log</h2>
+    <div class="text-muted small">Enterprise activity across tenants, users, and record changes.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/admin/tenants" class="btn btn-outline-light"><i class="bi bi-buildings me-1"></i>Tenants</a>
+    <a href="/tms" class="btn btn-outline-secondary"><i class="bi bi-speedometer2 me-1"></i>TMS Master</a>
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-body">
+    <form method="GET" action="/tms/admin/audit" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label text-muted">Tenant</label>
+        <select name="tenant_id" class="form-select bg-black text-white border-secondary">
+          <option value="">All tenants</option>
+          {% for tenant in tenants %}
+          <option value="{{ tenant.tenant_id }}" {% if filters.tenant_id == tenant.tenant_id %}selected{% endif %}>{{ tenant.company_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label text-muted">User</label>
+        <select name="user_id" class="form-select bg-black text-white border-secondary">
+          <option value="">All users</option>
+          {% for user_id in user_options %}
+          <option value="{{ user_id }}" {% if filters.user_id == user_id %}selected{% endif %}>{{ user_id }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label text-muted">Action</label>
+        <select name="action" class="form-select bg-black text-white border-secondary">
+          <option value="">All actions</option>
+          {% for action in action_options %}
+          <option value="{{ action }}" {% if filters.action == action %}selected{% endif %}>{{ action }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label text-muted">Start Date</label>
+        <input type="date" name="start_date" class="form-control bg-black text-white border-secondary" value="{{ filters.start_date }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label text-muted">End Date</label>
+        <input type="date" name="end_date" class="form-control bg-black text-white border-secondary" value="{{ filters.end_date }}">
+      </div>
+      <div class="col-md-1 d-grid">
+        <button type="submit" class="btn btn-primary">Filter</button>
+      </div>
+      <div class="col-12 d-flex justify-content-end">
+        <a href="/tms/admin/audit/export?tenant_id={{ filters.tenant_id }}&user_id={{ filters.user_id }}&action={{ filters.action }}&start_date={{ filters.start_date }}&end_date={{ filters.end_date }}" class="btn btn-outline-success">
+          <i class="bi bi-filetype-csv me-1"></i>Export CSV
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-journal-text me-2"></i>Recorded Events</span>
+    <span class="small text-muted">{{ audit_events|length }} rows</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead class="table-secondary text-dark">
+        <tr>
+          <th>When</th>
+          <th>Tenant</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Table</th>
+          <th>Record</th>
+          <th>IP</th>
+          <th>Changes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in audit_events %}
+        <tr>
+          <td>{{ event.created_at }}</td>
+          <td>{{ event.tenant_id }}</td>
+          <td>{{ event.user_id or "system" }}</td>
+          <td><span class="badge bg-danger">{{ event.action }}</span></td>
+          <td>{{ event.table_name }}</td>
+          <td>{{ event.record_id or "-" }}</td>
+          <td>{{ event.ip or "-" }}</td>
+          <td style="min-width: 360px;">
+            <pre class="mb-0 small text-wrap text-white">{{ event.changes | tojson(indent=2) }}</pre>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-4">No audit events matched those filters.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

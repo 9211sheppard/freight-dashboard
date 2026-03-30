@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}TMS Sandbox{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="rail">
+        <div>
+          <p class="eyebrow">Cloud Sandbox</p>
+          <h1>TMS Sandbox</h1>
+          <p class="subtle">
+            MFA-first access for ops demos and internal review.
+            {% if current_tenant %}<br>{{ current_tenant.company_name }}{% endif %}
+          </p>
+        </div>
+        <nav class="nav">
+          <a href="{{ url_for('dashboard') if current_user else url_for('login') }}">Overview</a>
+          {% if current_user %}
+          <a href="{{ url_for('reports') }}">Reports</a>
+          {% if current_user["role"] in ("admin", "dispatcher") %}
+          <a href="{{ url_for('dispatch_board') }}">Dispatch Board</a>
+          {% endif %}
+          {% if current_user["role"] == "admin" %}
+          <a href="{{ url_for('admin_users') }}">User Access</a>
+          <a href="{{ url_for('admin_tenants') }}">Tenants</a>
+          <a href="{{ url_for('admin_audit') }}">Audit Log</a>
+          {% endif %}
+          {% endif %}
+        </nav>
+      </aside>
+      <main class="content">
+        <header class="topbar">
+          <div>
+            {% if current_user %}
+            <p class="eyebrow">Signed in as {{ current_user["full_name"] }}</p>
+            <h2>{{ role_labels[current_user["role"]] }} workspace{% if current_tenant %} · {{ current_tenant.company_name }}{% endif %}</h2>
+            {% else %}
+            <p class="eyebrow">Secure Entry</p>
+            <h2>Two-step access required</h2>
+            {% endif %}
+          </div>
+          {% if current_user %}
+          <form method="post" action="{{ url_for('logout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="ghost" type="submit">Sign out</button>
+          </form>
+          {% endif %}
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <section class="flash-stack">
+              {% for category, message in messages %}
+              <div class="flash flash-{{ category }}">{{ message }}</div>
+              {% endfor %}
+            </section>
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </body>
+</html>

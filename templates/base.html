@@ -3,96 +3,153 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Dashboard{% endblock %}</title>
-  <!-- Bootstrap 5 -->
-  <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-        crossorigin="anonymous">
-  <!-- Bootstrap Icons -->
-  <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ sv|default('1') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='learn.css') }}?v={{ sv|default('1') }}">
+  <meta name="csrf-token" content="{{ csrf_token() if csrf_token is defined else '' }}">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="{{ url_for('static', filename='driver_manifest.json') }}">
+  <title>{% block title %}{{ brand_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-icons.min.css') }}">
+  {% if request.path.startswith('/tms') or request.path.startswith('/loadboard') or request.path.startswith('/portal') %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='tms.css') }}?v={{ sv }}">
+  {% endif %}
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #0b1220 0%, #101828 100%);
+      color: #e5e7eb;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(10px);
+    }
+    .app-brand {
+      color: #f8fafc;
+      text-decoration: none;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .app-brand-sub {
+      color: #94a3b8;
+      font-size: 0.82rem;
+    }
+    .app-shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+    .flash-wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 1rem 1.5rem 0;
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
-
 {% block navbar %}
-<nav class="navbar navbar-dark navbar-expand-lg px-3 py-2" id="main-nav">
-  <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold flex-shrink-0" href="#">
-    <i class="bi bi-people-fill fs-5"></i>
-  </a>
-  <div class="quote-ticker-wrap d-none d-lg-flex">
-    <div id="quoteTicker"></div>
-  </div>
-  <div class="ms-auto d-flex align-items-center gap-2 flex-shrink-0">
-    <span class="text-secondary small" id="nav-db-count"></span>
-    <span class="text-secondary small d-none d-md-inline" id="nav-last-sync" title="Last time CSV was synced"></span>
-    <!-- Hidden file input -->
-    <input type="file" id="csvFileInput" accept=".csv" style="display:none">
-    <button class="btn btn-sm btn-outline-info" id="learnBtn" title="Start a learning session">
-      <i class="bi bi-book me-1"></i><span class="d-none d-md-inline">Learn</span>
-    </button>
-    <button class="btn btn-sm btn-outline-warning" id="importCsvBtn" title="Import a CSV file you received by email">
-      <i class="bi bi-upload" id="importIcon"></i> Import CSV
-    </button>
-    <button class="btn btn-sm btn-outline-light" id="refreshBtn" title="Re-import CSV now">
-      <i class="bi bi-arrow-clockwise" id="refreshIcon"></i> Refresh Data
-    </button>
-    <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-box-arrow-right"></i> Logout
-    </a>
-  </div>
-
-  <!-- Toast notification -->
-  <div class="position-fixed bottom-0 end-0 p-3" style="z-index:11000">
-    <div id="syncToast" class="toast align-items-center text-white border-0" role="alert" aria-live="assertive">
-      <div class="d-flex">
-        <div class="toast-body" id="syncToastMsg">Data refreshed.</div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-      </div>
+  {% if session.get('logged_in') and request.endpoint != 'login' %}
+  <header class="app-header">
+    <div>
+      <a class="app-brand" href="{{ url_for('tms.dashboard') }}">{{ brand_name }}</a>
+      <div class="app-brand-sub">Standalone TMS on port 5001</div>
     </div>
-  </div>
-</nav>
+    <div class="d-flex align-items-center gap-2">
+      <a class="btn btn-sm btn-outline-light" href="{{ url_for('public.public_loadboard') }}">Public Loadboard</a>
+      <a class="btn btn-sm btn-outline-light" href="{{ url_for('portal.portal_login') }}">Customer Portal</a>
+      <form method="post" action="{{ url_for('logout') }}" class="d-inline">
+        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+        <button type="submit" class="btn btn-sm btn-warning">Sign Out</button>
+      </form>
+    </div>
+  </header>
+  {% endif %}
 {% endblock %}
 
-{% if session.get('logged_in') %}
-<div class="tab-nav-strip">
-  <a href="/dashboard" class="tab-link {% if active_tab == 'contacts' %}active{% endif %}">
-    <i class="bi bi-people-fill"></i> Contacts
-  </a>
-  <a href="/lanes" class="tab-link {% if active_tab == 'lanes' %}active{% endif %}">
-    <i class="bi bi-ship"></i> Lanes
-  </a>
-  <a href="/carriers" class="tab-link {% if active_tab == 'carriers' %}active{% endif %}">
-    <i class="bi bi-truck"></i> Carriers
-  </a>
-  <a href="/rates" class="tab-link {% if active_tab == 'rates' %}active{% endif %}">
-    <i class="bi bi-currency-dollar"></i> Rates
-  </a>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-wrap">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} mb-2">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<div id="main-content-wrap" class="{% if request.path.startswith('/tms') %}tms-page{% else %}app-shell{% endif %}">
+  {% block content %}{% endblock %}
 </div>
-{% endif %}
 
-{% block content %}{% endblock %}
+<script nonce="{{ csp_nonce }}">
+  (function () {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    if (!csrfToken) {
+      return;
+    }
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmYvBaVlnLM4GzaFEQRNKb4inCF7"
-        crossorigin="anonymous"></script>
-{% block scripts %}{% endblock %}
-{% if session.get('logged_in') %}
-<script src="{{ url_for('static', filename='quotes.js') }}?v={{ sv|default('1') }}"></script>
-<script src="{{ url_for('static', filename='learn.js') }}?v={{ sv|default('1') }}"></script>
-<!-- Auto-reload: detects server restart and refreshes page automatically -->
-<script>
-(function(){
-  const V = '{{ sv|default("1") }}';
-  setInterval(function(){
-    fetch('/api/version').then(r=>r.json()).then(d=>{
-      if(d.v && d.v !== V) window.location.reload();
-    }).catch(function(){});
-  }, 3000);
-})();
+    document.querySelectorAll('form[method]').forEach(function (form) {
+      const method = (form.getAttribute('method') || 'get').toUpperCase();
+      if (['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+        return;
+      }
+      if (form.querySelector('input[name="csrf_token"]')) {
+        return;
+      }
+      const tokenInput = document.createElement('input');
+      tokenInput.type = 'hidden';
+      tokenInput.name = 'csrf_token';
+      tokenInput.value = csrfToken;
+      form.appendChild(tokenInput);
+    });
+
+    const originalFetch = window.fetch ? window.fetch.bind(window) : null;
+    if (!originalFetch) {
+      return;
+    }
+
+    window.fetch = function (input, init) {
+      const method = String(
+        (init && init.method)
+        || (input instanceof Request && input.method)
+        || 'GET'
+      ).toUpperCase();
+      if (['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method)) {
+        return originalFetch(input, init);
+      }
+
+      const urlValue = input instanceof Request ? input.url : input;
+      let url;
+      try {
+        url = new URL(urlValue, window.location.origin);
+      } catch (error) {
+        return originalFetch(input, init);
+      }
+      if (url.origin !== window.location.origin) {
+        return originalFetch(input, init);
+      }
+
+      const headers = new Headers((init && init.headers) || (input instanceof Request ? input.headers : undefined) || {});
+      if (!headers.has('X-CSRF-Token')) {
+        headers.set('X-CSRF-Token', csrfToken);
+      }
+
+      if (input instanceof Request) {
+        return originalFetch(new Request(input, { headers: headers }), init);
+      }
+      return originalFetch(input, Object.assign({}, init || {}, { headers: headers }));
+    };
+  })();
 </script>
-{% endif %}
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

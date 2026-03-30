@@ -1,0 +1,163 @@
+{% extends "tms/tms_base.html" %}
+{% block tms_content %}
+
+<div class="d-flex align-items-center gap-3 mb-4">
+  <div>
+    <h4 class="mb-0 fw-bold">Rate Matrix Builder</h4>
+    <p class="text-muted small mb-0">Custom tariff rate cards by lane and weight break</p>
+  </div>
+  <button class="btn btn-sm btn-primary ms-auto" data-bs-toggle="modal" data-bs-target="#newMatrixModal">
+    <i class="bi bi-plus-lg me-1"></i>New Matrix
+  </button>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value">{{ matrices | selectattr('status','eq','Active') | list | length }}</div>
+      <div class="tms-stat-label">Active Matrices</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value">{{ matrices | sum(attribute='entry_count') }}</div>
+      <div class="tms-stat-label">Total Entries</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value">{{ matrices | length }}</div>
+      <div class="tms-stat-label">Total Matrices</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-value">{{ matrices | selectattr('service_type','eq','LTL') | list | length }}</div>
+      <div class="tms-stat-label">LTL Matrices</div>
+    </div>
+  </div>
+</div>
+
+<!-- Matrices Table -->
+<div class="tms-card">
+  <div class="tms-card-header">
+    <span>Rate Matrices</span>
+  </div>
+  {% if matrices %}
+  <div class="table-responsive">
+    <table class="tms-table">
+      <thead>
+        <tr>
+          <th>Matrix Name</th>
+          <th>Service Type</th>
+          <th>Equipment</th>
+          <th>Entries</th>
+          <th>Effective</th>
+          <th>Expiry</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in matrices %}
+        <tr>
+          <td class="fw-semibold">{{ m.matrix_name }}</td>
+          <td>{{ m.service_type }}</td>
+          <td>{{ m.equipment_type }}</td>
+          <td>
+            <span class="badge bg-secondary bg-opacity-25 text-light">{{ m.entry_count }}</span>
+          </td>
+          <td class="text-muted small">{{ m.effective_date or '—' }}</td>
+          <td class="text-muted small">{{ m.expiry_date or '—' }}</td>
+          <td>
+            {% if m.status == 'Active' %}
+              <span class="badge bg-success bg-opacity-20 text-success border border-success border-opacity-25">Active</span>
+            {% elif m.status == 'Expired' %}
+              <span class="badge bg-danger bg-opacity-20 text-danger border border-danger border-opacity-25">Expired</span>
+            {% else %}
+              <span class="badge bg-secondary bg-opacity-20 text-muted">{{ m.status }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="/tms/rate-matrix/{{ m.id }}" class="btn btn-xs btn-outline-secondary">
+              <i class="bi bi-pencil me-1"></i>Edit
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="p-4 text-center text-muted">
+    <i class="bi bi-table" style="font-size:2rem;opacity:.3;"></i>
+    <p class="mt-2 mb-0">No rate matrices yet. Create your first one.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- New Matrix Modal -->
+<div class="modal fade" id="newMatrixModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="/tms/rate-matrix/new">
+      <div class="modal-content bg-dark border-secondary">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title"><i class="bi bi-table me-2"></i>New Rate Matrix</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small text-muted">Matrix Name *</label>
+            <input type="text" name="matrix_name" class="form-control form-control-sm bg-dark text-light border-secondary"
+                   placeholder="e.g. Southeast LTL Q2 2024" required>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label small text-muted">Service Type</label>
+              <select name="service_type" class="form-select form-select-sm bg-dark text-light border-secondary">
+                <option value="LTL">LTL</option>
+                <option value="FTL">FTL</option>
+                <option value="Expedited">Expedited</option>
+                <option value="Intermodal">Intermodal</option>
+                <option value="Partial">Partial</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label small text-muted">Equipment Type</label>
+              <select name="equipment_type" class="form-select form-select-sm bg-dark text-light border-secondary">
+                <option value="Dry Van">Dry Van</option>
+                <option value="Reefer">Reefer</option>
+                <option value="Flatbed">Flatbed</option>
+                <option value="Step Deck">Step Deck</option>
+                <option value="Box Truck">Box Truck</option>
+                <option value="Any">Any</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label small text-muted">Effective Date</label>
+              <input type="date" name="effective_date" class="form-control form-control-sm bg-dark text-light border-secondary">
+            </div>
+            <div class="col-6">
+              <label class="form-label small text-muted">Expiry Date</label>
+              <input type="date" name="expiry_date" class="form-control form-control-sm bg-dark text-light border-secondary">
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small text-muted">Notes</label>
+            <textarea name="notes" class="form-control form-control-sm bg-dark text-light border-secondary" rows="2"
+                      placeholder="Optional notes..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-primary">Create Matrix</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

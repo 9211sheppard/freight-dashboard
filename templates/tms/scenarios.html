@@ -1,0 +1,861 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Scenario Modeling{% endblock %}
+
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+  :root {
+    --scenario-bg: linear-gradient(180deg, #0a1220 0%, #091018 100%);
+    --scenario-panel: rgba(11, 19, 31, 0.92);
+    --scenario-panel-strong: rgba(15, 25, 39, 0.98);
+    --scenario-border: rgba(148, 163, 184, 0.18);
+    --scenario-text: #e2e8f0;
+    --scenario-muted: #94a3b8;
+    --scenario-good: #22c55e;
+    --scenario-bad: #ef4444;
+    --scenario-warn: #f59e0b;
+    --scenario-accent: #38bdf8;
+    --scenario-shadow: 0 20px 48px rgba(2, 6, 23, 0.38);
+  }
+
+  .scenario-shell {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .scenario-hero,
+  .scenario-panel,
+  .scenario-results,
+  .scenario-saved {
+    background: var(--scenario-bg);
+    border: 1px solid var(--scenario-border);
+    border-radius: 1.2rem;
+    box-shadow: var(--scenario-shadow);
+  }
+
+  .scenario-hero {
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .scenario-hero::before,
+  .scenario-hero::after {
+    content: "";
+    position: absolute;
+    inset: auto;
+    border-radius: 999px;
+    filter: blur(0);
+    opacity: 0.7;
+  }
+
+  .scenario-hero::before {
+    width: 220px;
+    height: 220px;
+    right: -80px;
+    top: -90px;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.22), transparent 72%);
+  }
+
+  .scenario-hero::after {
+    width: 240px;
+    height: 240px;
+    left: -90px;
+    bottom: -120px;
+    background: radial-gradient(circle, rgba(34, 197, 94, 0.16), transparent 74%);
+  }
+
+  .scenario-hero-body {
+    position: relative;
+    z-index: 1;
+  }
+
+  .scenario-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.74);
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    color: #bae6fd;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .scenario-title {
+    margin: 1rem 0 0.4rem;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: var(--scenario-text);
+  }
+
+  .scenario-subtitle {
+    max-width: 760px;
+    color: var(--scenario-muted);
+    font-size: 0.96rem;
+    line-height: 1.65;
+  }
+
+  .scenario-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .scenario-card {
+    width: 100%;
+    text-align: left;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid var(--scenario-border);
+    border-radius: 1rem;
+    color: var(--scenario-text);
+    padding: 1rem;
+    transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+  }
+
+  .scenario-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.32);
+    background: rgba(15, 23, 42, 0.92);
+  }
+
+  .scenario-card.active {
+    border-color: rgba(56, 189, 248, 0.75);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.22) inset;
+    background: linear-gradient(180deg, rgba(14, 24, 39, 0.98), rgba(12, 20, 33, 0.98));
+  }
+
+  .scenario-card-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .scenario-card.carrier_switch .scenario-card-icon {
+    background: rgba(56, 189, 248, 0.18);
+    color: #7dd3fc;
+  }
+
+  .scenario-card.route_change .scenario-card-icon {
+    background: rgba(34, 197, 94, 0.16);
+    color: #86efac;
+  }
+
+  .scenario-card.mode_shift .scenario-card-icon {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fcd34d;
+  }
+
+  .scenario-card.volume_commitment .scenario-card-icon {
+    background: rgba(168, 85, 247, 0.18);
+    color: #d8b4fe;
+  }
+
+  .scenario-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+  }
+
+  .scenario-card-copy {
+    color: var(--scenario-muted);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .scenario-panel {
+    padding: 1.4rem;
+    background: var(--scenario-panel);
+  }
+
+  .scenario-panel.hidden {
+    display: none;
+  }
+
+  .scenario-panel-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1.1rem;
+  }
+
+  .scenario-panel-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--scenario-text);
+  }
+
+  .scenario-panel-copy {
+    margin: 0.25rem 0 0;
+    font-size: 0.88rem;
+    color: var(--scenario-muted);
+  }
+
+  .scenario-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    color: #bae6fd;
+    background: rgba(15, 23, 42, 0.76);
+    font-size: 0.78rem;
+  }
+
+  .scenario-form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .scenario-field label {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: var(--scenario-muted);
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .scenario-input,
+  .scenario-select {
+    width: 100%;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(2, 6, 23, 0.6);
+    color: var(--scenario-text);
+    padding: 0.78rem 0.9rem;
+    outline: none;
+  }
+
+  .scenario-input:focus,
+  .scenario-select:focus {
+    border-color: rgba(56, 189, 248, 0.7);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+  }
+
+  .scenario-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.2rem;
+  }
+
+  .scenario-run-btn,
+  .scenario-save-btn,
+  .scenario-replay-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.85rem;
+    border: 0;
+    font-weight: 700;
+    padding: 0.8rem 1.15rem;
+    text-decoration: none;
+  }
+
+  .scenario-run-btn {
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+    color: #eff6ff;
+  }
+
+  .scenario-save-btn {
+    background: linear-gradient(135deg, #16a34a, #059669);
+    color: #ecfdf5;
+  }
+
+  .scenario-replay-btn {
+    background: rgba(15, 23, 42, 0.72);
+    color: var(--scenario-text);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    padding: 0.55rem 0.9rem;
+  }
+
+  .scenario-results,
+  .scenario-saved {
+    padding: 1.4rem;
+  }
+
+  .scenario-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .scenario-section-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--scenario-text);
+  }
+
+  .scenario-section-copy {
+    margin: 0.3rem 0 0;
+    color: var(--scenario-muted);
+    font-size: 0.88rem;
+  }
+
+  .scenario-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .scenario-summary-card {
+    padding: 1rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(2, 6, 23, 0.42);
+  }
+
+  .scenario-summary-label {
+    color: var(--scenario-muted);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .scenario-summary-value {
+    margin-top: 0.45rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--scenario-text);
+  }
+
+  .scenario-summary-card.good .scenario-summary-value { color: var(--scenario-good); }
+  .scenario-summary-card.bad .scenario-summary-value { color: var(--scenario-bad); }
+  .scenario-summary-card.warn .scenario-summary-value { color: var(--scenario-warn); }
+
+  .scenario-table-wrap {
+    overflow-x: auto;
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(2, 6, 23, 0.4);
+  }
+
+  .scenario-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 620px;
+  }
+
+  .scenario-table th,
+  .scenario-table td {
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    color: var(--scenario-text);
+  }
+
+  .scenario-table th {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.72rem;
+    color: var(--scenario-muted);
+    background: rgba(15, 23, 42, 0.86);
+  }
+
+  .scenario-table tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .scenario-table td:first-child {
+    font-weight: 600;
+  }
+
+  .delta-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 92px;
+    border-radius: 999px;
+    padding: 0.36rem 0.7rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+
+  .delta-pill.good {
+    background: rgba(34, 197, 94, 0.16);
+    color: #86efac;
+  }
+
+  .delta-pill.bad {
+    background: rgba(239, 68, 68, 0.16);
+    color: #fca5a5;
+  }
+
+  .delta-pill.neutral {
+    background: rgba(148, 163, 184, 0.16);
+    color: #cbd5e1;
+  }
+
+  .scenario-save-bar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(2, 6, 23, 0.38);
+  }
+
+  .scenario-assumptions {
+    margin: 1rem 0 0;
+    padding-left: 1.1rem;
+    color: var(--scenario-muted);
+  }
+
+  .scenario-assumptions li + li {
+    margin-top: 0.35rem;
+  }
+
+  .scenario-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.76rem;
+    color: #bfdbfe;
+    background: rgba(37, 99, 235, 0.16);
+    border: 1px solid rgba(59, 130, 246, 0.22);
+  }
+
+  .scenario-table tr.is-selected td {
+    background: rgba(14, 165, 233, 0.1);
+  }
+
+  .scenario-empty {
+    padding: 1.35rem;
+    text-align: center;
+    border-radius: 1rem;
+    border: 1px dashed rgba(148, 163, 184, 0.16);
+    color: var(--scenario-muted);
+  }
+
+  @media (max-width: 1199.98px) {
+    .scenario-grid,
+    .scenario-form-grid,
+    .scenario-summary {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 767.98px) {
+    .scenario-grid,
+    .scenario-form-grid,
+    .scenario-summary,
+    .scenario-save-bar {
+      grid-template-columns: 1fr;
+    }
+
+    .scenario-title {
+      font-size: 1.6rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block tms_content %}
+<div class="scenario-shell" id="scenario-workbench">
+  <section class="scenario-hero">
+    <div class="scenario-hero-body">
+      <div class="scenario-kicker">
+        <i class="bi bi-sliders2"></i>
+        Scenario Modeling
+      </div>
+      <h1 class="scenario-title">What-if modeling for rate and route decisions</h1>
+      <p class="scenario-subtitle">
+        Test carrier swaps, route redesigns, mode shifts, and commitment mixes in one place.
+        Run the math, compare current versus proposed outcomes, and save the scenarios you want to revisit.
+      </p>
+      {% if selected_saved %}
+      <div class="scenario-chip mt-3">
+        <i class="bi bi-bookmark-check"></i>
+        Replaying {{ selected_saved.name }}{% if selected_saved.created_at %} · {{ selected_saved.created_at[:16] }}{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <section>
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} mb-2" role="alert">{{ message }}</div>
+        {% endfor %}
+      </section>
+    {% endif %}
+  {% endwith %}
+
+  {% if form_error %}
+  <section>
+    <div class="alert alert-danger mb-0" role="alert">{{ form_error }}</div>
+  </section>
+  {% endif %}
+
+  <section class="scenario-grid">
+    <button type="button" class="scenario-card carrier_switch {% if active_type == 'carrier_switch' %}active{% endif %}" data-scenario-card="carrier_switch">
+      <span class="scenario-card-icon"><i class="bi bi-arrow-left-right"></i></span>
+      <div class="scenario-card-title">Carrier Switch</div>
+      <p class="scenario-card-copy">Compare lane spend, savings, and switch risk when moving to a new carrier rate.</p>
+    </button>
+    <button type="button" class="scenario-card route_change {% if active_type == 'route_change' %}active{% endif %}" data-scenario-card="route_change">
+      <span class="scenario-card-icon"><i class="bi bi-signpost-split"></i></span>
+      <div class="scenario-card-title">Route Change</div>
+      <p class="scenario-card-copy">Measure distance, variable cost, carbon, and transit changes from a new routing plan.</p>
+    </button>
+    <button type="button" class="scenario-card mode_shift {% if active_type == 'mode_shift' %}active{% endif %}" data-scenario-card="mode_shift">
+      <span class="scenario-card-icon"><i class="bi bi-truck"></i></span>
+      <div class="scenario-card-title">Mode Shift</div>
+      <p class="scenario-card-copy">Benchmark TL, LTL, rail, and air against the same shipment profile before changing mode.</p>
+    </button>
+    <button type="button" class="scenario-card volume_commitment {% if active_type == 'volume_commitment' %}active{% endif %}" data-scenario-card="volume_commitment">
+      <span class="scenario-card-icon"><i class="bi bi-layers"></i></span>
+      <div class="scenario-card-title">Volume Commitment</div>
+      <p class="scenario-card-copy">Blend contract and spot freight to see how commitments change total cost and average rate.</p>
+    </button>
+  </section>
+
+  <section class="scenario-panel {% if active_type != 'carrier_switch' %}hidden{% endif %}" data-scenario-panel="carrier_switch">
+    <div class="scenario-panel-head">
+      <div>
+        <h2 class="scenario-panel-title">Carrier switch model</h2>
+        <p class="scenario-panel-copy">Use current and proposed lane pricing to measure annual impact before moving share.</p>
+      </div>
+      <div class="scenario-chip"><i class="bi bi-shield-check"></i>Lower rate vs switch risk</div>
+    </div>
+    <form method="post" action="{{ url_for('tms.scenarios_run') }}">
+      <input type="hidden" name="scenario_type" value="carrier_switch">
+      <div class="scenario-form-grid">
+        <div class="scenario-field">
+          <label for="lane">Lane</label>
+          <input id="lane" name="lane" class="scenario-input" value="{{ current_inputs.lane }}" placeholder="Chicago, IL -> Dallas, TX" required>
+        </div>
+        <div class="scenario-field">
+          <label for="current_rate">Current rate</label>
+          <input id="current_rate" name="current_rate" type="number" step="0.01" min="0" class="scenario-input" value="{{ current_inputs.current_rate }}" placeholder="3200" required>
+        </div>
+        <div class="scenario-field">
+          <label for="new_rate">New rate</label>
+          <input id="new_rate" name="new_rate" type="number" step="0.01" min="0" class="scenario-input" value="{{ current_inputs.new_rate }}" placeholder="2950" required>
+        </div>
+        <div class="scenario-field">
+          <label for="annual_volume">Annual volume</label>
+          <input id="annual_volume" name="annual_volume" type="number" step="1" min="0" class="scenario-input" value="{{ current_inputs.annual_volume }}" placeholder="180" required>
+        </div>
+      </div>
+      <div class="scenario-actions">
+        <button class="scenario-run-btn" type="submit"><i class="bi bi-play-fill"></i>Run Scenario</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="scenario-panel {% if active_type != 'route_change' %}hidden{% endif %}" data-scenario-panel="route_change">
+    <div class="scenario-panel-head">
+      <div>
+        <h2 class="scenario-panel-title">Route change model</h2>
+        <p class="scenario-panel-copy">Compare variable route economics and carbon impact when mileage changes.</p>
+      </div>
+      <div class="scenario-chip"><i class="bi bi-tree"></i>Cost, CO2, and transit</div>
+    </div>
+    <form method="post" action="{{ url_for('tms.scenarios_run') }}">
+      <input type="hidden" name="scenario_type" value="route_change">
+      <div class="scenario-form-grid">
+        <div class="scenario-field">
+          <label for="current_miles">Current miles</label>
+          <input id="current_miles" name="current_miles" type="number" step="0.01" min="0" class="scenario-input" value="{{ current_inputs.current_miles }}" placeholder="1180" required>
+        </div>
+        <div class="scenario-field">
+          <label for="new_miles">New miles</label>
+          <input id="new_miles" name="new_miles" type="number" step="0.01" min="0" class="scenario-input" value="{{ current_inputs.new_miles }}" placeholder="1085" required>
+        </div>
+        <div class="scenario-field">
+          <label for="fuel_rate">Fuel rate per mile</label>
+          <input id="fuel_rate" name="fuel_rate" type="number" step="0.01" min="0" class="scenario-input" value="{{ current_inputs.fuel_rate }}" placeholder="0.68" required>
+        </div>
+        <div class="scenario-field">
+          <label for="driver_rate_per_mile">Driver rate per mile</label>
+          <input id="driver_rate_per_mile" name="driver_rate_per_mile" type="number" step="0.01" min="0" class="scenario-input" value="{{ current_inputs.driver_rate_per_mile }}" placeholder="0.72" required>
+        </div>
+      </div>
+      <div class="scenario-actions">
+        <button class="scenario-run-btn" type="submit"><i class="bi bi-play-fill"></i>Run Scenario</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="scenario-panel {% if active_type != 'mode_shift' %}hidden{% endif %}" data-scenario-panel="mode_shift">
+    <div class="scenario-panel-head">
+      <div>
+        <h2 class="scenario-panel-title">Mode shift model</h2>
+        <p class="scenario-panel-copy">Benchmark current mode against a target mode using shipment weight and route distance.</p>
+      </div>
+      <div class="scenario-chip"><i class="bi bi-table"></i>Benchmark matrix included</div>
+    </div>
+    <form method="post" action="{{ url_for('tms.scenarios_run') }}">
+      <input type="hidden" name="scenario_type" value="mode_shift">
+      <div class="scenario-form-grid">
+        <div class="scenario-field">
+          <label for="current_mode">Current mode</label>
+          <select id="current_mode" name="current_mode" class="scenario-select">
+            <option value="TL" {% if current_inputs.current_mode == 'TL' %}selected{% endif %}>TL</option>
+            <option value="LTL" {% if current_inputs.current_mode == 'LTL' %}selected{% endif %}>LTL</option>
+            <option value="Rail" {% if current_inputs.current_mode == 'Rail' %}selected{% endif %}>Rail</option>
+            <option value="Air" {% if current_inputs.current_mode == 'Air' %}selected{% endif %}>Air</option>
+          </select>
+        </div>
+        <div class="scenario-field">
+          <label for="new_mode">New mode</label>
+          <select id="new_mode" name="new_mode" class="scenario-select">
+            <option value="TL" {% if current_inputs.new_mode == 'TL' %}selected{% endif %}>TL</option>
+            <option value="LTL" {% if current_inputs.new_mode == 'LTL' %}selected{% endif %}>LTL</option>
+            <option value="Rail" {% if current_inputs.new_mode == 'Rail' %}selected{% endif %}>Rail</option>
+            <option value="Air" {% if current_inputs.new_mode == 'Air' %}selected{% endif %}>Air</option>
+          </select>
+        </div>
+        <div class="scenario-field">
+          <label for="weight_lbs">Weight (lbs)</label>
+          <input id="weight_lbs" name="weight_lbs" type="number" step="0.01" min="0" class="scenario-input" value="{{ current_inputs.weight_lbs }}" placeholder="18000" required>
+        </div>
+        <div class="scenario-field">
+          <label for="distance">Distance (miles)</label>
+          <input id="distance" name="distance" type="number" step="0.01" min="0" class="scenario-input" value="{{ current_inputs.distance }}" placeholder="950" required>
+        </div>
+      </div>
+      <div class="scenario-actions">
+        <button class="scenario-run-btn" type="submit"><i class="bi bi-play-fill"></i>Run Scenario</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="scenario-panel {% if active_type != 'volume_commitment' %}hidden{% endif %}" data-scenario-panel="volume_commitment">
+    <div class="scenario-panel-head">
+      <div>
+        <h2 class="scenario-panel-title">Volume commitment model</h2>
+        <p class="scenario-panel-copy">Blend contract and spot allocation to see the weighted rate and savings versus staying all-spot.</p>
+      </div>
+      <div class="scenario-chip"><i class="bi bi-graph-up"></i>Weighted rate view</div>
+    </div>
+    <form method="post" action="{{ url_for('tms.scenarios_run') }}">
+      <input type="hidden" name="scenario_type" value="volume_commitment">
+      <div class="scenario-form-grid">
+        <div class="scenario-field">
+          <label for="committed_volume">Committed volume</label>
+          <input id="committed_volume" name="committed_volume" type="number" step="1" min="0" class="scenario-input" value="{{ current_inputs.committed_volume }}" placeholder="120" required>
+        </div>
+        <div class="scenario-field">
+          <label for="spot_volume">Spot volume</label>
+          <input id="spot_volume" name="spot_volume" type="number" step="1" min="0" class="scenario-input" value="{{ current_inputs.spot_volume }}" placeholder="60" required>
+        </div>
+        <div class="scenario-field">
+          <label for="contract_rate">Contract rate</label>
+          <input id="contract_rate" name="contract_rate" type="number" step="0.01" min="0" class="scenario-input" value="{{ current_inputs.contract_rate }}" placeholder="2450" required>
+        </div>
+        <div class="scenario-field">
+          <label for="spot_rate">Spot rate</label>
+          <input id="spot_rate" name="spot_rate" type="number" step="0.01" min="0" class="scenario-input" value="{{ current_inputs.spot_rate }}" placeholder="2895" required>
+        </div>
+      </div>
+      <div class="scenario-actions">
+        <button class="scenario-run-btn" type="submit"><i class="bi bi-play-fill"></i>Run Scenario</button>
+      </div>
+    </form>
+  </section>
+
+  {% if result %}
+  <section class="scenario-results">
+    <div class="scenario-section-head">
+      <div>
+        <h2 class="scenario-section-title">{{ result.title }}</h2>
+        <p class="scenario-section-copy">Current versus proposed comparison with deltas highlighted for decision speed.</p>
+      </div>
+      <div class="scenario-chip"><i class="bi bi-lightning-charge"></i>Inline result</div>
+    </div>
+
+    <div class="scenario-summary">
+      {% for metric in result.summary_metrics %}
+      <div class="scenario-summary-card {{ metric.tone }}">
+        <div class="scenario-summary-label">{{ metric.label }}</div>
+        <div class="scenario-summary-value">{{ metric.value }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="scenario-table-wrap">
+      <table class="scenario-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Current</th>
+            <th>New</th>
+            <th>Delta</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in result.comparison_rows %}
+          <tr>
+            <td>{{ row.label }}</td>
+            <td>{{ row.current_display }}</td>
+            <td>{{ row.new_display }}</td>
+            <td><span class="delta-pill {{ row.delta_class }}">{{ row.delta_display }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if result.mode_table %}
+    <div class="scenario-table-wrap mt-3">
+      <table class="scenario-table">
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>Estimated cost</th>
+            <th>Transit</th>
+            <th>CO2</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in result.mode_table %}
+          <tr{% if row.is_current or row.is_new %} class="{% if row.is_current and row.is_new %}is-selected{% endif %}"{% endif %}>
+            <td>
+              {{ row.mode }}
+              {% if row.is_current %}<span class="scenario-type-badge ms-2">Current</span>{% endif %}
+              {% if row.is_new %}<span class="scenario-type-badge ms-2">New</span>{% endif %}
+            </td>
+            <td>{{ row.cost_display }}</td>
+            <td>{{ row.transit_days_display }}</td>
+            <td>{{ row.co2_display }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if result.assumptions %}
+    <ul class="scenario-assumptions">
+      {% for item in result.assumptions %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('tms.scenarios_save_route') }}" class="scenario-save-bar">
+      <div class="scenario-field mb-0">
+        <label for="scenario_name">Scenario name</label>
+        <input id="scenario_name" name="name" class="scenario-input" value="{{ save_name }}" placeholder="Name this scenario" required>
+      </div>
+      <div class="d-flex align-items-end">
+        <button class="scenario-save-btn" type="submit"><i class="bi bi-save"></i>Save Scenario</button>
+      </div>
+      <input type="hidden" name="scenario_type" value="{{ result.scenario_type }}">
+      <textarea name="inputs_json" style="display:none;">{{ current_inputs|tojson }}</textarea>
+      <textarea name="results_json" style="display:none;">{{ result|tojson }}</textarea>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="scenario-saved">
+    <div class="scenario-section-head">
+      <div>
+        <h2 class="scenario-section-title">Saved scenarios</h2>
+        <p class="scenario-section-copy">Replay prior analyses without re-entering assumptions.</p>
+      </div>
+      <div class="scenario-chip"><i class="bi bi-clock-history"></i>{{ saved_scenarios|length }} stored</div>
+    </div>
+
+    {% if saved_scenarios %}
+    <div class="scenario-table-wrap">
+      <table class="scenario-table scenario-saved-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Created</th>
+            <th>Headline</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for saved in saved_scenarios %}
+          {% set headline_metrics = saved.results.get('summary_metrics', []) if saved.results else [] %}
+          {% set headline = headline_metrics[0] if headline_metrics else None %}
+          <tr{% if selected_saved and selected_saved.id == saved.id %} class="is-selected"{% endif %}>
+            <td>
+              <div class="fw-semibold">{{ saved.name }}</div>
+              <div class="small text-secondary">#{{ saved.id }}</div>
+            </td>
+            <td><span class="scenario-type-badge">{{ saved.scenario_type.replace('_', ' ')|title }}</span></td>
+            <td>{{ saved.created_at[:16] if saved.created_at else "-" }}</td>
+            <td>
+              {% if headline %}
+              <div class="fw-semibold">{{ headline.value }}</div>
+              <div class="small text-secondary">{{ headline.label }}</div>
+              {% else %}
+              <span class="text-secondary">No summary</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{{ url_for('tms.scenarios_page', scenario_id=saved.id) }}#scenario-workbench" class="scenario-replay-btn">
+                <i class="bi bi-arrow-repeat"></i>
+                Replay
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="scenario-empty">
+      Run a scenario to create your first saved benchmark.
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script nonce="{{ csp_nonce }}">
+  (function () {
+    const cards = Array.from(document.querySelectorAll("[data-scenario-card]"));
+    const panels = Array.from(document.querySelectorAll("[data-scenario-panel]"));
+
+    function activateScenario(type, shouldScroll) {
+      cards.forEach((card) => {
+        card.classList.toggle("active", card.getAttribute("data-scenario-card") === type);
+      });
+      panels.forEach((panel) => {
+        const isActive = panel.getAttribute("data-scenario-panel") === type;
+        panel.classList.toggle("hidden", !isActive);
+        if (isActive && shouldScroll) {
+          panel.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
+
+    cards.forEach((card) => {
+      card.addEventListener("click", () => activateScenario(card.getAttribute("data-scenario-card"), true));
+    });
+
+    activateScenario("{{ active_type }}", false);
+  })();
+</script>
+{% endblock %}

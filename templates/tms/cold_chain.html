@@ -1,0 +1,273 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Cold Chain{% endblock %}
+{% block tms_content %}
+<div class="container-fluid py-4 cold-chain-page">
+  <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+      <h2 class="mb-1 fw-bold"><i class="bi bi-thermometer-half me-2"></i>Cold Chain Monitoring</h2>
+      <p class="text-muted small mb-0">Live temperature visibility across monitored shipments. Updated {{ dashboard_updated_at }}.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="/tms/shipments" class="btn btn-outline-secondary btn-sm">Shipments</a>
+      <a href="/tms/" class="btn btn-outline-secondary btn-sm">Back to TMS</a>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3">
+      <div class="card cold-card h-100">
+        <div class="card-body">
+          <div class="cold-label">Active Monitored Shipments</div>
+          <div class="display-6 fw-bold text-white mt-2">{{ active_monitored_shipments }}</div>
+          <div class="small text-muted mt-2">Shipments with an active cold chain config</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card cold-card h-100">
+        <div class="card-body">
+          <div class="cold-label">Excursions Today</div>
+          <div class="display-6 fw-bold text-danger mt-2">{{ excursions_today }}</div>
+          <div class="small text-muted mt-2">Out-of-range readings recorded since midnight UTC</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card cold-card h-100">
+        <div class="card-body">
+          <div class="cold-label">Sensors Online</div>
+          <div class="display-6 fw-bold cold-accent mt-2">{{ sensors_online }}</div>
+          <div class="small text-muted mt-2">Distinct sensors reporting in the last 6 hours</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card cold-card h-100">
+        <div class="card-body">
+          <div class="cold-label">Providers Connected</div>
+          <div class="display-6 fw-bold text-white mt-2">{{ providers_connected }}</div>
+          <div class="small text-muted mt-2">Active configs with a mapped provider</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-12 col-xxl-8">
+      <div class="card cold-card h-100">
+        <div class="card-header cold-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">Active Configs</span>
+          <span class="small text-muted">{{ active_configs|length }} shipment{{ '' if active_configs|length == 1 else 's' }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-dark align-middle mb-0 cold-table">
+            <thead>
+              <tr>
+                <th>Shipment</th>
+                <th>Range</th>
+                <th>Provider</th>
+                <th>Sensor ID</th>
+                <th>Last Reading</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for config in active_configs %}
+              <tr>
+                <td class="fw-semibold">
+                  <a href="/tms/cold-chain/{{ config.shipment_ref }}" class="text-decoration-none cold-link">{{ config.shipment_ref }}</a>
+                </td>
+                <td class="small text-muted">{{ config.range_label }}</td>
+                <td>{{ config.provider_name }}</td>
+                <td class="small">{{ config.sensor_id or 'Unassigned' }}</td>
+                <td class="small">
+                  <div class="fw-semibold text-white">{{ config.last_temperature_display }} / {{ config.last_humidity_display }}</div>
+                  <div class="text-muted">{{ config.last_reading_display }}</div>
+                </td>
+                <td>
+                  <span class="badge bg-{{ config.status_class }}">{{ config.status_label }}</span>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">No active cold chain configs yet.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-xxl-4">
+      <div class="card cold-card h-100">
+        <div class="card-header cold-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">Recent Excursions</span>
+          <span class="small text-muted">Latest out-of-range events</span>
+        </div>
+        <div class="card-body p-0">
+          {% if recent_excursions %}
+          <div class="list-group list-group-flush">
+            {% for reading in recent_excursions %}
+            <a href="/tms/cold-chain/{{ reading.shipment_ref }}" class="list-group-item list-group-item-action cold-list-item">
+              <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                  <div class="fw-semibold text-white">{{ reading.shipment_ref }}</div>
+                  <div class="small text-muted">{{ reading.provider_name }} - {{ reading.sensor_id }}</div>
+                  <div class="small mt-2">
+                    <span class="text-danger fw-semibold">{{ reading.temperature_display }}</span>
+                    <span class="text-muted ms-2">{{ reading.humidity_display }}</span>
+                  </div>
+                  <div class="small text-muted mt-1">{{ reading.location_display }}</div>
+                </div>
+                <div class="text-end">
+                  <span class="badge bg-danger">Excursion</span>
+                  <div class="small text-muted mt-2">{{ reading.recorded_at_display }}</div>
+                </div>
+              </div>
+            </a>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-muted">No recent excursions.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card cold-card">
+        <div class="card-header cold-header d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">Providers</span>
+          <span class="small text-muted">Supported cold chain ecosystems</span>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            {% for provider in providers %}
+            <div class="col-12 col-md-6 col-xl-4 col-xxl-3">
+              <div class="provider-card h-100">
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                  <div>
+                    <div class="fw-semibold text-white">{{ provider.name }}</div>
+                    <div class="small text-muted">{{ provider.region }}</div>
+                  </div>
+                  <span class="badge text-bg-dark border border-secondary-subtle">{{ provider.auth_type.replace('_', ' ') }}</span>
+                </div>
+                <p class="small text-muted mb-3">{{ provider.description }}</p>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                  {% for capability in provider.capabilities %}
+                  <span class="provider-pill">{{ capability }}</span>
+                  {% endfor %}
+                </div>
+                <div class="d-flex gap-2 mt-auto">
+                  <a href="{{ provider.docs }}" target="_blank" rel="noopener" class="btn btn-sm cold-btn-primary flex-grow-1">Connect</a>
+                  <a href="{{ provider.website }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Site</a>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style nonce="{{ csp_nonce }}">
+.cold-chain-page {
+  --cold-card-bg: linear-gradient(180deg, rgba(18, 22, 28, 0.98), rgba(7, 10, 14, 0.98));
+  --cold-border: rgba(84, 194, 255, 0.18);
+  --cold-accent: #58d1ff;
+  --cold-accent-soft: rgba(88, 209, 255, 0.14);
+}
+
+.cold-card {
+  background: var(--cold-card-bg);
+  border: 1px solid var(--cold-border);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.cold-header {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cold-label {
+  color: #91a0b4;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cold-accent {
+  color: var(--cold-accent);
+}
+
+.cold-link {
+  color: #9be7ff;
+}
+
+.cold-link:hover {
+  color: #d6f7ff;
+}
+
+.cold-table thead th {
+  color: #91a0b4;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cold-table td,
+.cold-table th {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.06);
+  padding: 0.95rem 1rem;
+}
+
+.cold-table tbody tr:hover td {
+  background: rgba(88, 209, 255, 0.04) !important;
+}
+
+.cold-list-item {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.cold-list-item:hover {
+  background: rgba(88, 209, 255, 0.05);
+}
+
+.provider-card {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, rgba(13, 17, 22, 0.98), rgba(8, 11, 15, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  padding: 1rem;
+  min-height: 100%;
+}
+
+.provider-pill {
+  background: var(--cold-accent-soft);
+  border: 1px solid rgba(88, 209, 255, 0.2);
+  border-radius: 999px;
+  color: #aeeeff;
+  font-size: 0.72rem;
+  padding: 0.2rem 0.55rem;
+}
+
+.cold-btn-primary {
+  background: linear-gradient(135deg, #2fa7df, #68d5ff);
+  border: 1px solid #58d1ff;
+  color: #071018;
+  font-weight: 700;
+}
+
+.cold-btn-primary:hover {
+  background: linear-gradient(135deg, #48b9ea, #81deff);
+  color: #071018;
+}
+</style>
+{% endblock %}

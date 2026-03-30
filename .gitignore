@@ -1,56 +1,29 @@
-# Python
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.egg
-*.egg-info/
-dist/
-build/
-.eggs/
-
-# Virtual environment
-venv/
-env/
+.pytest_cache/
+.coverage
 .env
-.venv
+.venv/
+venv/
+node_modules/
 
-# Database (don't commit live DB — schema only)
-data/contacts.db
-contacts.db
-*.db-journal
-*.db-wal
-*.db-shm
-
-# Logs
 *.log
-flask.log
-fast_verify.log
-verify.log
+*.db
+*.db-shm
+*.db-wal
+gitleaks-results.json
+semgrep-results.json
+semgrep-tuned-results.json
 
-# PyInstaller
-*.spec
-build/
-dist/
+data/*.db
+data/*.db-shm
+data/*.db-wal
+tms/data/*.db
+tms/data/*.db-shm
+tms/data/*.db-wal
 
-# OS
-.DS_Store
-desktop.ini
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# Claude
-.claude/
-.claude.json
-.claude.json.backup
-
-# ZIP output (built on demand)
-*.zip
-
-# Secrets (never commit)
-config_local.py
-secrets.py
+tms/uploads/
+static/ocr_uploads/
+static/pods/

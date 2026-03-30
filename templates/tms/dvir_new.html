@@ -1,0 +1,140 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}New DVIR{% endblock %}
+{% block content %}
+<div class="tms-page-header mb-3">
+  <h1 class="tms-page-title mb-0"><i class="bi bi-clipboard-check me-2 text-gold"></i>New DVIR Report</h1>
+  <p class="text-muted mb-0">FMCSA 49 CFR Part 396 — Driver Vehicle Inspection Report</p>
+</div>
+
+<form method="post" action="/tms/fleet-health/dvir/new">
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="tms-card mb-3">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Vehicle</label>
+          <select name="vehicle_id" class="form-select tms-input" required>
+            <option value="">Select vehicle…</option>
+            {% for v in vehicles %}
+            <option value="{{ v.id }}">{{ v.truck_number }} ({{ v.vehicle_type or '' }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Driver</label>
+          <select name="driver_id" class="form-select tms-input" required>
+            <option value="">Select driver…</option>
+            {% for d in drivers %}
+            <option value="{{ d.id }}">{{ d.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Inspection Type</label>
+          <select name="inspection_type" class="form-select tms-input">
+            <option value="pre_trip">Pre-Trip</option>
+            <option value="post_trip">Post-Trip</option>
+            <option value="en_route">En Route</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Odometer (miles)</label>
+          <input name="odometer" type="number" step="0.1" class="form-control tms-input">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label">Location</label>
+          <input name="location" class="form-control tms-input" placeholder="Terminal / city name">
+        </div>
+      </div>
+    </div>
+
+    <!-- Inspection items -->
+    <div class="tms-card p-0">
+      <div class="px-3 pt-3 pb-2 border-bottom border-secondary">
+        <span class="fw-semibold">Inspection Items</span>
+        <span class="text-muted small ms-2">Check any item that has a defect</span>
+      </div>
+      {% set categories = inspection_items | groupby(1) %}
+      {% for cat, items in categories %}
+      <div class="px-3 py-2 border-bottom border-secondary">
+        <div class="text-gold small fw-semibold text-uppercase mb-2">{{ cat }}</div>
+        <div class="row g-2">
+          {% for item in items %}
+          <div class="col-md-6">
+            <div class="d-flex align-items-center gap-2 p-2 rounded" style="background:#111;" id="row_{{ loop.index }}_{{ cat }}">
+              <input type="checkbox" class="form-check-input defect-check" id="def_{{ item[0]|replace(' ','_') }}"
+                     onchange="toggleDefect('{{ item[0] }}', '{{ cat }}', this)">
+              <label class="form-check-label small flex-grow-1" for="def_{{ item[0]|replace(' ','_') }}">{{ item[0] }}</label>
+              <select class="form-select form-select-sm tms-input defect-severity d-none" style="width:100px;"
+                      name="severity_{{ item[0]|replace(' ','_') }}">
+                <option value="minor">Minor</option>
+                <option value="major">Major</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <!-- Defect summary -->
+    <div class="tms-card mb-3">
+      <div class="fw-semibold mb-2"><i class="bi bi-exclamation-triangle me-1 text-warning"></i>Defects Selected</div>
+      <div id="defectSummary" class="text-muted small">No defects selected — vehicle satisfactory</div>
+      <div id="defectInputs"></div>
+    </div>
+
+    <!-- Driver signature -->
+    <div class="tms-card mb-3">
+      <div class="fw-semibold mb-2"><i class="bi bi-pen me-1 text-gold"></i>Driver Certification</div>
+      <p class="text-muted small">I certify this report is true and accurate.</p>
+      <input name="driver_signature" class="form-control tms-input" placeholder="Driver name (electronic signature)" required>
+    </div>
+
+    <div class="d-grid gap-2">
+      <button type="submit" class="btn btn-gold btn-lg"><i class="bi bi-check-circle me-2"></i>Submit DVIR</button>
+      <a href="/tms/fleet-health" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </div>
+</div>
+</form>
+
+<script>
+const defects = {};
+
+function toggleDefect(item, cat, cb) {
+  const row = cb.closest('.d-flex');
+  const sel = row.querySelector('.defect-severity');
+  if (cb.checked) {
+    sel.classList.remove('d-none');
+    defects[item] = { category: cat, severity: sel.value };
+    sel.onchange = () => { defects[item].severity = sel.value; updateSummary(); };
+  } else {
+    sel.classList.add('d-none');
+    delete defects[item];
+  }
+  updateSummary();
+}
+
+function updateSummary() {
+  const keys = Object.keys(defects);
+  const el = document.getElementById('defectSummary');
+  const inp = document.getElementById('defectInputs');
+  if (!keys.length) {
+    el.textContent = 'No defects selected — vehicle satisfactory';
+    inp.innerHTML = '';
+    return;
+  }
+  el.innerHTML = keys.map(k => `<div class="d-flex justify-content-between"><span>${k}</span><span class="badge ${defects[k].severity === 'critical' ? 'bg-danger' : defects[k].severity === 'major' ? 'bg-warning text-dark' : 'bg-secondary'}">${defects[k].severity}</span></div>`).join('');
+  inp.innerHTML = keys.map((k, i) =>
+    `<input type="hidden" name="defect_item_${i}" value="${k}">
+     <input type="hidden" name="defect_cat_${i}" value="${defects[k].category}">
+     <input type="hidden" name="defect_sev_${i}" value="${defects[k].severity}">`
+  ).join('') + `<input type="hidden" name="defect_count" value="${keys.length}">`;
+}
+</script>
+{% endblock %}
