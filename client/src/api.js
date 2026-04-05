@@ -76,3 +76,11 @@ export function toggleKillSwitch(active) {
     body: JSON.stringify({ active }),
   });
 }
+
+export function runSecurityScan() {
+  return json("/api/security/scan", { method: "POST" });
+}
+
+export function fetchScanResults() {
+  return json("/api/security/results");
+}
