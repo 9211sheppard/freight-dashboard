@@ -1,0 +1,267 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Invoice {{ inv.invoice_number }}{% endblock %}
+{% block tms_content %}
+
+<style nonce="{{ csp_nonce }}">
+.invoice-card {
+  max-width: 860px;
+  margin: 0 auto;
+}
+.invoice-header-block {
+  border-bottom: 2px solid #ffc107;
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.invoice-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6c757d;
+}
+.invoice-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f8f9fa;
+}
+.line-items-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6c757d;
+  border-bottom: 1px solid #495057 !important;
+}
+.totals-block {
+  max-width: 320px;
+  margin-left: auto;
+}
+.totals-block .total-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #2d3748;
+}
+.totals-block .total-line.grand {
+  border-bottom: 2px solid #ffc107;
+  border-top: 2px solid #ffc107;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #ffc107;
+  padding: 0.5rem 0;
+  margin-top: 0.25rem;
+}
+
+@media print {
+  .tms-shell { display: block !important; }
+  .tms-sidebar, .no-print { display: none !important; }
+  .tms-main { margin: 0 !important; padding: 0 !important; }
+  .invoice-card { max-width: 100%; box-shadow: none !important; }
+  .card { background: #fff !important; color: #111 !important; border: 1px solid #ddd !important; }
+  .card-body { background: #fff !important; color: #111 !important; }
+  .invoice-label { color: #555 !important; }
+  .invoice-value { color: #111 !important; }
+  .text-muted { color: #555 !important; }
+  .badge { border: 1px solid #999 !important; color: #111 !important; background: #eee !important; }
+  body { background: #fff !important; color: #111 !important; }
+  table, th, td { color: #111 !important; }
+  .line-items-table th { color: #555 !important; border-bottom: 1px solid #999 !important; }
+  .totals-block .total-line { border-bottom: 1px solid #ccc; }
+  .totals-block .total-line.grand { border-color: #111; color: #111 !important; }
+}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 no-print">
+  <div>
+    <a href="/tms/auto-invoices" class="btn btn-sm btn-outline-secondary me-2">
+      <i class="bi bi-arrow-left me-1"></i>All Invoices
+    </a>
+    <span class="text-muted">{{ inv.invoice_number }}</span>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if inv.status not in ('Sent', 'Paid', 'Overdue') %}
+    <button class="btn btn-outline-primary" onclick="markSent()">
+      <i class="bi bi-send me-1"></i>Mark Sent
+    </button>
+    {% endif %}
+    {% if inv.status != 'Paid' %}
+    <button class="btn btn-outline-success" onclick="markPaid()">
+      <i class="bi bi-check-circle me-1"></i>Mark Paid
+    </button>
+    {% endif %}
+    <button class="btn btn-outline-secondary" onclick="window.print()">
+      <i class="bi bi-printer me-1"></i>Print / PDF
+    </button>
+  </div>
+</div>
+
+<div class="invoice-card">
+  <div class="card bg-dark border-secondary">
+    <div class="card-body p-4 p-md-5">
+
+      <!-- Invoice header -->
+      <div class="invoice-header-block">
+        <div class="row align-items-start">
+          <div class="col-md-6 mb-3 mb-md-0">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <i class="bi bi-hexagon-fill text-warning fs-4"></i>
+              <span class="fw-bold fs-5 text-white">Flash Cargo</span>
+            </div>
+            <div class="text-muted small">Freight Intelligence Platform</div>
+          </div>
+          <div class="col-md-6 text-md-end">
+            <div class="fs-3 fw-bold text-warning mb-1">INVOICE</div>
+            <div class="font-monospace text-secondary">{{ inv.invoice_number }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meta row -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+          <div class="invoice-label">Invoice Date</div>
+          <div class="invoice-value">{{ inv.created_at[:10] if inv.created_at else '—' }}</div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="invoice-label">Due Date</div>
+          <div class="invoice-value {% if inv.status == 'Overdue' %}text-danger{% endif %}">
+            {{ inv.due_date or '—' }}
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="invoice-label">Payment Terms</div>
+          <div class="invoice-value">{{ inv.payment_terms or 'Net 30' }}</div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="invoice-label">Status</div>
+          <div class="invoice-value">
+            {% if inv.status == 'Draft' %}
+              <span class="badge bg-secondary fs-6">Draft</span>
+            {% elif inv.status == 'Sent' %}
+              <span class="badge bg-primary fs-6">Sent</span>
+            {% elif inv.status == 'Viewed' %}
+              <span class="badge bg-info text-dark fs-6">Viewed</span>
+            {% elif inv.status == 'Paid' %}
+              <span class="badge bg-success fs-6">Paid</span>
+            {% elif inv.status == 'Overdue' %}
+              <span class="badge bg-danger fs-6">Overdue</span>
+            {% else %}
+              <span class="badge bg-secondary fs-6">{{ inv.status }}</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Bill to -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-6">
+          <div class="invoice-label mb-1">Bill To</div>
+          <div class="invoice-value">{{ inv.customer_name or 'Customer' }}</div>
+          {% if inv.customer_email %}
+          <div class="text-secondary small">{{ inv.customer_email }}</div>
+          {% endif %}
+          {% if inv.billing_address %}
+          <div class="text-secondary small mt-1">{{ inv.billing_address }}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-6">
+          <div class="invoice-label mb-1">Shipment Reference</div>
+          <div class="invoice-value font-monospace">{{ inv.shipment_ref }}</div>
+          <div class="invoice-label mt-2 mb-1">Currency</div>
+          <div class="invoice-value">{{ inv.currency or 'USD' }}</div>
+        </div>
+      </div>
+
+      <!-- Line items -->
+      <div class="mb-4">
+        <table class="table table-dark line-items-table mb-0">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th class="text-center" style="width:80px">Qty</th>
+              <th class="text-end" style="width:120px">Rate</th>
+              <th class="text-end" style="width:130px">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in inv.line_items %}
+            <tr>
+              <td>{{ item.desc }}</td>
+              <td class="text-center">{{ item.qty }}</td>
+              <td class="text-end">${{ "{:,.2f}".format(item.rate) }}</td>
+              <td class="text-end">${{ "{:,.2f}".format(item.amount) }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="4" class="text-muted text-center">No line items</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Totals -->
+      <div class="totals-block">
+        <div class="total-line">
+          <span class="text-muted">Subtotal</span>
+          <span>${{ "{:,.2f}".format(inv.subtotal) }}</span>
+        </div>
+        {% if inv.fuel_surcharge and inv.fuel_surcharge > 0 %}
+        <div class="total-line">
+          <span class="text-muted">Fuel Surcharge ({{ "{:.1f}".format(inv.fuel_surcharge_pct) }}%)</span>
+          <span>${{ "{:,.2f}".format(inv.fuel_surcharge) }}</span>
+        </div>
+        {% endif %}
+        {% if inv.taxes and inv.taxes > 0 %}
+        <div class="total-line">
+          <span class="text-muted">Taxes</span>
+          <span>${{ "{:,.2f}".format(inv.taxes) }}</span>
+        </div>
+        {% endif %}
+        <div class="total-line grand">
+          <span>Total Due</span>
+          <span>${{ "{:,.2f}".format(inv.total) }} {{ inv.currency or 'USD' }}</span>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      {% if inv.notes %}
+      <div class="mt-4 p-3 rounded" style="background:#1a1d20; border-left: 3px solid #ffc107;">
+        <div class="invoice-label mb-1">Notes</div>
+        <div class="text-secondary small">{{ inv.notes }}</div>
+      </div>
+      {% endif %}
+
+      <!-- Timeline -->
+      <div class="mt-4 pt-4 border-top border-secondary">
+        <div class="row g-2 text-center">
+          <div class="col-4">
+            <div class="invoice-label">Created</div>
+            <div class="text-secondary small">{{ inv.created_at[:16] if inv.created_at else '—' }}</div>
+          </div>
+          <div class="col-4">
+            <div class="invoice-label">Sent</div>
+            <div class="text-secondary small">{{ inv.sent_at[:16] if inv.sent_at else '—' }}</div>
+          </div>
+          <div class="col-4">
+            <div class="invoice-label">Paid</div>
+            <div class="text-secondary small">{{ inv.paid_at[:16] if inv.paid_at else '—' }}</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+function markSent() {
+  if (!confirm('Mark this invoice as Sent?')) return;
+  fetch('/tms/auto-invoices/{{ inv.invoice_number }}/sent', {method: 'POST'})
+    .then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+}
+function markPaid() {
+  if (!confirm('Mark this invoice as Paid?')) return;
+  fetch('/tms/auto-invoices/{{ inv.invoice_number }}/paid', {method: 'POST'})
+    .then(r => r.json()).then(d => { if (d.ok) location.reload(); });
+}
+</script>
+{% endblock %}

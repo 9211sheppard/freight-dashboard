@@ -1,0 +1,397 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Drivers{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0"><i class="bi bi-person-badge me-2"></i>Drivers</h2>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/fleet" class="btn btn-outline-info"><i class="bi bi-truck-front me-1"></i>Fleet</a>
+    <a href="/tms/shipments/new" class="btn btn-outline-secondary"><i class="bi bi-plus-lg me-1"></i>New Shipment</a>
+    <a href="/tms/drivers/new" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>New Driver</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul me-2"></i>Driver Directory</span>
+        <span class="text-muted small">{{ drivers|length }} drivers</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0 align-middle">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Name</th>
+              <th>License</th>
+              <th>Status</th>
+              <th>Phone</th>
+              <th>Current Load</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for driver in drivers %}
+            <tr>
+              <td>
+                <a href="/tms/drivers?driver_id={{ driver.id }}" class="text-info text-decoration-none fw-semibold">{{ driver.name }}</a>
+                <div class="small text-muted">{{ driver.country or '-' }}</div>
+              </td>
+              <td>{{ driver.license_number }}</td>
+              <td>
+                <span class="tms-status tms-status-{{ {'Active':'active','Inactive':'cancelled','On Trip':'transit'}.get(driver.status, 'draft') }}">{{ driver.status }}</span>
+              </td>
+              <td>{{ driver.phone or '-' }}</td>
+              <td>
+                {% if driver.active_shipment_ref %}
+                <div class="fw-semibold">{{ driver.active_shipment_ref }}</div>
+                <div class="small text-muted">{{ driver.active_truck_number or 'Vehicle pending' }}</div>
+                {% else %}
+                <span class="text-muted">Unassigned</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="/tms/drivers/{{ driver.id }}/edit" class="btn btn-sm btn-outline-secondary">Edit</a>
+                <a href="/tms/drivers/{{ driver.id }}/messages" class="btn btn-sm btn-outline-info py-0 px-2 ms-1" title="Message Driver">
+                  <i class="bi bi-chat-dots"></i>
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">No drivers yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if selected_driver %}
+    <div class="row g-3 mt-1">
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center p-3 h-100">
+          <div class="fs-4 fw-bold text-info">{{ driver_stats.shipments }}</div>
+          <div class="text-muted small">Assigned Loads</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center p-3 h-100">
+          <div class="fs-4 fw-bold text-warning">{{ driver_stats.active_shipments }}</div>
+          <div class="text-muted small">Open Trips</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center p-3 h-100">
+          <div class="fs-4 fw-bold text-success">{{ "{:,.1f}".format(driver_stats.driving_hours) }}</div>
+          <div class="text-muted small">Driving Hours</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card bg-dark border-secondary text-center p-3 h-100">
+          <div class="fs-4 fw-bold text-danger">{{ driver_stats.alerts }}</div>
+          <div class="text-muted small">HOS Alerts</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary mt-4">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-phone me-2"></i>Mobile Check-In</span>
+        <a href="{{ checkin_url }}" target="_blank" class="btn btn-sm btn-outline-success">Open Link</a>
+      </div>
+      <div class="card-body">
+        <div class="small text-muted mb-2">Driver link</div>
+        <code class="d-block text-info">{{ checkin_url }}</code>
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary mt-4">
+      <div class="card-header"><i class="bi bi-clock-history me-2"></i>Hours of Service</div>
+      <div class="card-body">
+        <form method="POST" action="/tms/drivers/{{ selected_driver.id }}/duty-log" class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label text-muted">Duty Status</label>
+            <select name="duty_status" class="form-select bg-black text-white border-secondary">
+              {% for duty_status in duty_statuses %}
+              <option value="{{ duty_status }}" {% if duty_form_defaults.duty_status == duty_status %}selected{% endif %}>{{ duty_status }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label text-muted">Duty Start</label>
+            <input type="datetime-local" name="start_time" value="{{ duty_form_defaults.start_time }}" class="form-control bg-black text-white border-secondary" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label text-muted">Duty End</label>
+            <input type="datetime-local" name="end_time" value="{{ duty_form_defaults.end_time }}" class="form-control bg-black text-white border-secondary" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label text-muted">Shipment</label>
+            <select name="shipment_id" class="form-select bg-black text-white border-secondary">
+              <option value="">-- Optional --</option>
+              {% for shipment in driver_shipments %}
+              <option value="{{ shipment.id }}">{{ shipment.shipment_ref }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label text-muted">Location</label>
+            <input type="text" name="location" value="{{ duty_form_defaults.location }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label text-muted">Notes</label>
+            <input type="text" name="notes" value="{{ duty_form_defaults.notes }}" class="form-control bg-black text-white border-secondary" placeholder="Delay, breakdown, rest stop, etc.">
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Save Duty Log</button>
+          </div>
+        </form>
+
+        <div class="table-responsive mt-4">
+          <table class="table table-dark table-hover align-middle mb-0">
+            <thead class="table-secondary text-dark">
+              <tr>
+                <th>Status</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Hours</th>
+                <th>Shipment</th>
+                <th>Location</th>
+                <th>Alert</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for log in duty_logs %}
+              <tr>
+                <td><span class="tms-status tms-status-{{ {'On Duty':'active','Driving':'transit','Off Duty':'draft','Sleeper Berth':'draft'}.get(log.duty_status, 'draft') }}">{{ log.duty_status }}</span></td>
+                <td>{{ log.start_time_display }}</td>
+                <td>{{ log.end_time_display }}</td>
+                <td>{{ "{:,.2f}".format(log.hours_logged) }}</td>
+                <td>{{ log.shipment_ref or '-' }}</td>
+                <td>{{ log.location or '-' }}</td>
+                <td>
+                  {% if log.exceeds_driving_limit %}
+                  <span class="badge bg-danger">Over 11h</span>
+                  {% else %}
+                  <span class="text-muted">OK</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="7" class="text-center text-muted py-4">No duty logs recorded.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary mt-4">
+      <div class="card-header"><i class="bi bi-box-seam me-2"></i>Shipment History</div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Reference</th>
+              <th>Status</th>
+              <th>Vehicle</th>
+              <th>Route</th>
+              <th>ETA</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for shipment in driver_shipments %}
+            <tr>
+              <td><a href="/tms/shipments/{{ shipment.shipment_ref }}" class="text-info text-decoration-none">{{ shipment.shipment_ref }}</a></td>
+              <td>{{ shipment.status }}</td>
+              <td>{{ shipment.truck_number or '-' }}</td>
+              <td>{{ shipment.origin_port or '-' }} &rarr; {{ shipment.destination_port or '-' }}</td>
+              <td>{{ shipment.eta or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No shipment history yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header">
+        {% if form_mode == 'edit' %}<i class="bi bi-pencil me-2"></i>Edit Driver{% else %}<i class="bi bi-person-plus me-2"></i>Driver Profile{% endif %}
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{% if form_mode == 'edit' and form_driver and form_driver.id %}/tms/drivers/{{ form_driver.id }}/edit{% else %}/tms/drivers/new{% endif %}">
+          <div class="mb-3">
+            <label class="form-label text-muted">Name</label>
+            <input type="text" name="name" value="{{ form_driver.name if form_driver else '' }}" class="form-control bg-black text-white border-secondary" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">License Number</label>
+            <input type="text" name="license_number" value="{{ form_driver.license_number if form_driver else '' }}" class="form-control bg-black text-white border-secondary" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Phone</label>
+            <input type="text" name="phone" value="{{ form_driver.phone if form_driver else '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Email</label>
+            <input type="email" name="email" value="{{ form_driver.email if form_driver else '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Country</label>
+            <input type="text" name="country" value="{{ form_driver.country if form_driver else '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">License State</label>
+            <input type="text" name="license_state" value="{{ form_driver.license_state if form_driver else '' }}" class="form-control bg-black text-white border-secondary">
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted">CDL Class</label>
+              <select name="cdl_class" class="form-select bg-black text-white border-secondary">
+                <option value="">-- Select --</option>
+                <option value="Class A" {% if (form_driver.cdl_class if form_driver else '') == 'Class A' %}selected{% endif %}>Class A</option>
+                <option value="Class B" {% if (form_driver.cdl_class if form_driver else '') == 'Class B' %}selected{% endif %}>Class B</option>
+                <option value="Class C" {% if (form_driver.cdl_class if form_driver else '') == 'Class C' %}selected{% endif %}>Class C</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Hire Date</label>
+              <input type="date" name="hire_date" value="{{ form_driver.hire_date if form_driver else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">CDL Expiry</label>
+              <input type="date" name="cdl_expiry" value="{{ form_driver.cdl_expiry if form_driver else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Medical Card Expiry</label>
+              <input type="date" name="medical_card_expiry" value="{{ form_driver.medical_card_expiry if form_driver else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Drug Test Date</label>
+              <input type="date" name="drug_test_date" value="{{ form_driver.drug_test_date if form_driver else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Emergency Contact Name</label>
+              <input type="text" name="emergency_contact_name" value="{{ form_driver.emergency_contact_name if form_driver else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Emergency Contact Phone</label>
+              <input type="text" name="emergency_contact_phone" value="{{ form_driver.emergency_contact_phone if form_driver else '' }}" class="form-control bg-black text-white border-secondary">
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label text-muted">Status</label>
+            <select name="status" class="form-select bg-black text-white border-secondary">
+              {% for status in driver_statuses %}
+              <option value="{{ status }}" {% if (form_driver.status if form_driver else 'Active') == status %}selected{% endif %}>{{ status }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-4">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="hazmat_endorsement" value="1" id="hazmatEndorsement" {% if form_driver and form_driver.hazmat_endorsement %}checked{% endif %}>
+              <label class="form-check-label text-muted" for="hazmatEndorsement">Hazmat Endorsement</label>
+            </div>
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" name="twic_card" value="1" id="twicCard" {% if form_driver and form_driver.twic_card %}checked{% endif %}>
+              <label class="form-check-label text-muted" for="twicCard">TWIC Card</label>
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-fill">{% if form_mode == 'edit' %}Save Driver{% else %}Create Driver{% endif %}</button>
+            {% if form_mode == 'edit' and form_driver and form_driver.id %}
+            <a href="/tms/drivers?driver_id={{ form_driver.id }}" class="btn btn-outline-secondary">Cancel</a>
+            {% endif %}
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% if selected_driver %}
+    <div class="card bg-dark border-secondary mt-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-info-circle me-2"></i>Selected Driver</span>
+        <form method="POST" action="/tms/drivers/{{ selected_driver.id }}/delete" onsubmit="return confirm('Delete this driver?');">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="text-muted small">LICENSE</div>
+            <div class="fw-semibold">{{ selected_driver.license_number }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">STATUS</div>
+            <div class="fw-semibold">{{ selected_driver.status }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">PHONE</div>
+            <div class="fw-semibold">{{ selected_driver.phone or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">EMAIL</div>
+            <div class="fw-semibold">{{ selected_driver.email or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">LICENSE STATE/PROV</div>
+            <div class="fw-semibold">{{ selected_driver.license_state or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">COUNTRY</div>
+            <div class="fw-semibold">{{ selected_driver.country or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">CDL CLASS</div>
+            <div class="fw-semibold">{{ selected_driver.cdl_class or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">CDL EXPIRY</div>
+            <div class="fw-semibold {% if selected_driver.cdl_expiry and selected_driver.cdl_expiry < now_date %}text-danger{% endif %}">{{ selected_driver.cdl_expiry or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">MED CARD EXPIRY</div>
+            <div class="fw-semibold {% if selected_driver.medical_card_expiry and selected_driver.medical_card_expiry < now_date %}text-danger{% endif %}">{{ selected_driver.medical_card_expiry or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">DRUG TEST DATE</div>
+            <div class="fw-semibold">{{ selected_driver.drug_test_date or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">HIRE DATE</div>
+            <div class="fw-semibold">{{ selected_driver.hire_date or '-' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">EMERGENCY CONTACT</div>
+            <div class="fw-semibold">{{ selected_driver.emergency_contact_name or '-' }}</div>
+            <div class="small text-muted">{{ selected_driver.emergency_contact_phone or '' }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">ENDORSEMENTS</div>
+            <div class="fw-semibold d-flex gap-1 flex-wrap mt-1">
+              {% if selected_driver.hazmat_endorsement %}<span class="badge bg-danger">HAZMAT</span>{% endif %}
+              {% if selected_driver.twic_card %}<span class="badge bg-warning text-dark">TWIC</span>{% endif %}
+              {% if not selected_driver.hazmat_endorsement and not selected_driver.twic_card %}-{% endif %}
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="text-muted small">LAST CHECK-IN</div>
+            <div class="fw-semibold">{{ selected_driver.last_checkin_at or 'No check-ins yet' }}</div>
+            <div class="small text-muted">{{ selected_driver.last_location or 'Location pending' }}</div>
+          </div>
+          {% if selected_driver.last_issue %}
+          <div class="col-12">
+            <div class="text-muted small">LAST ISSUE</div>
+            <div class="text-warning">{{ selected_driver.last_issue }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

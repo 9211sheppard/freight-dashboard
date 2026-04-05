@@ -1,0 +1,36 @@
+﻿{% extends "tms/tms_base.html" %}
+{% block title %}Customs and Compliance{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0"><i class="bi bi-shield-check me-2"></i>Customs and Compliance</h2>
+</div>
+<div class="card bg-dark border-secondary">
+  <div class="table-responsive">
+    <table class="table table-dark table-hover mb-0">
+      <thead class="table-secondary text-dark">
+        <tr><th>Shipment</th><th>Route</th><th>Shipper</th><th>Consignee</th><th>HS Code</th><th>DPS</th><th>Status</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for s in shipments %}
+        <tr>
+          <td><a href="/tms/shipments/{{ s.shipment_ref }}" class="fw-bold text-decoration-none">{{ s.shipment_ref }}</a></td>
+          <td>{{ s.origin_port }} to {{ s.destination_port }}</td>
+          <td>{{ s.shipper_name or '-' }}</td>
+          <td>{{ s.consignee_name or '-' }}</td>
+          <td>{{ s.hs_code or 'Missing' }}</td>
+          <td><span class="badge bg-{% if s.dps_status == 'clear' %}success{% else %}secondary{% endif %}">{{ s.dps_status or 'Not screened' }}</span></td>
+          <td><span class="badge bg-{% if s.customs_status == 'cleared' %}success{% elif s.customs_status %}primary{% else %}warning text-dark{% endif %}">{{ s.customs_status or 'Pending' }}</span></td>
+          <td>
+            <form method="POST" class="d-inline">
+              <input type="hidden" name="shipment_ref" value="{{ s.shipment_ref }}">
+              <input type="hidden" name="status" value="cleared">
+              <button class="btn btn-sm btn-outline-success">Mark Cleared</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}<tr><td colspan="8" class="text-center text-muted py-4">No shipments found.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

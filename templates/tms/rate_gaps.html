@@ -1,0 +1,265 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Rate Gaps — TMS Master{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h4 class="mb-0 fw-semibold">Rate Gaps</h4>
+      <p class="text-secondary small mb-0 mt-1">Pending tender responses, incomplete replies, and carrier coverage gaps.</p>
+    </div>
+    <button class="btn btn-outline-info btn-sm" id="processRepliesBtn">
+      <i class="bi bi-arrow-repeat me-1"></i>Process Replies Now
+    </button>
+  </div>
+
+  <div id="processResult" class="alert py-2 d-none" role="alert"></div>
+
+  <!-- Summary cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card bg-body-tertiary border-secondary-subtle text-center py-3">
+        <div class="fs-2 fw-bold text-warning">{{ report.total_pending }}</div>
+        <div class="small text-secondary">Pending (overdue)</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card bg-body-tertiary border-secondary-subtle text-center py-3">
+        <div class="fs-2 fw-bold text-danger">{{ report.total_incomplete }}</div>
+        <div class="small text-secondary">Incomplete Replies</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card bg-body-tertiary border-secondary-subtle text-center py-3">
+        <div class="fs-2 fw-bold text-info">{{ report.carrier_gap_summary | length }}</div>
+        <div class="small text-secondary">Carriers with Gaps</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card bg-body-tertiary border-secondary-subtle text-center py-3">
+        <div class="fs-2 fw-bold text-secondary">{{ report.region_gap_summary | length }}</div>
+        <div class="small text-secondary">Regions Affected</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Carrier gap summary -->
+    <div class="col-md-6">
+      <div class="card bg-body-tertiary border-secondary-subtle h-100">
+        <div class="card-header border-secondary-subtle fw-semibold small">
+          <i class="bi bi-truck me-1 text-warning"></i>Carriers with Most Gaps
+        </div>
+        <div class="card-body p-0">
+          {% if report.carrier_gap_summary %}
+          <table class="table table-sm table-dark table-hover mb-0">
+            <thead><tr><th>Carrier</th><th class="text-end">Overdue</th></tr></thead>
+            <tbody>
+            {% for name, count in report.carrier_gap_summary %}
+            <tr>
+              <td class="small">{{ name }}</td>
+              <td class="text-end"><span class="badge bg-warning text-dark">{{ count }}</span></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="p-4 text-center text-secondary small">No overdue responses.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Region gap summary -->
+    <div class="col-md-6">
+      <div class="card bg-body-tertiary border-secondary-subtle h-100">
+        <div class="card-header border-secondary-subtle fw-semibold small">
+          <i class="bi bi-geo-alt me-1 text-warning"></i>Origins with Most Gaps
+        </div>
+        <div class="card-body p-0">
+          {% if report.region_gap_summary %}
+          <table class="table table-sm table-dark table-hover mb-0">
+            <thead><tr><th>Origin</th><th class="text-end">Overdue</th></tr></thead>
+            <tbody>
+            {% for origin, count in report.region_gap_summary %}
+            <tr>
+              <td class="small">{{ origin }}</td>
+              <td class="text-end"><span class="badge bg-warning text-dark">{{ count }}</span></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="p-4 text-center text-secondary small">No region data.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending overdue responses -->
+    <div class="col-12">
+      <div class="card bg-body-tertiary border-secondary-subtle">
+        <div class="card-header border-secondary-subtle fw-semibold small">
+          <i class="bi bi-hourglass-split me-1 text-danger"></i>Overdue Pending Responses
+        </div>
+        <div class="card-body p-0">
+          {% if report.pending_responses %}
+          <div class="table-responsive">
+            <table class="table table-sm table-dark table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Carrier</th><th>Email</th><th>Shipment</th>
+                  <th>Origin</th><th>Destination</th><th>Deadline</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for r in report.pending_responses %}
+              <tr>
+                <td class="small">{{ r.carrier_name or '—' }}</td>
+                <td class="small text-secondary">{{ r.contact_email or '—' }}</td>
+                <td class="small">
+                  <a href="/tms/shipments/{{ r.shipment_ref }}" class="text-info text-decoration-none">
+                    {{ r.shipment_ref }}
+                  </a>
+                </td>
+                <td class="small">{{ r.origin_port or '—' }}</td>
+                <td class="small">{{ r.destination_port or '—' }}</td>
+                <td class="small text-danger">{{ r.deadline_at[:10] if r.deadline_at else '—' }}</td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-secondary small">No overdue pending responses.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Incomplete parses -->
+    <div class="col-12">
+      <div class="card bg-body-tertiary border-secondary-subtle">
+        <div class="card-header border-secondary-subtle fw-semibold small">
+          <i class="bi bi-exclamation-circle me-1 text-warning"></i>Incomplete Reply Parses
+          <span class="text-secondary fw-normal ms-1">(replies received but missing fields)</span>
+        </div>
+        <div class="card-body p-0">
+          {% if report.incomplete_parses %}
+          <div class="table-responsive">
+            <table class="table table-sm table-dark table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Carrier Email</th><th>20ft</th><th>40ft</th>
+                  <th>Valid Until</th><th>Missing</th><th>Confidence</th><th>Parsed</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for p in report.incomplete_parses %}
+              <tr>
+                <td class="small">{{ p.carrier_email or '—' }}</td>
+                <td class="small">{{ ('$%,.0f' | format(p.rate_20ft)) if p.rate_20ft else '<span class="text-danger">—</span>' | safe }}</td>
+                <td class="small">{{ ('$%,.0f' | format(p.rate_40ft)) if p.rate_40ft else '<span class="text-danger">—</span>' | safe }}</td>
+                <td class="small">{{ p.valid_until or '<span class="text-danger">—</span>' | safe }}</td>
+                <td class="small">
+                  {% for flag in (p.gap_flags or '').split(',') if flag %}
+                  <span class="badge bg-danger bg-opacity-25 text-danger me-1">{{ flag }}</span>
+                  {% endfor %}
+                </td>
+                <td class="small">
+                  <span class="badge {% if p.confidence == 'high' %}bg-success{% elif p.confidence == 'medium' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                    {{ p.confidence }}
+                  </span>
+                </td>
+                <td class="small text-secondary">{{ p.created_at[:10] if p.created_at else '—' }}</td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-secondary small">No incomplete parses.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Parse log -->
+    <div class="col-12">
+      <div class="card bg-body-tertiary border-secondary-subtle">
+        <div class="card-header border-secondary-subtle fw-semibold small">
+          <i class="bi bi-journal-text me-1 text-info"></i>Recent Parse Log
+          <span class="text-secondary fw-normal ms-1">(last 50)</span>
+        </div>
+        <div class="card-body p-0">
+          {% if parse_log %}
+          <div class="table-responsive">
+            <table class="table table-sm table-dark table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Carrier</th><th>Status</th><th>20ft</th><th>40ft</th>
+                  <th>Confidence</th><th>Gaps</th><th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% for p in parse_log %}
+              <tr>
+                <td class="small">{{ p.carrier_email or '—' }}</td>
+                <td class="small">
+                  <span class="badge {% if p.parse_status == 'applied' %}bg-success{% elif p.parse_status == 'parsed' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                    {{ p.parse_status }}
+                  </span>
+                </td>
+                <td class="small">{{ ('$%,.0f' | format(p.rate_20ft)) if p.rate_20ft else '—' }}</td>
+                <td class="small">{{ ('$%,.0f' | format(p.rate_40ft)) if p.rate_40ft else '—' }}</td>
+                <td class="small">
+                  <span class="badge {% if p.confidence == 'high' %}bg-success{% elif p.confidence == 'medium' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                    {{ p.confidence }}
+                  </span>
+                </td>
+                <td class="small text-secondary">{{ p.gap_flags or '—' }}</td>
+                <td class="small text-secondary">{{ p.created_at[:10] if p.created_at else '—' }}</td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="p-4 text-center text-secondary small">No parse history yet.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row -->
+</div>
+
+<script>
+document.getElementById('processRepliesBtn').addEventListener('click', function () {
+  var btn = this;
+  var res = document.getElementById('processResult');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing…';
+
+  fetch('/tms/rate-gaps/process', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      res.className = 'alert py-2 alert-success';
+      res.classList.remove('d-none');
+      res.textContent = 'Processed ' + d.processed + ' replies — ' + d.applied + ' rates applied.';
+      if (d.processed > 0) setTimeout(function () { location.reload(); }, 1500);
+    })
+    .catch(function (e) {
+      res.className = 'alert py-2 alert-danger';
+      res.classList.remove('d-none');
+      res.textContent = 'Error: ' + e;
+    })
+    .finally(function () {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Process Replies Now';
+    });
+});
+</script>
+{% endblock %}

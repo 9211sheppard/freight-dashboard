@@ -1,0 +1,524 @@
+{% extends "tms/driver_base.html" %}
+{% block title %}TMS Master — Driver{% endblock %}
+
+{% block nav_home %}{% if tab == 'home' or not tab %}active{% endif %}{% endblock %}
+{% block nav_loads %}{% if tab == 'loads' %}active{% endif %}{% endblock %}
+{% block nav_status %}{% if tab == 'status' %}active{% endif %}{% endblock %}
+{% block nav_messages %}{% if tab == 'messages' %}active{% endif %}{% endblock %}
+{% block nav_profile %}{% if tab == 'profile' %}active{% endif %}{% endblock %}
+
+{% block content %}
+
+<!-- Top bar -->
+<div class="driver-topbar">
+  <div class="driver-topbar-brand">
+    <div class="driver-topbar-logo"><i class="bi bi-truck-front-fill"></i></div>
+    <div>
+      <div class="driver-topbar-name">TMS Master</div>
+      {% if driver %}
+      <div class="driver-topbar-sub">{{ driver.name }}</div>
+      {% else %}
+      <div class="driver-topbar-sub" style="color:#555;">Driver Portal</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="driver-topbar-right">
+    {% if active_load %}
+    <span class="driver-topbar-badge">{{ active_load.status or 'Active' }}</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── HOME TAB ────────────────────────────────────────────────── -->
+{% if tab == 'home' or not tab %}
+
+{% if flash_message %}
+<div class="d-section mt-3">
+  <div class="d-alert d-alert-{{ flash_type or 'success' }}">
+    <i class="bi bi-{{ 'check-circle' if (flash_type or 'success') == 'success' else 'exclamation-triangle' }} me-2"></i>{{ flash_message }}
+  </div>
+</div>
+{% endif %}
+
+{% if active_load %}
+<!-- Active load card -->
+<div class="d-section mt-3">
+  <div class="d-section-label">Current Load</div>
+  <div class="d-card d-card-gold">
+    <div class="d-stat-row">
+      <div class="d-stat">
+        <div class="d-stat-label">Reference</div>
+        <div class="d-stat-value text-info">{{ active_load.shipment_ref }}</div>
+      </div>
+      <div class="d-stat">
+        <div class="d-stat-label">Status</div>
+        <div class="d-stat-value">
+          <span class="status-pill {% if active_load.status == 'Delivered' %}delivered{% elif active_load.status in ('In Transit','Dispatched') %}in-transit{% else %}pending{% endif %}">
+            {{ active_load.status or 'Pending' }}
+          </span>
+        </div>
+      </div>
+      <div class="d-stat">
+        <div class="d-stat-label">From</div>
+        <div class="d-stat-value">{{ active_load.origin_port or '—' }}</div>
+      </div>
+      <div class="d-stat">
+        <div class="d-stat-label">To</div>
+        <div class="d-stat-value">{{ active_load.destination_port or '—' }}</div>
+      </div>
+      {% if active_load.eta %}
+      <div class="d-stat">
+        <div class="d-stat-label">ETA</div>
+        <div class="d-stat-value">{{ active_load.eta }}</div>
+      </div>
+      {% endif %}
+      {% if active_load.cargo_description %}
+      <div class="d-stat col-span-2" style="grid-column: span 2;">
+        <div class="d-stat-label">Cargo</div>
+        <div class="d-stat-value" style="font-size:.82rem;">{{ active_load.cargo_description[:60] }}</div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="d-sep"></div>
+    <div class="d-card-body">
+      <a href="/tms/driver-app?tab=status{% if driver_id %}&driver_id={{ driver_id }}{% endif %}{% if active_load %}&ref={{ active_load.shipment_ref }}{% endif %}"
+         class="btn-driver-primary" style="display:block; text-align:center; text-decoration:none;">
+        <i class="bi bi-arrow-up-circle me-2"></i>Update Status
+      </a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Quick actions -->
+<div class="d-section mt-3">
+  <div class="d-section-label">Quick Actions</div>
+  <div class="d-flex flex-column gap-2">
+
+    <a href="/tms/driver-app?tab=status{% if driver_id %}&driver_id={{ driver_id }}{% endif %}{% if shipment_ref %}&ref={{ shipment_ref }}{% endif %}"
+       class="d-action">
+      <div class="d-action-icon gold"><i class="bi bi-arrow-up-circle-fill"></i></div>
+      <div>
+        <div class="d-action-label">Update Load Status</div>
+        <div class="d-action-sub">Picked up · In transit · Delivered</div>
+      </div>
+      <i class="bi bi-chevron-right ms-auto text-secondary"></i>
+    </a>
+
+    <a href="/tms/driver-app?tab=loads{% if driver_id %}&driver_id={{ driver_id }}{% endif %}"
+       class="d-action">
+      <div class="d-action-icon blue"><i class="bi bi-box-seam-fill"></i></div>
+      <div>
+        <div class="d-action-label">My Loads</div>
+        <div class="d-action-sub">View assigned shipments</div>
+      </div>
+      <i class="bi bi-chevron-right ms-auto text-secondary"></i>
+    </a>
+
+    {% if shipment_ref %}
+    <a href="{{ active_pod_url or ('/tms/shipments/' ~ shipment_ref ~ '/pod-submit') }}" class="d-action">
+      <div class="d-action-icon green"><i class="bi bi-camera-fill"></i></div>
+      <div>
+        <div class="d-action-label">Submit POD</div>
+        <div class="d-action-sub">Upload proof of delivery</div>
+      </div>
+      <i class="bi bi-chevron-right ms-auto text-secondary"></i>
+    </a>
+    {% else %}
+    <button class="d-action" onclick="document.getElementById('podSection').scrollIntoView({behavior:'smooth'})">
+      <div class="d-action-icon green"><i class="bi bi-camera-fill"></i></div>
+      <div>
+        <div class="d-action-label">Submit POD</div>
+        <div class="d-action-sub">Enter ref number to upload</div>
+      </div>
+      <i class="bi bi-chevron-right ms-auto text-secondary"></i>
+    </button>
+    {% endif %}
+
+    <a href="/tms/driver-app?tab=messages{% if driver_id %}&driver_id={{ driver_id }}{% endif %}"
+       class="d-action">
+      <div class="d-action-icon purple"><i class="bi bi-chat-dots-fill"></i></div>
+      <div>
+        <div class="d-action-label">Messages</div>
+        <div class="d-action-sub">Dispatch communications</div>
+      </div>
+      <i class="bi bi-chevron-right ms-auto text-secondary"></i>
+    </a>
+
+  </div>
+</div>
+
+{% if not shipment_ref %}
+<!-- POD ref entry -->
+<div class="d-section mt-3" id="podSection">
+  <div class="d-section-label">Submit Proof of Delivery</div>
+  <div class="d-card">
+    <div class="d-card-body">
+      <label class="d-label">Shipment Reference</label>
+      <input type="text" class="d-input mb-3" id="podRefInput" placeholder="e.g. SHP-0001"
+        inputmode="text" autocapitalize="characters">
+      <button class="btn-driver-primary" onclick="goToPod()">
+        <i class="bi bi-camera-fill me-2"></i>Open POD Upload
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- PWA install nudge -->
+<div class="d-section mt-3 mb-2" id="installWrap" style="display:none;">
+  <div class="d-install-bar">
+    <i class="bi bi-phone"></i>
+    <div>
+      Add TMS Master to your home screen for faster access.
+      <br><button class="btn-driver-outline mt-2" id="installBtn" style="width:auto;padding:6px 16px;font-size:.78rem;">
+        Install App
+      </button>
+    </div>
+  </div>
+</div>
+
+{% endif %}
+<!-- ── END HOME TAB ──────────────────────────────────────────── -->
+
+
+<!-- ── LOADS TAB ──────────────────────────────────────────────── -->
+{% if tab == 'loads' %}
+<div class="driver-topbar" style="position:relative; padding-top:14px;">
+  <span class="fw-semibold">My Loads</span>
+</div>
+
+<div class="d-section mt-3">
+  {% if loads %}
+  <div class="d-flex flex-column gap-2">
+    {% for load in loads %}
+    <a href="/tms/driver-app?tab=loads&driver_id={{ driver_id }}&ref={{ load.shipment_ref }}"
+       class="d-card d-action" style="text-decoration:none;">
+      <div style="flex:1; min-width:0;">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <span class="fw-semibold text-info" style="font-size:.9rem;">{{ load.shipment_ref }}</span>
+          <span class="status-pill {% if load.status == 'Delivered' %}delivered{% elif load.status in ('In Transit','Dispatched') %}in-transit{% else %}pending{% endif %}" style="font-size:.65rem; padding:3px 8px;">
+            {{ load.status or 'Pending' }}
+          </span>
+        </div>
+        <div style="font-size:.78rem; color:var(--text-dim);">
+          {{ load.origin_port or '—' }} → {{ load.destination_port or '—' }}
+          {% if load.eta %} · ETA {{ load.eta }}{% endif %}
+        </div>
+      </div>
+      <i class="bi bi-chevron-right ms-2 text-secondary flex-shrink-0"></i>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="d-card" style="padding:32px 16px; text-align:center; color:var(--text-dim);">
+    <i class="bi bi-box-seam" style="font-size:2rem; display:block; margin-bottom:10px; opacity:.3;"></i>
+    No loads assigned yet.
+    {% if not driver_id %}
+    <div style="font-size:.78rem; margin-top:8px;">Add your driver ID to the URL: <code style="color:var(--gold);">?driver_id=1</code></div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Detail view when ref is selected -->
+{% if active_load %}
+<div class="d-section mt-3">
+  <div class="d-section-label">Load Details — {{ active_load.shipment_ref }}</div>
+  <div class="d-card d-card-gold">
+    <div class="d-stat-row">
+      <div class="d-stat"><div class="d-stat-label">Customer</div><div class="d-stat-value" style="font-size:.82rem;">{{ active_load.customer_name or '—' }}</div></div>
+      <div class="d-stat"><div class="d-stat-label">Mode</div><div class="d-stat-value">{{ active_load.mode or '—' }}</div></div>
+      <div class="d-stat"><div class="d-stat-label">ETD</div><div class="d-stat-value">{{ active_load.etd or '—' }}</div></div>
+      <div class="d-stat"><div class="d-stat-label">ETA</div><div class="d-stat-value">{{ active_load.eta or '—' }}</div></div>
+    </div>
+    <div class="d-sep"></div>
+    <div class="d-card-body d-flex flex-column gap-2">
+      <a href="/tms/driver-app?tab=status&driver_id={{ driver_id }}&ref={{ active_load.shipment_ref }}"
+         class="btn-driver-primary" style="text-align:center; text-decoration:none; display:block;">
+        <i class="bi bi-arrow-up-circle me-2"></i>Update Status
+      </a>
+      <a href="{{ active_pod_url or ('/tms/shipments/' ~ active_load.shipment_ref ~ '/pod-submit') }}"
+         class="btn-driver-outline" style="text-align:center; text-decoration:none; display:block;">
+        <i class="bi bi-camera me-2"></i>Submit POD
+      </a>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+<!-- ── END LOADS TAB ─────────────────────────────────────────── -->
+
+
+<!-- ── STATUS TAB ─────────────────────────────────────────────── -->
+{% if tab == 'status' %}
+<div class="driver-topbar" style="position:relative; padding-top:14px;">
+  <span class="fw-semibold">Update Status</span>
+</div>
+
+<div class="d-section mt-3">
+  {% if status_saved %}
+  <div class="d-alert d-alert-success mb-3">
+    <i class="bi bi-check-circle me-2"></i>Status updated — dispatch has been notified.
+  </div>
+  {% endif %}
+  {% if status_error %}
+  <div class="d-alert d-alert-error mb-3">
+    <i class="bi bi-exclamation-triangle me-2"></i>{{ status_error }}
+  </div>
+  {% endif %}
+
+  <form method="POST" action="/tms/driver-app/status" id="statusForm">
+    <input type="hidden" name="driver_id" value="{{ driver_id or '' }}">
+
+    <!-- Ref -->
+    <div class="d-card mb-3">
+      <div class="d-card-header">Shipment</div>
+      <div class="d-card-body">
+        {% if active_load %}
+        <div class="d-flex align-items-center justify-content-between">
+          <span class="fw-semibold text-info">{{ active_load.shipment_ref }}</span>
+          <span class="status-pill {% if active_load.status == 'Delivered' %}delivered{% elif active_load.status in ('In Transit','Dispatched') %}in-transit{% else %}pending{% endif %}">
+            {{ active_load.status }}
+          </span>
+        </div>
+        <div style="font-size:.78rem; color:var(--text-dim); margin-top:4px;">
+          {{ active_load.origin_port or '' }} → {{ active_load.destination_port or '' }}
+        </div>
+        <input type="hidden" name="shipment_ref" value="{{ active_load.shipment_ref }}">
+        {% else %}
+        <label class="d-label">Shipment Reference</label>
+        <input type="text" name="shipment_ref" class="d-input" placeholder="SHP-0001"
+          value="{{ shipment_ref or '' }}" inputmode="text" autocapitalize="characters" required>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- New status -->
+    <div class="d-card mb-3">
+      <div class="d-card-header">New Status</div>
+      <div class="d-card-body d-flex flex-column gap-2" id="statusOptions">
+        {% set statuses = [
+          ('Picked Up',   'gold',   'bi-check-circle-fill',   'Load picked up from shipper'),
+          ('In Transit',  'blue',   'bi-truck-front-fill',    'Currently on the road'),
+          ('At Delivery', 'purple', 'bi-geo-alt-fill',        'Arrived at delivery location'),
+          ('Delivered',   'green',  'bi-check2-all',          'Successfully delivered'),
+          ('Delayed',     'red',    'bi-clock-history',       'Shipment is delayed'),
+          ('Issue',       'red',    'bi-exclamation-triangle-fill', 'Report a problem'),
+        ] %}
+        {% for val, color, icon, desc in statuses %}
+        <label class="d-action" style="cursor:pointer;" for="s_{{ loop.index }}">
+          <input type="radio" name="new_status" value="{{ val }}" id="s_{{ loop.index }}"
+            style="display:none;" class="status-radio"
+            {% if active_load and active_load.status == val %}checked{% endif %}>
+          <div class="d-action-icon {{ color }}"><i class="bi {{ icon }}"></i></div>
+          <div>
+            <div class="d-action-label">{{ val }}</div>
+            <div class="d-action-sub">{{ desc }}</div>
+          </div>
+          <i class="bi bi-circle ms-auto text-secondary radio-indicator"></i>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Location -->
+    <div class="d-card mb-3">
+      <div class="d-card-header">Current Location</div>
+      <div class="d-card-body">
+        <input type="text" name="location" class="d-input mb-2" id="locationInput"
+          placeholder="City, State or GPS coords" value="{{ driver.last_location if driver else '' }}">
+        <button type="button" class="btn-driver-outline" id="gpsBtn" style="font-size:.82rem; padding:10px;">
+          <i class="bi bi-geo-alt me-1"></i>Use My Location
+        </button>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="d-card mb-3">
+      <div class="d-card-header">Notes (optional)</div>
+      <div class="d-card-body">
+        <textarea name="notes" class="d-input" rows="3"
+          placeholder="Any additional info for dispatch…" style="resize:none;"></textarea>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-driver-primary" id="submitStatusBtn">
+      <i class="bi bi-arrow-up-circle me-2"></i>Submit Status Update
+    </button>
+  </form>
+</div>
+{% endif %}
+<!-- ── END STATUS TAB ────────────────────────────────────────── -->
+
+
+<!-- ── MESSAGES TAB ───────────────────────────────────────────── -->
+{% if tab == 'messages' %}
+<div class="driver-topbar" style="position:relative; padding-top:14px;">
+  <span class="fw-semibold">Messages</span>
+</div>
+
+<div class="d-section mt-3">
+  {% if driver_id %}
+  <div class="d-card">
+    <div class="d-card-body" style="text-align:center; padding:24px 16px;">
+      <i class="bi bi-chat-dots" style="font-size:2rem; color:var(--gold); display:block; margin-bottom:10px;"></i>
+      <div class="fw-semibold mb-1">Dispatch Messaging</div>
+      <div style="font-size:.82rem; color:var(--text-dim); margin-bottom:16px;">
+        Open the full message thread with your dispatcher.
+      </div>
+      <a href="/tms/drivers/{{ driver_id }}/messages"
+         class="btn-driver-primary" style="text-align:center; text-decoration:none; display:block;">
+        <i class="bi bi-chat-dots-fill me-2"></i>Open Messages
+      </a>
+    </div>
+  </div>
+  {% else %}
+  <div class="d-card" style="padding:24px 16px; text-align:center; color:var(--text-dim);">
+    <i class="bi bi-chat-dots" style="font-size:2rem; display:block; margin-bottom:10px; opacity:.3;"></i>
+    Messages require a driver ID.<br>
+    <span style="font-size:.78rem;">Contact dispatch to get your driver link.</span>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+<!-- ── END MESSAGES TAB ──────────────────────────────────────── -->
+
+
+<!-- ── PROFILE TAB ────────────────────────────────────────────── -->
+{% if tab == 'profile' %}
+<div class="driver-topbar" style="position:relative; padding-top:14px;">
+  <span class="fw-semibold">Profile</span>
+</div>
+
+<div class="d-section mt-3">
+  <div class="d-card d-card-gold mb-3">
+    <div class="d-card-body" style="text-align:center; padding:24px 16px;">
+      <div style="width:64px; height:64px; background:var(--gold-dim); border:2px solid rgba(200,169,110,.3);
+                  border-radius:50%; display:flex; align-items:center; justify-content:center;
+                  margin:0 auto 12px; font-size:1.8rem; color:var(--gold);">
+        <i class="bi bi-person-fill"></i>
+      </div>
+      {% if driver %}
+      <div class="fw-bold" style="font-size:1.1rem;">{{ driver.name }}</div>
+      <div style="font-size:.82rem; color:var(--text-dim); margin-top:4px;">
+        {{ driver.license_class or 'Driver' }}
+        {% if driver.status %} · <span style="color:var(--gold);">{{ driver.status }}</span>{% endif %}
+      </div>
+      {% else %}
+      <div class="fw-bold">Driver</div>
+      <div style="font-size:.78rem; color:var(--text-dim); margin-top:4px;">No profile linked</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if driver %}
+  <div class="d-card mb-3">
+    <div class="d-stat-row">
+      {% if driver.phone %}<div class="d-stat"><div class="d-stat-label">Phone</div><div class="d-stat-value" style="font-size:.82rem;">{{ driver.phone }}</div></div>{% endif %}
+      {% if driver.license_number %}<div class="d-stat"><div class="d-stat-label">Licence</div><div class="d-stat-value" style="font-size:.82rem;">{{ driver.license_number }}</div></div>{% endif %}
+      {% if driver.vehicle_plate %}<div class="d-stat"><div class="d-stat-label">Plate</div><div class="d-stat-value" style="font-size:.82rem;">{{ driver.vehicle_plate }}</div></div>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="d-card">
+    <div class="d-card-body d-flex flex-column gap-2">
+      <a href="/tms/driver/<token>" class="d-action" style="text-decoration:none; padding:12px 14px;">
+        <div class="d-action-icon blue"><i class="bi bi-clock-history"></i></div>
+        <div><div class="d-action-label">Duty Log</div><div class="d-action-sub">Hours of service record</div></div>
+        <i class="bi bi-chevron-right ms-auto text-secondary"></i>
+      </a>
+    </div>
+  </div>
+</div>
+{% endif %}
+<!-- ── END PROFILE TAB ───────────────────────────────────────── -->
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+// PWA install
+var deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault(); deferredPrompt = e;
+  var w = document.getElementById('installWrap');
+  if (w && window.matchMedia('(display-mode: browser)').matches) w.style.display = 'block';
+});
+var installBtn = document.getElementById('installBtn');
+if (installBtn) installBtn.addEventListener('click', function() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function() {
+      deferredPrompt = null;
+      var w = document.getElementById('installWrap');
+      if (w) w.style.display = 'none';
+    });
+  }
+});
+
+// Service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/static/driver_sw.js').catch(function(){});
+}
+
+// POD ref helper
+function goToPod() {
+  var ref = document.getElementById('podRefInput');
+  if (ref && ref.value.trim()) window.location.href = '/tms/shipments/' + ref.value.trim() + '/pod-submit';
+  else if (ref) ref.focus();
+}
+
+// GPS location
+var gpsBtn = document.getElementById('gpsBtn');
+var locInput = document.getElementById('locationInput');
+if (gpsBtn && locInput && navigator.geolocation) {
+  gpsBtn.addEventListener('click', function() {
+    gpsBtn.innerHTML = '<span class="d-spinner"></span> Getting location…';
+    gpsBtn.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      function(pos) {
+        locInput.value = pos.coords.latitude.toFixed(5) + ', ' + pos.coords.longitude.toFixed(5);
+        gpsBtn.innerHTML = '<i class="bi bi-geo-alt-fill me-1"></i>Location set';
+        gpsBtn.disabled = false;
+      },
+      function() {
+        gpsBtn.innerHTML = '<i class="bi bi-geo-alt me-1"></i>Use My Location';
+        gpsBtn.disabled = false;
+      }
+    );
+  });
+} else if (gpsBtn) { gpsBtn.style.display = 'none'; }
+
+// Radio visual highlight
+document.querySelectorAll('.status-radio').forEach(function(radio) {
+  radio.addEventListener('change', function() {
+    document.querySelectorAll('label[for^="s_"]').forEach(function(lbl) {
+      lbl.style.borderColor = '';
+      var ind = lbl.querySelector('.radio-indicator');
+      if (ind) { ind.className = 'bi bi-circle ms-auto text-secondary radio-indicator'; }
+    });
+    var lbl = document.querySelector('label[for="' + radio.id + '"]');
+    if (lbl) {
+      lbl.style.borderColor = 'rgba(200,169,110,.4)';
+      var ind = lbl.querySelector('.radio-indicator');
+      if (ind) ind.className = 'bi bi-check-circle-fill ms-auto radio-indicator' ;
+      ind.style.color = '#c8a96e';
+    }
+  });
+  if (radio.checked) radio.dispatchEvent(new Event('change'));
+});
+
+// Submitting state
+var statusForm = document.getElementById('statusForm');
+var submitBtn  = document.getElementById('submitStatusBtn');
+if (statusForm && submitBtn) {
+  statusForm.addEventListener('submit', function() {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="d-spinner me-2"></span>Submitting…';
+  });
+}
+</script>
+{% endblock %}

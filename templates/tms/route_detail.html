@@ -1,0 +1,790 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}{{ plan.route_ref }} — Route{% endblock %}
+
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+/* ── Layout ── */
+.rd-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .rd-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Header ── */
+.rd-header {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: .75rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.rd-ref {
+  font-family: monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #6ee7b7;
+}
+.rd-meta {
+  font-size: .8rem;
+  color: rgba(255,255,255,.45);
+  margin-top: .25rem;
+}
+
+/* ── Status badges ── */
+.status-badge {
+  padding: .2rem .6rem;
+  border-radius: 999px;
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+.status-draft       { background:rgba(100,116,139,.25); color:#94a3b8; }
+.status-assigned    { background:rgba(59,130,246,.2);   color:#93c5fd; }
+.status-in-progress { background:rgba(234,179,8,.2);    color:#fde047; }
+.status-completed   { background:rgba(34,197,94,.2);    color:#86efac; }
+
+.stop-pending   { background:rgba(100,116,139,.25); color:#94a3b8; }
+.stop-arrived   { background:rgba(234,179,8,.2);    color:#fde047; }
+.stop-completed { background:rgba(34,197,94,.2);    color:#86efac; }
+.stop-skipped   { background:rgba(239,68,68,.2);    color:#fca5a5; }
+
+/* ── Type badges ── */
+.type-pickup { background:rgba(16,185,129,.18); color:#6ee7b7; }
+.type-drop   { background:rgba(239,68,68,.18);  color:#fca5a5; }
+.type-fuel   { background:rgba(234,179,8,.18);  color:#fde047; }
+.type-rest   { background:rgba(139,92,246,.18); color:#c4b5fd; }
+.type-badge {
+  padding: .18rem .55rem;
+  border-radius: 999px;
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  white-space: nowrap;
+}
+
+/* ── Timeline ── */
+.rd-timeline {
+  position: relative;
+}
+.rd-timeline::before {
+  content:'';
+  position: absolute;
+  left: 1.15rem;
+  top: .6rem;
+  bottom: .6rem;
+  width: 2px;
+  background: linear-gradient(to bottom, rgba(110,231,183,.4), rgba(255,255,255,.06));
+  pointer-events: none;
+}
+.stop-card {
+  position: relative;
+  display: flex;
+  gap: .9rem;
+  margin-bottom: .75rem;
+  cursor: grab;
+  user-select: none;
+}
+.stop-card:active { cursor: grabbing; }
+.stop-card.drag-over { outline: 1px dashed #6ee7b7; border-radius: .5rem; }
+.stop-card.dragging { opacity: .4; }
+
+.stop-number-circle {
+  width: 2.2rem;
+  height: 2.2rem;
+  min-width: 2.2rem;
+  border-radius: 50%;
+  background: rgba(255,255,255,.1);
+  border: 2px solid rgba(255,255,255,.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .75rem;
+  font-weight: 800;
+  margin-top: .55rem;
+  z-index: 1;
+  color: #fff;
+  transition: background .2s;
+}
+.stop-card:hover .stop-number-circle { background: rgba(110,231,183,.2); border-color: #6ee7b7; }
+
+.stop-body {
+  flex: 1;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: .6rem;
+  padding: .8rem 1rem;
+  transition: border-color .2s;
+}
+.stop-card:hover .stop-body { border-color: rgba(255,255,255,.14); }
+
+.stop-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-bottom: .35rem;
+}
+.stop-address {
+  font-weight: 600;
+  font-size: .88rem;
+  color: #fff;
+}
+.stop-sub {
+  font-size: .78rem;
+  color: rgba(255,255,255,.45);
+  margin-top: .1rem;
+}
+.stop-detail-row {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: .45rem;
+  font-size: .78rem;
+  color: rgba(255,255,255,.55);
+}
+.stop-detail-item i { margin-right: .25rem; }
+
+.stop-actions {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex-wrap: nowrap;
+}
+.btn-delete-stop {
+  background: none;
+  border: 1px solid rgba(239,68,68,.3);
+  color: #fca5a5;
+  border-radius: .35rem;
+  padding: .15rem .45rem;
+  font-size: .75rem;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: background .15s;
+}
+.btn-delete-stop:hover { background: rgba(239,68,68,.15); }
+.btn-status-cycle {
+  background: none;
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.65);
+  border-radius: .35rem;
+  padding: .15rem .55rem;
+  font-size: .7rem;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: background .15s;
+}
+.btn-status-cycle:hover { background: rgba(255,255,255,.07); }
+
+/* ── Counter pills ── */
+.counter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 999px;
+  padding: .2rem .65rem;
+  font-size: .73rem;
+  color: rgba(255,255,255,.65);
+  font-weight: 600;
+}
+.counter-pill.warn { border-color:rgba(234,179,8,.4); color:#fde047; background:rgba(234,179,8,.08); }
+.counter-pill.full { border-color:rgba(239,68,68,.4); color:#fca5a5; background:rgba(239,68,68,.08); }
+
+/* ── Add stop panel ── */
+.rd-add-panel {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: .75rem;
+  padding: 1.25rem;
+  position: sticky;
+  top: 1rem;
+}
+.rd-add-panel h6 {
+  font-weight: 700;
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: rgba(255,255,255,.5);
+  margin-bottom: 1rem;
+}
+.rp-form-label {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: rgba(255,255,255,.45);
+  margin-bottom: .25rem;
+  display: block;
+}
+.rp-input {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  color: #fff;
+  border-radius: .45rem;
+  padding: .45rem .7rem;
+  width: 100%;
+  font-size: .84rem;
+  outline: none;
+  transition: border-color .15s;
+}
+.rp-input:focus { border-color: #6ee7b7; }
+.rp-input::placeholder { color: rgba(255,255,255,.22); }
+.rp-input option { background: #1a1f2e; }
+
+.type-radios {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+  margin-bottom: .5rem;
+}
+.type-radio-label {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: .4rem;
+  padding: .3rem .65rem;
+  font-size: .78rem;
+  cursor: pointer;
+  transition: all .15s;
+}
+.type-radio-label input { display: none; }
+.type-radio-label:has(input:checked) {
+  border-color: #6ee7b7;
+  background: rgba(110,231,183,.12);
+  color: #6ee7b7;
+}
+.rp-btn-primary {
+  background: linear-gradient(135deg,#059669,#0d9488);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: .875rem;
+  padding: .55rem 1.25rem;
+  border-radius: .5rem;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity .15s;
+}
+.rp-btn-primary:hover { opacity: .88; }
+.rp-btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ── Driver assign ── */
+.rd-assign-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.btn-assign {
+  background: rgba(59,130,246,.2);
+  border: 1px solid rgba(59,130,246,.35);
+  color: #93c5fd;
+  border-radius: .45rem;
+  padding: .4rem .9rem;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-assign:hover { background: rgba(59,130,246,.3); }
+
+.empty-stops {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: rgba(255,255,255,.3);
+  font-size: .88rem;
+}
+.empty-stops i { font-size: 2rem; display: block; margin-bottom: .5rem; }
+
+/* ── Drag ghost ── */
+.drag-placeholder {
+  height: 3.5rem;
+  border: 2px dashed rgba(110,231,183,.35);
+  border-radius: .5rem;
+  background: rgba(110,231,183,.04);
+  margin-bottom: .75rem;
+}
+</style>
+{% endblock %}
+
+{% block tms_content %}
+{% set plan_status_class = plan.status | lower | replace(' ','-') %}
+{% set pickup_count = pickups | length %}
+{% set drop_count = drops | length %}
+
+<!-- Back + header -->
+<div class="mb-3">
+  <a href="/tms/routes" style="color:rgba(255,255,255,.45);text-decoration:none;font-size:.82rem;">
+    <i class="bi bi-arrow-left me-1"></i> All Routes
+  </a>
+</div>
+
+<!-- Main header card -->
+<div class="rd-header">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="rd-ref">{{ plan.route_ref }}</span>
+        <span class="status-badge status-{{ plan_status_class }}">{{ plan.status }}</span>
+      </div>
+      <div class="rd-meta">
+        {% if plan.shipment_ref %}Shipment: <span class="text-info">{{ plan.shipment_ref }}</span>{% endif %}
+        {% if plan.load_number %}&nbsp;·&nbsp; Load: <span class="text-white">{{ plan.load_number }}</span>{% endif %}
+        &nbsp;·&nbsp; Created {{ plan.created_at[:10] if plan.created_at else '' }}
+      </div>
+      <div class="d-flex gap-2 flex-wrap mt-2">
+        <span class="counter-pill {% if pickup_count >= 9 %}warn{% endif %}{% if pickup_count >= 10 %}full{% endif %}">
+          <i class="bi bi-box-arrow-in-down"></i>
+          Pickups: <strong>{{ pickup_count }}/10</strong>
+        </span>
+        <span class="counter-pill {% if drop_count >= 9 %}warn{% endif %}{% if drop_count >= 10 %}full{% endif %}">
+          <i class="bi bi-box-arrow-up"></i>
+          Drops: <strong>{{ drop_count }}/10</strong>
+        </span>
+        <span class="counter-pill">
+          <i class="bi bi-geo-alt"></i>
+          {{ plan.total_stops }} total stops
+        </span>
+      </div>
+    </div>
+    <!-- Driver assign -->
+    <div class="rd-assign-row">
+      {% if plan.driver_id %}
+      <span style="font-size:.82rem;color:rgba(255,255,255,.55);">Driver:</span>
+      {% endif %}
+      <select id="driverSelect" class="rp-input" style="width:auto;min-width:150px;">
+        <option value="">— Unassigned —</option>
+        {% for d in drivers %}
+        <option value="{{ d.id }}" {% if plan.driver_id == d.id %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn-assign" id="btnAssignDriver">
+        <i class="bi bi-person-check me-1"></i>
+        {% if plan.driver_id %}Reassign{% else %}Assign Driver{% endif %}
+      </button>
+    </div>
+  </div>
+  {% if plan.notes %}
+  <div class="mt-2 text-secondary" style="font-size:.82rem;">
+    <i class="bi bi-chat-left-text me-1"></i>{{ plan.notes }}
+  </div>
+  {% endif %}
+</div>
+
+<!-- Two-column layout -->
+<div class="rd-layout">
+
+  <!-- LEFT: Stop sequence -->
+  <div>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="fw-semibold" style="font-size:.9rem;">Stop Sequence</div>
+      <div style="font-size:.75rem;color:rgba(255,255,255,.35);">
+        <i class="bi bi-grip-vertical me-1"></i>Drag to reorder
+      </div>
+    </div>
+
+    <div class="rd-timeline" id="stopList">
+      {% if stops %}
+        {% for stop in stops %}
+        {% set st_cls = stop.stop_type | lower %}
+        {% set ss_cls = stop.status | lower %}
+        <div class="stop-card" draggable="true" data-stop-id="{{ stop.id }}">
+          <div class="stop-number-circle">{{ stop.stop_number }}</div>
+          <div class="stop-body">
+            <div class="stop-top-row">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="type-badge type-{{ st_cls }}">
+                  {% if st_cls == 'pickup' %}📦{% elif st_cls == 'drop' %}🔴{% elif st_cls == 'fuel' %}⛽{% else %}🛏{% endif %}
+                  {{ stop.stop_type }}
+                </span>
+                <span class="stop-address">{{ stop.address }}</span>
+              </div>
+              <div class="stop-actions">
+                <button class="btn-status-cycle status-badge stop-{{ ss_cls }}"
+                        data-stop-id="{{ stop.id }}"
+                        data-status="{{ stop.status }}"
+                        title="Click to advance status">
+                  {{ stop.status }}
+                </button>
+                <button class="btn-delete-stop" data-stop-id="{{ stop.id }}" title="Delete stop">
+                  <i class="bi bi-x"></i>
+                </button>
+              </div>
+            </div>
+            <div class="stop-sub">
+              {% if stop.city or stop.state or stop.zip %}
+              {{ stop.city }}{% if stop.city and stop.state %}, {% endif %}{{ stop.state }} {{ stop.zip }}
+              {% endif %}
+            </div>
+            <div class="stop-detail-row">
+              {% if stop.appointment_time %}
+              <span><i class="bi bi-calendar-event"></i>{{ stop.appointment_time[:16] | replace('T',' ') }}</span>
+              {% endif %}
+              {% if stop.reference_number %}
+              <span><i class="bi bi-upc"></i>{{ stop.reference_number }}</span>
+              {% endif %}
+              {% if stop.contact_name %}
+              <span><i class="bi bi-person"></i>{{ stop.contact_name }}{% if stop.contact_phone %} · {{ stop.contact_phone }}{% endif %}</span>
+              {% endif %}
+              {% if stop.stop_type in ['Pickup','Drop'] and (stop.weight_lbs or stop.pallets) %}
+              <span>
+                {% if stop.weight_lbs %}<i class="bi bi-speedometer"></i>{{ stop.weight_lbs | int }} lbs{% endif %}
+                {% if stop.pallets %}&nbsp; <i class="bi bi-layers"></i>{{ stop.pallets }} plt{% endif %}
+              </span>
+              {% endif %}
+            </div>
+            {% if stop.special_instructions %}
+            <div class="mt-1" style="font-size:.77rem;color:rgba(255,255,255,.4);">
+              <i class="bi bi-info-circle me-1"></i>{{ stop.special_instructions }}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="empty-stops">
+        <i class="bi bi-signpost-2"></i>
+        No stops yet — add your first pickup or drop on the right.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- RIGHT: Add Stop form -->
+  <div>
+    <div class="rd-add-panel">
+      <h6><i class="bi bi-plus-circle me-1"></i> Add Stop</h6>
+      <form id="addStopForm">
+        <!-- Stop type radios -->
+        <div class="mb-3">
+          <label class="rp-form-label">Stop Type</label>
+          <div class="type-radios">
+            {% for t in stop_types %}
+            <label class="type-radio-label">
+              <input type="radio" name="stop_type" value="{{ t }}" {% if loop.first %}checked{% endif %}>
+              {% if t == 'Pickup' %}📦{% elif t == 'Drop' %}🔴{% elif t == 'Fuel' %}⛽{% else %}🛏{% endif %}
+              {{ t }}
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Address -->
+        <div class="mb-2">
+          <label class="rp-form-label">Address <span style="color:#fca5a5">*</span></label>
+          <input type="text" name="address" class="rp-input" placeholder="123 Main St" required>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-5">
+            <label class="rp-form-label">City</label>
+            <input type="text" name="city" class="rp-input" placeholder="Chicago">
+          </div>
+          <div class="col-3">
+            <label class="rp-form-label">State</label>
+            <input type="text" name="state" class="rp-input" placeholder="IL" maxlength="3">
+          </div>
+          <div class="col-4">
+            <label class="rp-form-label">ZIP</label>
+            <input type="text" name="zip" class="rp-input" placeholder="60601">
+          </div>
+        </div>
+
+        <!-- Contact -->
+        <div class="row g-2 mb-2">
+          <div class="col-7">
+            <label class="rp-form-label">Contact Name</label>
+            <input type="text" name="contact_name" class="rp-input" placeholder="John Smith">
+          </div>
+          <div class="col-5">
+            <label class="rp-form-label">Phone</label>
+            <input type="tel" name="contact_phone" class="rp-input" placeholder="(312) 555-0100">
+          </div>
+        </div>
+
+        <!-- Appointment -->
+        <div class="mb-2">
+          <label class="rp-form-label">Appointment Time</label>
+          <input type="datetime-local" name="appointment_time" class="rp-input">
+        </div>
+
+        <!-- Reference -->
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="rp-form-label">BOL / PO Ref</label>
+            <input type="text" name="reference_number" class="rp-input" placeholder="BOL-001">
+          </div>
+          <div class="col-6">
+            <label class="rp-form-label">Shipment Ref</label>
+            <input type="text" name="shipment_ref" class="rp-input" placeholder="TMS-001">
+          </div>
+        </div>
+
+        <!-- Weight / Pallets -->
+        <div class="row g-2 mb-2" id="weightRow">
+          <div class="col-6">
+            <label class="rp-form-label">Weight (lbs)</label>
+            <input type="number" name="weight_lbs" class="rp-input" placeholder="0" min="0" step="1">
+          </div>
+          <div class="col-6">
+            <label class="rp-form-label">Pallets</label>
+            <input type="number" name="pallets" class="rp-input" placeholder="0" min="0" step="1">
+          </div>
+        </div>
+
+        <!-- Special Instructions -->
+        <div class="mb-3">
+          <label class="rp-form-label">Special Instructions</label>
+          <textarea name="special_instructions" class="rp-input" rows="2" placeholder="e.g. dock door #3, refrigerated…"></textarea>
+        </div>
+
+        <!-- Counter warning -->
+        <div id="limitWarning" style="display:none;font-size:.78rem;color:#fca5a5;margin-bottom:.75rem;">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          <span id="limitMsg"></span>
+        </div>
+
+        <button type="submit" class="rp-btn-primary" id="btnAddStop">
+          <i class="bi bi-plus-lg me-1"></i> Add Stop
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  var ROUTE_REF = {{ plan.route_ref | tojson }};
+  var pickupCount = {{ pickup_count }};
+  var dropCount   = {{ drop_count }};
+  var MAX_STOPS   = 10;
+
+  /* ── Counters ── */
+  function getCounters() {
+    var cards = document.querySelectorAll('#stopList .stop-card');
+    var p = 0, d = 0;
+    cards.forEach(function(c) {
+      var badge = c.querySelector('.type-badge');
+      if (!badge) return;
+      var txt = badge.textContent.trim().toLowerCase();
+      if (txt.indexOf('pickup') !== -1) p++;
+      else if (txt.indexOf('drop') !== -1) d++;
+    });
+    return {p: p, d: d};
+  }
+
+  function updateCounterPills() {
+    var cnt = getCounters();
+    pickupCount = cnt.p;
+    dropCount   = cnt.d;
+    document.querySelectorAll('.counter-pill').forEach(function(el){
+      var txt = el.textContent;
+      if (txt.indexOf('Pickup') !== -1) {
+        el.querySelector('strong').textContent = cnt.p + '/10';
+        el.className = 'counter-pill' + (cnt.p >= 10 ? ' full' : cnt.p >= 9 ? ' warn' : '');
+      } else if (txt.indexOf('Drop') !== -1) {
+        el.querySelector('strong').textContent = cnt.d + '/10';
+        el.className = 'counter-pill' + (cnt.d >= 10 ? ' full' : cnt.d >= 9 ? ' warn' : '');
+      }
+    });
+    // total
+    var total = document.querySelectorAll('#stopList .stop-card').length;
+    document.querySelectorAll('.counter-pill').forEach(function(el){
+      if (el.textContent.indexOf('total') !== -1) {
+        el.querySelector('strong') && (el.querySelector('strong').textContent = total + ' total stops');
+      }
+    });
+  }
+
+  function checkLimit() {
+    var warn  = document.getElementById('limitWarning');
+    var msg   = document.getElementById('limitMsg');
+    var selectedType = document.querySelector('input[name="stop_type"]:checked');
+    if (!selectedType) return true;
+    var t = selectedType.value;
+    var cnt = getCounters();
+    if (t === 'Pickup' && cnt.p >= MAX_STOPS) {
+      warn.style.display = 'block';
+      msg.textContent = 'Maximum 10 pickups reached. Remove a pickup first.';
+      return false;
+    }
+    if (t === 'Drop' && cnt.d >= MAX_STOPS) {
+      warn.style.display = 'block';
+      msg.textContent = 'Maximum 10 drops reached. Remove a drop first.';
+      return false;
+    }
+    warn.style.display = 'none';
+    return true;
+  }
+
+  document.querySelectorAll('input[name="stop_type"]').forEach(function(r){
+    r.addEventListener('change', checkLimit);
+  });
+
+  /* ── Add stop ── */
+  document.getElementById('addStopForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    if (!checkLimit()) return;
+    var btn = document.getElementById('btnAddStop');
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    var fd = new FormData(this);
+    var body = {};
+    fd.forEach(function(v, k){ body[k] = v; });
+    fetch('/tms/routes/' + ROUTE_REF + '/stops', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        // reload page to render server-side template for new stop
+        window.location.reload();
+      } else {
+        alert('Error adding stop.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Add Stop';
+      }
+    })
+    .catch(function() {
+      alert('Network error.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Add Stop';
+    });
+  });
+
+  /* ── Delete stop ── */
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-delete-stop');
+    if (!btn) return;
+    var stopId = btn.dataset.stopId;
+    if (!confirm('Remove this stop?')) return;
+    fetch('/tms/routes/' + ROUTE_REF + '/stops/' + stopId, {method: 'DELETE'})
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        var card = btn.closest('.stop-card');
+        card.remove();
+        renumberCards();
+        updateCounterPills();
+      }
+    });
+  });
+
+  /* ── Status cycle ── */
+  var STATUS_CYCLE = ['Pending', 'Arrived', 'Completed', 'Skipped'];
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.btn-status-cycle');
+    if (!btn) return;
+    var stopId = btn.dataset.stopId;
+    var cur    = btn.dataset.status;
+    var idx    = STATUS_CYCLE.indexOf(cur);
+    var next   = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
+    fetch('/tms/routes/' + ROUTE_REF + '/stops/' + stopId + '/status', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({status: next})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        btn.dataset.status = next;
+        btn.textContent = next;
+        btn.className = 'btn-status-cycle status-badge stop-' + next.toLowerCase();
+      }
+    });
+  });
+
+  /* ── Assign driver ── */
+  document.getElementById('btnAssignDriver').addEventListener('click', function() {
+    var sel = document.getElementById('driverSelect');
+    var driverId = sel.value || null;
+    fetch('/tms/routes/' + ROUTE_REF + '/assign', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({driver_id: driverId})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (d.ok) window.location.reload();
+    });
+  });
+
+  /* ── Drag-and-drop reorder ── */
+  var stopList = document.getElementById('stopList');
+  var dragged  = null;
+  var placeholder = null;
+
+  stopList.addEventListener('dragstart', function(e) {
+    var card = e.target.closest('.stop-card');
+    if (!card) return;
+    dragged = card;
+    card.classList.add('dragging');
+    placeholder = document.createElement('div');
+    placeholder.className = 'drag-placeholder';
+    setTimeout(function(){ card.style.display = 'none'; }, 0);
+  });
+
+  stopList.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    var card = e.target.closest('.stop-card');
+    if (!card || card === dragged) return;
+    var rect = card.getBoundingClientRect();
+    var mid  = rect.top + rect.height / 2;
+    if (e.clientY < mid) {
+      stopList.insertBefore(placeholder, card);
+    } else {
+      stopList.insertBefore(placeholder, card.nextSibling);
+    }
+  });
+
+  stopList.addEventListener('dragend', function(e) {
+    if (!dragged) return;
+    dragged.style.display = '';
+    dragged.classList.remove('dragging');
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(dragged, placeholder);
+      placeholder.remove();
+    }
+    dragged = null;
+    placeholder = null;
+
+    // Collect new order
+    var order = [];
+    document.querySelectorAll('#stopList .stop-card').forEach(function(c){
+      order.push(parseInt(c.dataset.stopId));
+    });
+
+    fetch('/tms/routes/' + ROUTE_REF + '/reorder', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({order: order})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if (d.ok) renumberCards(); });
+  });
+
+  function renumberCards() {
+    var cards = document.querySelectorAll('#stopList .stop-card');
+    cards.forEach(function(c, i){
+      var circle = c.querySelector('.stop-number-circle');
+      if (circle) circle.textContent = i + 1;
+    });
+  }
+
+})();
+</script>
+{% endblock %}

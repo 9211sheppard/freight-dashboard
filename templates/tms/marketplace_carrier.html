@@ -1,0 +1,294 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}{{ carrier.company_name }} | Carrier Marketplace{% endblock %}
+
+{% block tms_content %}
+<style nonce="{{ csp_nonce }}">
+.mp-detail-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  gap: 1.5rem;
+}
+.mp-detail-card {
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.96) 0%, rgba(10, 14, 23, 0.98) 100%);
+  border: 1px solid #2f3745;
+  border-radius: 16px;
+}
+.mp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.34rem 0.72rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #d1d5db;
+  font-size: 0.76rem;
+}
+.mp-verified {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.3);
+  color: #4ade80;
+  font-weight: 700;
+}
+.mp-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.mp-status-pending {
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.28);
+  color: #facc15;
+}
+.mp-status-connected {
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.28);
+  color: #4ade80;
+}
+.mp-status-blocked {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  color: #f87171;
+}
+.mp-stat-label {
+  color: #8b93a4;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+.mp-stat-value {
+  color: #f8fafc;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.mp-stars {
+  color: #fbbf24;
+}
+.mp-breakdown-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 50px;
+  gap: 0.75rem;
+  align-items: center;
+}
+.mp-breakdown-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.mp-breakdown-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+}
+.mp-review-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+@media (max-width: 991px) {
+  .mp-detail-shell {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+
+<div class="mb-4">
+  <a href="/tms/marketplace" class="text-decoration-none small" style="color:#c8a96e;">
+    <i class="bi bi-arrow-left me-1"></i>Back to marketplace
+  </a>
+</div>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+  <div>
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+      <h1 class="mb-0">{{ carrier.company_name }}</h1>
+      {% if carrier.verified %}
+      <span class="mp-badge mp-verified"><i class="bi bi-check-circle-fill"></i>Verified</span>
+      {% endif %}
+    </div>
+    <div class="text-muted">
+      MC #{{ carrier.mc_number }}{% if carrier.dot_number %} · DOT #{{ carrier.dot_number }}{% endif %}
+    </div>
+  </div>
+  <div class="text-end">
+    <div class="mp-stars fs-5">
+      {% set rounded_rating = carrier.rating|round(0, 'common')|int %}
+      {% for star in range(1, 6) %}
+      <i class="bi {% if star <= rounded_rating %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+      {% endfor %}
+    </div>
+    <div class="text-muted small mt-1">{{ '%.1f'|format(carrier.rating) }} average · {{ carrier.review_count }} review{{ '' if carrier.review_count == 1 else 's' }}</div>
+  </div>
+</div>
+
+<div class="mp-detail-shell">
+  <div class="d-flex flex-column gap-4">
+    <div class="mp-detail-card p-4">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="mp-stat-label">Average Rating</div>
+          <div class="mp-stat-value">{{ '%.1f'|format(carrier.rating) }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="mp-stat-label">Review Count</div>
+          <div class="mp-stat-value">{{ carrier.review_count }}</div>
+        </div>
+        <div class="col-md-4">
+          <div class="mp-stat-label">Listed</div>
+          <div class="mp-stat-value" style="font-size:1.2rem;">{{ carrier.listed_at[:10] if carrier.listed_at else 'Today' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mp-detail-card p-4">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h2 class="h4 mb-0">Equipment and Lanes</h2>
+        <span class="text-muted small">Coverage snapshot</span>
+      </div>
+      <div class="mb-4">
+        <div class="text-muted small mb-2">Equipment Types</div>
+        {% for equipment in carrier.equipment_list %}
+        <span class="mp-badge me-1 mb-1">{{ equipment }}</span>
+        {% endfor %}
+      </div>
+      <div>
+        <div class="text-muted small mb-2">Lanes Served</div>
+        {% for lane in carrier.lane_list %}
+        <span class="mp-badge me-1 mb-1"><i class="bi bi-signpost-2"></i>{{ lane }}</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mp-detail-card p-4">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h2 class="h4 mb-0">Rating Breakdown</h2>
+        <span class="text-muted small">Based on submitted shipment reviews</span>
+      </div>
+      <div class="d-flex flex-column gap-3">
+        {% for row in rating_breakdown %}
+        <div class="mp-breakdown-row">
+          <div class="text-muted small">{{ row.rating }} star</div>
+          <div class="mp-breakdown-bar">
+            <div class="mp-breakdown-fill" style="width:{{ row.percentage }}%;"></div>
+          </div>
+          <div class="text-end text-muted small">{{ row.count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mp-detail-card p-4">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h2 class="h4 mb-0">Reviews</h2>
+        <span class="text-muted small">{{ reviews|length }} posted</span>
+      </div>
+      {% if reviews %}
+      <div class="d-flex flex-column gap-3">
+        {% for review in reviews %}
+        <div class="mp-review-card p-3">
+          <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
+            <div>
+              <div class="fw-semibold text-light">{{ review.shipment_ref }}</div>
+              <div class="text-muted small">{{ review.created_at[:10] if review.created_at else '' }}</div>
+            </div>
+            <div class="mp-stars">
+              {% for star in range(1, 6) %}
+              <i class="bi {% if star <= review.rating %}bi-star-fill{% else %}bi-star{% endif %}"></i>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="text-light">{{ review.review_text or 'No written feedback provided.' }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-muted">No reviews yet for this carrier.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="d-flex flex-column gap-4">
+    <div class="mp-detail-card p-4">
+      <h2 class="h4 mb-3">Connection</h2>
+      {% if connection_status %}
+      <div class="mp-status mp-status-{{ connection_status }} mb-3">{{ connection_status }}</div>
+      {% endif %}
+      <form method="post" action="/tms/marketplace/{{ carrier.id }}/connect">
+        <input type="hidden" name="next" value="/tms/marketplace/{{ carrier.id }}">
+        <button
+          type="submit"
+          class="btn w-100 {% if connection_status == 'connected' %}btn-success{% elif connection_status == 'blocked' %}btn-danger{% else %}btn-warning{% endif %}"
+          {% if connection_status in ['pending', 'connected', 'blocked'] %}disabled{% endif %}
+        >
+          {% if connection_status == 'pending' %}
+          Connection Requested
+          {% elif connection_status == 'connected' %}
+          Connected to Carrier
+          {% elif connection_status == 'blocked' %}
+          Connection Blocked
+          {% else %}
+          Request Connection
+          {% endif %}
+        </button>
+      </form>
+      <div class="text-muted small mt-3">Use this request to open a direct tenant-to-carrier relationship inside the marketplace.</div>
+    </div>
+
+    <div class="mp-detail-card p-4">
+      <h2 class="h4 mb-3">Contact Info</h2>
+      <div class="text-muted small mb-1">Primary Contact</div>
+      <div class="text-light fw-semibold mb-3">{{ carrier.contact_name or 'Contact on request' }}</div>
+      <div class="text-muted small mb-1">Email</div>
+      <div class="mb-3">
+        {% if carrier.contact_email %}
+        <a href="mailto:{{ carrier.contact_email }}" class="text-decoration-none" style="color:#93c5fd;">{{ carrier.contact_email }}</a>
+        {% else %}
+        <span class="text-light">Not listed</span>
+        {% endif %}
+      </div>
+      <div class="text-muted small mb-1">Phone</div>
+      <div class="text-light">{{ carrier.contact_phone or 'Not listed' }}</div>
+    </div>
+
+    <div class="mp-detail-card p-4">
+      <h2 class="h4 mb-3">Leave Review</h2>
+      <form method="post" action="/tms/marketplace/{{ carrier.id }}/review">
+        <input type="hidden" name="next" value="/tms/marketplace/{{ carrier.id }}">
+        <div class="mb-3">
+          <label class="form-label text-muted">Shipment Ref</label>
+          <input type="text" name="shipment_ref" class="form-control bg-black text-white border-secondary" placeholder="e.g. SHP-2048" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label text-muted">Rating</label>
+          <select name="rating" class="form-select bg-black text-white border-secondary" required>
+            <option value="">Select rating</option>
+            <option value="5">5 - Excellent</option>
+            <option value="4">4 - Strong</option>
+            <option value="3">3 - Average</option>
+            <option value="2">2 - Needs work</option>
+            <option value="1">1 - Poor</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label text-muted">Review</label>
+          <textarea name="review_text" rows="4" class="form-control bg-black text-white border-secondary" placeholder="Share lane performance, communication quality, and reliability."></textarea>
+        </div>
+        <button type="submit" class="btn w-100" style="background:#c8a96e;color:#111827;font-weight:700;border:none;">
+          Submit Review
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,348 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Customs — {{ shipment.shipment_ref }}{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+.customs-section {
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.customs-section-title {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  margin-bottom: 1.1rem;
+}
+.flag-box {
+  background: rgba(220,53,69,0.1);
+  border: 1px solid rgba(220,53,69,0.3);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+.flag-box.flag-info {
+  background: rgba(13,202,240,0.08);
+  border-color: rgba(13,202,240,0.3);
+}
+.duty-preview {
+  background: rgba(255,193,7,0.08);
+  border: 1px solid rgba(255,193,7,0.25);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+}
+</style>
+{% endblock %}
+{% block tms_content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-shield-check me-2"></i>Customs &amp; Compliance</h2>
+    <small class="text-muted">
+      Shipment <strong class="text-white">{{ shipment.shipment_ref }}</strong>
+      {% if shipment.origin_port %} &mdash; {{ shipment.origin_port }} &rarr; {{ shipment.destination_port }}{% endif %}
+    </small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/tms/shipments/{{ shipment.shipment_ref }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back to Shipment
+    </a>
+    <a href="/tms/customs" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-grid me-1"></i>All Customs
+    </a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-3">
+      {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat if cat != 'message' else 'info' }} py-2">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<!-- Compliance flags (live) -->
+<div id="flagsPanel" class="mb-3" {% if not flags %}style="display:none"{% endif %}>
+  {% if flags %}
+    {% for note in flags.notes %}
+    <div class="flag-box {% if 'may require' in note %}flag-info{% endif %}">
+      <i class="bi bi-exclamation-triangle me-2"></i>{{ note }}
+    </div>
+    {% endfor %}
+    {% if not flags.notes %}
+    <div class="flag-box" style="background:rgba(25,135,84,0.1);border-color:rgba(25,135,84,0.3);">
+      <i class="bi bi-check-circle me-2 text-success"></i>No compliance flags detected.
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+
+<div id="dutyPreview" class="duty-preview mb-3" style="display:none">
+  <i class="bi bi-calculator me-2 text-warning"></i>
+  Estimated duty: <strong id="dutyPct">—</strong>% &nbsp;&mdash;&nbsp;
+  Amount: <strong id="dutyAmt">—</strong>
+</div>
+
+<form method="POST" id="customsForm">
+
+  <!-- Goods Classification -->
+  <div class="customs-section">
+    <div class="customs-section-title">Goods Classification</div>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label small text-muted">HS Code</label>
+        <input type="text" name="hs_code" id="hs_code" class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.hs_code if record else '' }}" placeholder="e.g. 8471.30"
+               autocomplete="off">
+        <div class="mt-1">
+          <small class="text-muted">Hints: </small>
+          {% for label, code in hs_hints.items() %}
+          <button type="button" class="btn btn-xs btn-outline-secondary py-0 px-1 me-1 mb-1 hs-hint"
+                  style="font-size:0.7rem" data-code="{{ code }}">{{ label }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="col-md-8">
+        <label class="form-label small text-muted">Goods Description</label>
+        <input type="text" name="goods_description" class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.goods_description if record else '' }}"
+               placeholder="Brief description of goods">
+      </div>
+    </div>
+  </div>
+
+  <!-- Countries & Incoterm -->
+  <div class="customs-section">
+    <div class="customs-section-title">Trade Terms</div>
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Origin Country <span class="text-muted">(ISO)</span></label>
+        <input type="text" name="origin_country" id="origin_country" maxlength="2"
+               class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.origin_country if record else '' }}"
+               placeholder="US" style="text-transform:uppercase">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Destination Country <span class="text-muted">(ISO)</span></label>
+        <input type="text" name="destination_country" id="destination_country" maxlength="2"
+               class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.destination_country if record else '' }}"
+               placeholder="CA" style="text-transform:uppercase">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Incoterm</label>
+        <select name="incoterm" class="form-select form-select-sm bg-dark text-white border-secondary">
+          {% for t in incoterms %}
+          <option value="{{ t }}" {% if record and record.incoterm == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button type="button" id="checkBtn" class="btn btn-sm btn-outline-info w-100">
+          <i class="bi bi-search me-1"></i>Check Compliance
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Declared Value -->
+  <div class="customs-section">
+    <div class="customs-section-title">Declared Value &amp; Duty Estimate</div>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label small text-muted">Declared Value</label>
+        <input type="number" name="declared_value" id="declared_value" step="0.01" min="0"
+               class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.declared_value if record else '' }}" placeholder="0.00">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small text-muted">Currency</label>
+        <input type="text" name="declared_currency" maxlength="3"
+               class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.declared_currency if record else 'USD' }}" placeholder="USD"
+               style="text-transform:uppercase">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Est. Duty %</label>
+        <input type="number" name="estimated_duty_pct" id="est_duty_pct" step="0.01" min="0"
+               class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.estimated_duty_pct if record else '' }}" placeholder="Auto-calculated">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small text-muted">Est. Duty Amount</label>
+        <input type="number" name="estimated_duty_amount" id="est_duty_amt" step="0.01" min="0"
+               class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.estimated_duty_amount if record else '' }}" placeholder="Auto-calculated">
+      </div>
+    </div>
+  </div>
+
+  <!-- License Flags -->
+  <div class="customs-section">
+    <div class="customs-section-title">License &amp; Restriction Flags</div>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" name="export_license_required" value="1" id="exportLic"
+                 {% if record and record.export_license_required %}checked{% endif %}>
+          <label class="form-check-label small" for="exportLic">Export License Required</label>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" name="import_license_required" value="1" id="importLic"
+                 {% if record and record.import_license_required %}checked{% endif %}>
+          <label class="form-check-label small" for="importLic">Import License Required</label>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" name="restricted_goods" value="1" id="restrictedGoods"
+                 {% if record and record.restricted_goods %}checked{% endif %}>
+          <label class="form-check-label small" for="restrictedGoods">Restricted Goods</label>
+        </div>
+      </div>
+      <div class="col-12">
+        <label class="form-label small text-muted">Restriction Notes</label>
+        <textarea name="restriction_notes" rows="2"
+                  class="form-control form-control-sm bg-dark text-white border-secondary"
+                  placeholder="Any OFAC, EAR, ITAR, or other restriction notes...">{{ record.restriction_notes if record else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customs Filing -->
+  <div class="customs-section">
+    <div class="customs-section-title">Customs Filing</div>
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label small text-muted">Customs Status</label>
+        <select name="customs_status" class="form-select form-select-sm bg-dark text-white border-secondary">
+          {% for s in customs_statuses %}
+          <option value="{{ s }}" {% if record and record.customs_status == s %}selected{% elif not record and s == 'Pending' %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small text-muted">Entry Number</label>
+        <input type="text" name="entry_number"
+               class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.entry_number if record else '' }}" placeholder="CBP entry number">
+      </div>
+      <div class="col-md-4">
+        <!-- spacer -->
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small text-muted">Broker Name</label>
+        <input type="text" name="broker_name"
+               class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.broker_name if record else '' }}" placeholder="Customs broker name">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small text-muted">Broker Contact</label>
+        <input type="text" name="broker_contact"
+               class="form-control form-control-sm bg-dark text-white border-secondary"
+               value="{{ record.broker_contact if record else '' }}" placeholder="Email or phone">
+      </div>
+      <div class="col-12">
+        <label class="form-label small text-muted">Filing Notes</label>
+        <textarea name="filing_notes" rows="3"
+                  class="form-control form-control-sm bg-dark text-white border-secondary"
+                  placeholder="Internal notes for customs team...">{{ record.filing_notes if record else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-sm btn-primary">
+      <i class="bi bi-floppy me-1"></i>Save Customs Record
+    </button>
+    <a href="/tms/shipments/{{ shipment.shipment_ref }}" class="btn btn-sm btn-outline-secondary">Cancel</a>
+  </div>
+
+</form>
+
+{% if record %}
+<div class="mt-4">
+  <small class="text-muted">
+    Last updated: {{ record.updated_at or record.created_at or '—' }}
+  </small>
+</div>
+{% endif %}
+
+<script nonce="{{ csp_nonce }}">
+(function () {
+  // HS hint buttons
+  document.querySelectorAll('.hs-hint').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('hs_code').value = this.dataset.code;
+      liveCheck();
+    });
+  });
+
+  // uppercase ISO inputs
+  ['origin_country', 'destination_country'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', function () { this.value = this.value.toUpperCase(); });
+  });
+
+  // Live compliance check
+  function liveCheck() {
+    var hs    = (document.getElementById('hs_code')            || {}).value || '';
+    var orig  = (document.getElementById('origin_country')     || {}).value || '';
+    var dest  = (document.getElementById('destination_country')|| {}).value || '';
+    var val   = parseFloat((document.getElementById('declared_value') || {}).value || '0') || 0;
+    if (!orig || !dest) return;
+
+    fetch('/tms/shipments/{{ shipment.shipment_ref }}/customs/check', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({origin: orig, destination: dest, hs_code: hs, value: val})
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      // Flags panel
+      var panel = document.getElementById('flagsPanel');
+      panel.innerHTML = '';
+      if (data.flags && data.flags.notes && data.flags.notes.length) {
+        data.flags.notes.forEach(function (note) {
+          var cls = note.indexOf('may require') !== -1 ? 'flag-box flag-info' : 'flag-box';
+          panel.innerHTML += '<div class="' + cls + '"><i class="bi bi-exclamation-triangle me-2"></i>' + note + '</div>';
+        });
+        panel.style.display = '';
+      } else {
+        panel.innerHTML = '<div class="flag-box" style="background:rgba(25,135,84,0.1);border-color:rgba(25,135,84,0.3);"><i class="bi bi-check-circle me-2 text-success"></i>No compliance flags detected.</div>';
+        panel.style.display = '';
+      }
+
+      // Duty preview
+      var prevEl = document.getElementById('dutyPreview');
+      if (data.duty_pct !== undefined) {
+        document.getElementById('dutyPct').textContent = data.duty_pct;
+        document.getElementById('dutyAmt').textContent = '$' + (data.duty_amount || 0).toFixed(2);
+        prevEl.style.display = '';
+        // Auto-populate fields if empty
+        var pctField = document.getElementById('est_duty_pct');
+        var amtField = document.getElementById('est_duty_amt');
+        if (pctField && !pctField.value) pctField.value = data.duty_pct;
+        if (amtField && !amtField.value) amtField.value = (data.duty_amount || 0).toFixed(2);
+      } else {
+        prevEl.style.display = 'none';
+      }
+    })
+    .catch(function () {});
+  }
+
+  document.getElementById('checkBtn').addEventListener('click', liveCheck);
+
+  // Auto-recalculate duty when value changes
+  document.getElementById('declared_value').addEventListener('change', liveCheck);
+})();
+</script>
+{% endblock %}

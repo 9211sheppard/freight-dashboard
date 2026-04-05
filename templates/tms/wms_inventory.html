@@ -1,0 +1,184 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}WMS Inventory{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+  .wms-search-input::placeholder {
+    color: rgba(255, 255, 255, 0.55);
+  }
+</style>
+{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-box-seam me-2"></i>Inventory</h2>
+    <div class="text-muted small">Search inventory by SKU, location, lot, or shipment reference.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/wms" class="btn btn-outline-secondary"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+    <a href="/tms/wms/receipts" class="btn btn-outline-secondary"><i class="bi bi-truck me-1"></i>Receiving</a>
+    <a href="/tms/wms/picks" class="btn btn-primary"><i class="bi bi-cart-check me-1"></i>Pick &amp; Pack</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100 text-center p-3">
+      <div class="fs-2 fw-bold text-info">{{ inventory_stats.row_count }}</div>
+      <div class="text-muted small">Inventory Records</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100 text-center p-3">
+      <div class="fs-2 fw-bold">{{ inventory_stats.sku_count }}</div>
+      <div class="text-muted small">SKUs</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100 text-center p-3">
+      <div class="fs-2 fw-bold text-warning">{{ inventory_stats.location_count }}</div>
+      <div class="text-muted small">Locations</div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100 text-center p-3">
+      <div class="fs-2 fw-bold text-success">{{ "{:,.2f}".format(inventory_stats.total_quantity) }}</div>
+      <div class="text-muted small">Units On Hand</div>
+    </div>
+  </div>
+</div>
+
+{% if selected_sku or selected_location %}
+<div class="row g-3 mb-4">
+  {% if selected_sku %}
+  <div class="col-lg-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-upc-scan me-2"></i>SKU Focus: {{ selected_sku }}</span>
+        <a href="/tms/wms/inventory" class="btn btn-sm btn-outline-secondary">Clear</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Location</th>
+              <th>Zone</th>
+              <th class="text-end">Qty</th>
+              <th class="text-end">Records</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in sku_inventory %}
+            <tr>
+              <td>{{ row.location_code }}</td>
+              <td>{{ row.zone }}</td>
+              <td class="text-end">{{ "{:,.2f}".format(row.quantity or 0) }}</td>
+              <td class="text-end">{{ row.record_count }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No on-hand inventory found for this SKU.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if selected_location %}
+  <div class="col-lg-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-geo-alt me-2"></i>Location Focus: {{ selected_location }}</span>
+        <a href="/tms/wms/inventory" class="btn btn-sm btn-outline-secondary">Clear</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>SKU</th>
+              <th>Name</th>
+              <th class="text-end">Qty</th>
+              <th class="text-end">Records</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in location_inventory %}
+            <tr>
+              <td>{{ row.sku }}</td>
+              <td>{{ row.product_name or "Unnamed SKU" }}</td>
+              <td class="text-end">{{ "{:,.2f}".format(row.quantity or 0) }}</td>
+              <td class="text-end">{{ row.record_count }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No on-hand inventory found for this location.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-table me-2"></i>All Inventory</span>
+    <input
+      type="search"
+      id="inventorySearch"
+      class="form-control form-control-sm bg-black text-white border-secondary wms-search-input"
+      style="max-width: 280px;"
+      placeholder="Filter table"
+    >
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead class="table-secondary text-dark">
+        <tr>
+          <th>SKU</th>
+          <th>Location</th>
+          <th class="text-end">Qty</th>
+          <th>Lot</th>
+          <th>Expiry</th>
+          <th>Shipment Ref</th>
+        </tr>
+      </thead>
+      <tbody id="inventoryTableBody">
+        {% for row in inventory %}
+        <tr data-search="{{ (row.sku ~ ' ' ~ row.product_name ~ ' ' ~ row.location_code ~ ' ' ~ (row.lot_number or '') ~ ' ' ~ (row.shipment_ref or ''))|lower }}">
+          <td>
+            <a href="/tms/wms/inventory?sku={{ row.sku }}" class="text-info fw-semibold text-decoration-none">{{ row.sku }}</a>
+            <div class="small text-muted">{{ row.product_name or "Unnamed SKU" }}</div>
+          </td>
+          <td>
+            <a href="/tms/wms/inventory?location_code={{ row.location_code }}" class="text-decoration-none text-light">{{ row.location_code }}</a>
+          </td>
+          <td class="text-end">{{ "{:,.2f}".format(row.quantity or 0) }}</td>
+          <td>{{ row.lot_number or "-" }}</td>
+          <td>{{ row.expiry_date or "-" }}</td>
+          <td>{{ row.shipment_ref or "-" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-5">No inventory has been received yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const inventorySearch = document.getElementById("inventorySearch");
+  const inventoryRows = Array.from(document.querySelectorAll("#inventoryTableBody tr[data-search]"));
+
+  if (inventorySearch) {
+    inventorySearch.addEventListener("input", () => {
+      const term = inventorySearch.value.trim().toLowerCase();
+      inventoryRows.forEach((row) => {
+        row.style.display = row.dataset.search.includes(term) ? "" : "none";
+      });
+    });
+  }
+</script>
+{% endblock %}

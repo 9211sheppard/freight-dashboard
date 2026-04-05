@@ -1,0 +1,152 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Yard Management{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-grid me-2 text-warning"></i>Yard Management</h2>
+    <div class="text-muted small">Track trailers, containers, and chassis in the yard</div>
+  </div>
+  <a href="/tms/" class="btn btn-outline-secondary btn-sm">back</a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-warning text-center p-3">
+      <div class="fs-3 fw-bold text-warning">{{ stats.total_in_yard }}</div>
+      <div class="text-muted small">Total in Yard</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-primary text-center p-3">
+      <div class="fs-3 fw-bold text-primary">{{ stats.trailers }}</div>
+      <div class="text-muted small">Trailers</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-info text-center p-3">
+      <div class="fs-3 fw-bold text-info">{{ stats.containers }}</div>
+      <div class="text-muted small">Containers</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-secondary text-center p-3">
+      <div class="fs-3 fw-bold text-secondary">{{ stats.chassis }}</div>
+      <div class="text-muted small">Chassis</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Check In Form -->
+  <div class="col-md-3">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-box-arrow-in-right me-2 text-success"></i>Check In Unit</div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="action" value="checkin">
+          <div class="mb-2">
+            <label class="form-label small">Unit Type</label>
+            <select name="unit_type" class="form-select form-select-sm bg-dark text-light border-secondary">
+              <option value="trailer">Trailer</option>
+              <option value="container">Container</option>
+              <option value="chassis">Chassis</option>
+              <option value="boxtruck">Box Truck</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Unit Number / Plate</label>
+            <input name="unit_number" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="ABC-12345">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Carrier</label>
+            <input name="carrier_name" class="form-control form-control-sm bg-dark text-light border-secondary">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Shipment Ref</label>
+            <input name="shipment_ref" class="form-control form-control-sm bg-dark text-light border-secondary">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Yard Location</label>
+            <input name="location" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Row A, Bay 3">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Driver</label>
+            <input name="driver_name" class="form-control form-control-sm bg-dark text-light border-secondary">
+          </div>
+          <button class="btn btn-success w-100">Check In</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Units in Yard -->
+  <div class="col-md-9">
+    <div class="card bg-dark border-secondary mb-3">
+      <div class="card-header d-flex justify-content-between">
+        <span><i class="bi bi-grid-3x3 me-2"></i>Units in Yard ({{ stats.total_in_yard }})</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-sm table-hover mb-0">
+          <thead class="table-secondary text-dark">
+            <tr><th>Type</th><th>Unit</th><th>Carrier</th><th>Shipment</th><th>Location</th><th>Arrived</th><th>Driver</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {% set tc={'trailer':'primary','container':'info','chassis':'secondary','boxtruck':'warning'} %}
+            {% for u in units %}
+            <tr>
+              <td><span class="badge bg-{{ tc.get(u.unit_type,'secondary') }}">{{ u.unit_type }}</span></td>
+              <td class="fw-bold">{{ u.unit_number }}</td>
+              <td class="small">{{ u.carrier_name or "--" }}</td>
+              <td>{% if u.shipment_ref %}<a href="/tms/shipments/{{ u.shipment_ref }}" class="text-info">{{ u.shipment_ref }}</a>{% else %}--{% endif %}</td>
+              <td><span class="badge bg-dark border border-secondary">{{ u.location or "Unassigned" }}</span></td>
+              <td class="small text-muted">{{ u.arrived_at[:16] if u.arrived_at else "--" }}</td>
+              <td class="small">{{ u.driver_name or "--" }}</td>
+              <td>
+                <div class="d-flex gap-1">
+                  <form method="post" class="d-flex gap-1">
+                    <input type="hidden" name="action" value="move">
+                    <input type="hidden" name="unit_id" value="{{ u.id }}">
+                    <input name="new_location" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="New location" style="width:100px">
+                    <button class="btn btn-sm btn-outline-info py-0">Move</button>
+                  </form>
+                  <form method="post">
+                    <input type="hidden" name="action" value="checkout">
+                    <input type="hidden" name="unit_id" value="{{ u.id }}">
+                    <button class="btn btn-sm btn-outline-danger py-0">Out</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-4">Yard is empty. Check in a unit to get started.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent Departures -->
+    {% if recent_departed %}
+    <div class="card bg-dark border-secondary">
+      <div class="card-header text-muted"><i class="bi bi-box-arrow-right me-2"></i>Recent Departures</div>
+      <div class="table-responsive">
+        <table class="table table-dark table-sm mb-0">
+          <thead class="table-secondary text-dark"><tr><th>Unit</th><th>Carrier</th><th>Arrived</th><th>Departed</th></tr></thead>
+          <tbody>
+            {% for u in recent_departed %}
+            <tr>
+              <td class="fw-bold">{{ u.unit_number }} <span class="text-muted small">({{ u.unit_type }})</span></td>
+              <td class="small">{{ u.carrier_name or "--" }}</td>
+              <td class="small text-muted">{{ u.arrived_at[:16] if u.arrived_at else "--" }}</td>
+              <td class="small text-success">{{ u.departed_at[:16] if u.departed_at else "--" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

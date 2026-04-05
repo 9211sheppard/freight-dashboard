@@ -1,0 +1,337 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Carrier Scorecard{% endblock %}
+{% block tms_content %}
+
+<style nonce="{{ csp_nonce }}">
+.sc-score-bar-wrap { width: 120px; background: #2a2a2a; border-radius: 4px; height: 8px; display: inline-block; vertical-align: middle; }
+.sc-score-bar { height: 8px; border-radius: 4px; }
+.sc-score-green  { background: #28a745; }
+.sc-score-yellow { background: #ffc107; }
+.sc-score-red    { background: #dc3545; }
+.sc-stat-card    { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 1.25rem 1.5rem; }
+.sc-stat-label   { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: #888; margin-bottom: .25rem; }
+.sc-stat-val     { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+.sc-rank         { font-size: .75rem; color: #888; font-weight: 600; min-width: 28px; }
+.sc-rank-1       { color: #ffd700; }
+.sc-rank-2       { color: #c0c0c0; }
+.sc-rank-3       { color: #cd7f32; }
+.star-fill       { color: #ffc107; }
+.star-empty      { color: #444; }
+.rate-cheaper    { color: #28a745; }
+.rate-expensive  { color: #dc3545; }
+.tms-table th    { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: #888; border-color: #333; }
+.tms-table td    { border-color: #2a2a2a; vertical-align: middle; }
+.tms-table tbody tr:hover td { background: #1e1e1e; }
+</style>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-star-half me-2 text-warning"></i>Carrier Scorecard</h2>
+    <div class="text-muted small">Auto-ranked carrier performance by lane. Dispatchers: tender to #1 first.</div>
+  </div>
+  <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#logModal">
+    <i class="bi bi-plus-lg me-1"></i>Log Performance
+  </button>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="sc-stat-card">
+      <div class="sc-stat-label">Carriers Tracked</div>
+      <div class="sc-stat-val text-white">{{ stats.total_carriers }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="sc-stat-card">
+      <div class="sc-stat-label">Fleet Avg OTD</div>
+      <div class="sc-stat-val {% if stats.avg_otd >= 80 %}text-success{% elif stats.avg_otd >= 60 %}text-warning{% else %}text-danger{% endif %}">
+        {{ stats.avg_otd }}%
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="sc-stat-card">
+      <div class="sc-stat-label">Top Performer</div>
+      {% if stats.top_carrier %}
+        <div class="sc-stat-val text-success" style="font-size:1.1rem; font-weight:700;">{{ stats.top_carrier.carrier_name }}</div>
+        <div class="text-muted small mt-1">Score {{ stats.top_carrier.overall_score }}</div>
+      {% else %}
+        <div class="text-muted">—</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="sc-stat-card">
+      <div class="sc-stat-label">Needs Attention</div>
+      {% if stats.bottom_carrier %}
+        <div class="sc-stat-val text-danger" style="font-size:1.1rem; font-weight:700;">{{ stats.bottom_carrier.carrier_name }}</div>
+        <div class="text-muted small mt-1">Score {{ stats.bottom_carrier.overall_score }}</div>
+      {% else %}
+        <div class="text-muted">—</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Scorecard Table -->
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-table me-2"></i>Carrier Rankings</span>
+    <span class="text-muted small">{{ scorecards|length }} carrier{% if scorecards|length != 1 %}s{% endif %}</span>
+  </div>
+
+  {% if scorecards %}
+  <div class="table-responsive">
+    <table class="table tms-table table-dark table-hover mb-0">
+      <thead>
+        <tr>
+          <th style="width:36px">#</th>
+          <th>Carrier</th>
+          <th>Score</th>
+          <th>OTD %</th>
+          <th>OTP %</th>
+          <th>Damage</th>
+          <th>Rate vs Mkt</th>
+          <th>Comm</th>
+          <th>Loads</th>
+          <th>Last Used</th>
+          <th>Top Lanes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for card in scorecards %}
+        {% set rank = loop.index %}
+        {% set score = card.overall_score %}
+        {% if score >= 80 %}{% set bar_class = 'sc-score-green' %}
+        {% elif score >= 60 %}{% set bar_class = 'sc-score-yellow' %}
+        {% else %}{% set bar_class = 'sc-score-red' %}{% endif %}
+        <tr>
+          <td class="sc-rank {% if rank == 1 %}sc-rank-1{% elif rank == 2 %}sc-rank-2{% elif rank == 3 %}sc-rank-3{% endif %}">
+            #{{ rank }}
+          </td>
+          <td>
+            <a href="/tms/carrier-scorecard/{{ card.carrier_name | urlencode }}" class="text-white text-decoration-none fw-semibold">
+              {{ card.carrier_name }}
+            </a>
+            {% if card.scac %}<span class="text-muted small ms-2">{{ card.scac }}</span>{% endif %}
+          </td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="sc-score-bar-wrap">
+                <div class="sc-score-bar {{ bar_class }}" style="width:{{ score }}%"></div>
+              </div>
+              <span class="fw-bold {% if score >= 80 %}text-success{% elif score >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                {{ score }}
+              </span>
+            </div>
+          </td>
+          <td class="{% if card.on_time_delivery_pct >= 90 %}text-success{% elif card.on_time_delivery_pct >= 75 %}text-warning{% else %}text-danger{% endif %}">
+            {{ card.on_time_delivery_pct }}%
+          </td>
+          <td class="{% if card.on_time_pickup_pct >= 90 %}text-success{% elif card.on_time_pickup_pct >= 75 %}text-warning{% else %}text-danger{% endif %}">
+            {{ card.on_time_pickup_pct }}%
+          </td>
+          <td class="{% if card.damage_rate_pct == 0 %}text-success{% elif card.damage_rate_pct < 5 %}text-warning{% else %}text-danger{% endif %}">
+            {{ card.damage_rate_pct }}%
+          </td>
+          <td>
+            {% if card.avg_rate_vs_market == 0 %}
+              <span class="text-muted">—</span>
+            {% elif card.avg_rate_vs_market < 0 %}
+              <span class="rate-cheaper"><i class="bi bi-arrow-down-short"></i>{{ card.avg_rate_vs_market | abs }}%</span>
+            {% else %}
+              <span class="rate-expensive"><i class="bi bi-arrow-up-short"></i>+{{ card.avg_rate_vs_market }}%</span>
+            {% endif %}
+          </td>
+          <td>
+            {% set comm = card.avg_communication_score | round | int %}
+            {% for i in range(1, 6) %}
+              <i class="bi bi-star-fill {% if i <= comm %}star-fill{% else %}star-empty{% endif %}" style="font-size:.75rem"></i>
+            {% endfor %}
+          </td>
+          <td class="text-muted">{{ card.total_shipments }}</td>
+          <td class="text-muted small">
+            {% if card.last_shipment %}{{ card.last_shipment[:10] }}{% else %}—{% endif %}
+          </td>
+          <td class="text-muted small">
+            {% if card.preferred_lanes %}
+              {% for lane in card.preferred_lanes.split(',')[:3] %}
+                <span class="badge bg-secondary me-1">{{ lane.strip() }}</span>
+              {% endfor %}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-center py-5">
+    <i class="bi bi-star text-muted" style="font-size:2.5rem"></i>
+    <div class="text-muted mt-3">No performance data yet. Log your first shipment to begin ranking carriers.</div>
+    <button class="btn btn-outline-warning btn-sm mt-3" data-bs-toggle="modal" data-bs-target="#logModal">
+      <i class="bi bi-plus-lg me-1"></i>Log Performance
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Lane Lookup -->
+<div class="card bg-dark border-secondary mt-4">
+  <div class="card-header"><i class="bi bi-signpost-2 me-2"></i>Best Carrier for Lane</div>
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      <div class="col-auto">
+        <label class="form-label text-muted small">Origin State</label>
+        <input type="text" id="laneOrigin" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="CA" maxlength="2" style="width:70px">
+      </div>
+      <div class="col-auto">
+        <label class="form-label text-muted small">Destination State</label>
+        <input type="text" id="laneDest" class="form-control form-control-sm bg-dark text-white border-secondary" placeholder="TX" maxlength="2" style="width:70px">
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-sm btn-outline-secondary" id="laneSearchBtn">
+          <i class="bi bi-search me-1"></i>Find Best
+        </button>
+      </div>
+    </div>
+    <div id="laneResults" class="mt-3"></div>
+  </div>
+</div>
+
+<!-- Log Performance Modal -->
+<div class="modal fade" id="logModal" tabindex="-1" aria-labelledby="logModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content bg-dark text-white border-secondary">
+      <form method="POST" action="/tms/carrier-scorecard/log">
+        <div class="modal-header border-secondary">
+          <h5 class="modal-title" id="logModalLabel"><i class="bi bi-clipboard-data me-2"></i>Log Carrier Performance</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted small">Carrier Name *</label>
+              <input type="text" name="carrier_name" class="form-control bg-dark text-white border-secondary" required placeholder="e.g. J.B. Hunt">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">SCAC</label>
+              <input type="text" name="scac" class="form-control bg-dark text-white border-secondary" placeholder="JBHT" maxlength="4">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Shipment Ref</label>
+              <input type="text" name="shipment_ref" class="form-control bg-dark text-white border-secondary" placeholder="SHP-0001">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Origin State</label>
+              <input type="text" name="origin_state" class="form-control bg-dark text-white border-secondary" placeholder="CA" maxlength="2">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Destination State</label>
+              <input type="text" name="destination_state" class="form-control bg-dark text-white border-secondary" placeholder="TX" maxlength="2">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Sched. Pickup</label>
+              <input type="datetime-local" name="scheduled_pickup" class="form-control bg-dark text-white border-secondary">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Actual Pickup</label>
+              <input type="datetime-local" name="actual_pickup" class="form-control bg-dark text-white border-secondary">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Sched. Delivery</label>
+              <input type="datetime-local" name="scheduled_delivery" class="form-control bg-dark text-white border-secondary">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Actual Delivery</label>
+              <input type="datetime-local" name="actual_delivery" class="form-control bg-dark text-white border-secondary">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Rate Charged ($)</label>
+              <input type="number" step="0.01" name="rate_charged" class="form-control bg-dark text-white border-secondary" placeholder="1500.00">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label text-muted small">Market Rate ($)</label>
+              <input type="number" step="0.01" name="rate_market" class="form-control bg-dark text-white border-secondary" placeholder="1500.00">
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="damage_reported" id="damageCheck" value="1">
+                <label class="form-check-label text-muted" for="damageCheck">Damage Reported</label>
+              </div>
+            </div>
+            <div class="col-12" id="damageNotesWrap" style="display:none">
+              <label class="form-label text-muted small">Damage Notes</label>
+              <input type="text" name="damage_notes" class="form-control bg-dark text-white border-secondary" placeholder="Describe damage...">
+            </div>
+            <div class="col-12">
+              <label class="form-label text-muted small d-block">Communication Score</label>
+              <div class="d-flex gap-3">
+                {% for v, label in [(1,'Poor'),(2,'Fair'),(3,'OK'),(4,'Good'),(5,'Excellent')] %}
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" name="communication_score" id="comm{{ v }}" value="{{ v }}">
+                  <label class="form-check-label text-muted small" for="comm{{ v }}">{{ v }} – {{ label }}</label>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label text-muted small">Notes</label>
+              <textarea name="notes" class="form-control bg-dark text-white border-secondary" rows="2" placeholder="Any additional notes..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning"><i class="bi bi-save me-1"></i>Save Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+(function(){
+  // Damage notes toggle
+  var damageCheck = document.getElementById('damageCheck');
+  var damageWrap  = document.getElementById('damageNotesWrap');
+  if(damageCheck){
+    damageCheck.addEventListener('change', function(){
+      damageWrap.style.display = this.checked ? '' : 'none';
+    });
+  }
+
+  // Lane lookup
+  var laneBtn = document.getElementById('laneSearchBtn');
+  if(laneBtn){
+    laneBtn.addEventListener('click', function(){
+      var origin = document.getElementById('laneOrigin').value.toUpperCase().trim();
+      var dest   = document.getElementById('laneDest').value.toUpperCase().trim();
+      if(!origin || !dest){ return; }
+      fetch('/tms/carrier-scorecard/best-lane?origin=' + encodeURIComponent(origin) + '&dest=' + encodeURIComponent(dest))
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          var el = document.getElementById('laneResults');
+          if(!data.carriers || !data.carriers.length){
+            el.innerHTML = '<div class="text-muted small">No data for this lane.</div>';
+            return;
+          }
+          var html = '<div class="text-muted small mb-2">Ranked carriers for <strong class="text-white">' + origin + ' → ' + dest + '</strong></div>';
+          html += '<div class="table-responsive"><table class="table table-dark table-sm mb-0" style="font-size:.85rem"><thead><tr><th>#</th><th>Carrier</th><th>OTD %</th><th>Avg Rate</th><th>Loads</th></tr></thead><tbody>';
+          data.carriers.forEach(function(c, i){
+            var otd = c.otd != null ? Math.round(c.otd) + '%' : (c.on_time_delivery_pct != null ? c.on_time_delivery_pct + '%' : '—');
+            var rate = c.avg_rate ? '$' + parseFloat(c.avg_rate).toFixed(0) : (c.overall_score ? 'Score ' + c.overall_score : '—');
+            var trips = c.trips || c.total_shipments || '—';
+            html += '<tr><td class="text-warning">#' + (i+1) + '</td><td>' + (c.carrier_name || '') + '</td><td>' + otd + '</td><td>' + rate + '</td><td>' + trips + '</td></tr>';
+          });
+          html += '</tbody></table></div>';
+          el.innerHTML = html;
+        })
+        .catch(function(){ document.getElementById('laneResults').innerHTML = '<div class="text-danger small">Error loading results.</div>'; });
+    });
+  }
+})();
+</script>
+{% endblock %}

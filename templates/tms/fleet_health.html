@@ -1,0 +1,211 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Fleet Health / DVIR{% endblock %}
+{% block content %}
+<div class="tms-page-header d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h1 class="tms-page-title mb-0"><i class="bi bi-tools me-2 text-gold"></i>Fleet Health &amp; DVIR</h1>
+    <p class="text-muted mb-0">FMCSA 49 CFR Part 396 — pre/post-trip inspections &amp; maintenance</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/tms/fleet-health/dvir/new" class="btn btn-outline-gold btn-sm"><i class="bi bi-clipboard-check me-1"></i>New DVIR</a>
+    <a href="/tms/fleet-health/maintenance/new" class="btn btn-gold btn-sm"><i class="bi bi-plus-circle me-1"></i>Add Maintenance</a>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="tms-card text-center">
+      <div class="text-gold fs-3 fw-bold">{{ total_vehicles }}</div>
+      <div class="text-muted small">Total Vehicles</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-card text-center {% if out_of_service > 0 %}border border-danger{% endif %}">
+      <div class="{% if out_of_service > 0 %}text-danger{% else %}text-gold{% endif %} fs-3 fw-bold">{{ out_of_service }}</div>
+      <div class="text-muted small">Out of Service</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-card text-center">
+      <div class="text-gold fs-3 fw-bold">{{ open_work_orders }}</div>
+      <div class="text-muted small">Open Work Orders</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-card text-center {% if overdue_count > 0 %}border border-warning{% endif %}">
+      <div class="{% if overdue_count > 0 %}text-warning{% else %}text-gold{% endif %} fs-3 fw-bold">{{ overdue_count }}</div>
+      <div class="text-muted small">Maintenance Overdue</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Recent DVIRs -->
+  <div class="col-lg-7">
+    <div class="tms-card p-0 mb-3">
+      <div class="px-3 pt-3 pb-2 border-bottom border-secondary d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-clipboard-check me-1 text-gold"></i>Recent DVIRs</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0 small">
+          <thead><tr>
+            <th>Ref</th><th>Vehicle</th><th>Driver</th><th>Type</th><th>Status</th><th>Defects</th><th>Date</th><th></th>
+          </tr></thead>
+          <tbody>
+          {% if recent_dvir %}
+            {% for r in recent_dvir %}
+            <tr>
+              <td class="text-gold">{{ r.report_ref }}</td>
+              <td>{{ r.truck_number or '—' }}</td>
+              <td>{{ r.driver_name or '—' }}</td>
+              <td>{{ r.inspection_type|replace('_',' ')|title }}</td>
+              <td>
+                <span class="badge {% if r.overall_status == 'satisfactory' %}bg-success{% elif r.overall_status == 'out_of_service' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                  {{ r.overall_status|replace('_',' ')|title }}
+                </span>
+              </td>
+              <td>{{ r.defects|length if r.defects else 0 }}</td>
+              <td class="text-muted">{{ r.created_at[:10] if r.created_at else '' }}</td>
+              <td>
+                {% if not r.certified_safe and r.overall_status != 'satisfactory' %}
+                <button class="btn btn-outline-warning btn-sm py-0" data-bs-toggle="modal" data-bs-target="#certModal{{ r.id }}">Certify</button>
+                {% else %}
+                <span class="text-success small"><i class="bi bi-check-circle"></i></span>
+                {% endif %}
+              </td>
+            </tr>
+            <!-- Certify Modal -->
+            <div class="modal fade" id="certModal{{ r.id }}" tabindex="-1">
+              <div class="modal-dialog modal-sm">
+                <div class="modal-content tms-modal">
+                  <div class="modal-header border-secondary">
+                    <h6 class="modal-title">Certify DVIR {{ r.report_ref }}</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                  </div>
+                  <form method="post" action="/tms/fleet-health/dvir/{{ r.id }}/certify">
+                    <div class="modal-body">
+                      <input name="mechanic_signature" class="form-control tms-input mb-2" placeholder="Mechanic name / signature" required>
+                      <textarea name="notes" class="form-control tms-input mb-2" rows="2" placeholder="Repair notes"></textarea>
+                      <div class="form-check">
+                        <input type="checkbox" name="certified_safe" value="1" class="form-check-input" id="cs{{ r.id }}" checked>
+                        <label class="form-check-label" for="cs{{ r.id }}">Vehicle certified safe to operate</label>
+                      </div>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                      <button type="submit" class="btn btn-gold btn-sm w-100">Submit Certification</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-4">No DVIR reports yet</td></tr>
+          {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Open Work Orders -->
+    <div class="tms-card p-0">
+      <div class="px-3 pt-3 pb-2 border-bottom border-secondary">
+        <span class="fw-semibold"><i class="bi bi-wrench me-1 text-gold"></i>Open Work Orders</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0 small">
+          <thead><tr><th>WO Ref</th><th>Vehicle</th><th>Type</th><th>Scheduled</th><th>Cost</th><th></th></tr></thead>
+          <tbody>
+          {% if work_orders %}
+            {% for wo in work_orders %}
+            <tr>
+              <td class="text-gold">{{ wo.wo_ref }}</td>
+              <td>{{ wo.truck_number or '—' }}</td>
+              <td>{{ wo.maintenance_type }}</td>
+              <td class="text-muted">{{ wo.scheduled_date or '—' }}</td>
+              <td>${{ "%.2f"|format(wo.cost or 0) }}</td>
+              <td>
+                <button class="btn btn-outline-success btn-sm py-0" data-bs-toggle="modal" data-bs-target="#closeWO{{ wo.id }}">Close</button>
+                <div class="modal fade" id="closeWO{{ wo.id }}" tabindex="-1">
+                  <div class="modal-dialog modal-sm">
+                    <div class="modal-content tms-modal">
+                      <div class="modal-header border-secondary">
+                        <h6 class="modal-title">Close WO {{ wo.wo_ref }}</h6>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                      </div>
+                      <form method="post" action="/tms/fleet-health/work-order/{{ wo.id }}/close">
+                        <div class="modal-body">
+                          <div class="row g-2 mb-2">
+                            <div class="col"><label class="form-label small">Parts ($)</label><input name="parts_cost" type="number" step="0.01" value="0" class="form-control tms-input"></div>
+                            <div class="col"><label class="form-label small">Labor ($)</label><input name="labor_cost" type="number" step="0.01" value="0" class="form-control tms-input"></div>
+                          </div>
+                          <textarea name="notes" class="form-control tms-input" rows="2" placeholder="Completion notes"></textarea>
+                        </div>
+                        <div class="modal-footer border-secondary">
+                          <button type="submit" class="btn btn-gold btn-sm w-100">Mark Complete</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-3">No open work orders</td></tr>
+          {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Maintenance Due -->
+  <div class="col-lg-5">
+    <div class="tms-card p-0 mb-3">
+      <div class="px-3 pt-3 pb-2 border-bottom border-secondary">
+        <span class="fw-semibold"><i class="bi bi-calendar-event me-1 text-gold"></i>Maintenance Due (30 days)</span>
+      </div>
+      {% if maintenance_due %}
+        {% for m in maintenance_due %}
+        <div class="px-3 py-2 border-bottom border-secondary d-flex align-items-center gap-3">
+          <div class="flex-grow-1">
+            <div class="fw-semibold small">{{ m.truck_number }} — {{ m.maintenance_type }}</div>
+            <div class="text-muted" style="font-size:11px;">
+              Due {{ m.next_due_date or '—' }}
+              {% if m.next_due_miles %} · {{ "%.0f"|format(m.next_due_miles) }} mi{% endif %}
+            </div>
+          </div>
+          {% if m.next_due_date and m.next_due_date < now_date %}
+          <span class="badge bg-danger">Overdue</span>
+          {% else %}
+          <span class="badge bg-warning text-dark">Due Soon</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="text-muted text-center py-4 small">No maintenance due in next 30 days</div>
+      {% endif %}
+    </div>
+
+    <!-- Inspection items reference -->
+    <div class="tms-card p-0">
+      <div class="px-3 pt-3 pb-2 border-bottom border-secondary">
+        <span class="fw-semibold"><i class="bi bi-list-check me-1 text-gold"></i>Standard Inspection Items</span>
+      </div>
+      <div style="max-height:260px;overflow-y:auto;">
+        {% set categories = inspection_items | groupby(1) %}
+        {% for cat, items in categories %}
+        <div class="px-3 py-1 border-bottom border-secondary">
+          <div class="text-gold small fw-semibold text-uppercase">{{ cat }}</div>
+          {% for item in items %}
+          <div class="text-muted" style="font-size:11px;">· {{ item[0] }}</div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

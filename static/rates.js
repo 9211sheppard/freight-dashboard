@@ -4,7 +4,6 @@
 
   // ── State ──────────────────────────────────────────────────────────────────
   let _currentCycleId  = null;
-  let _allRates        = [];
   let _outreachTimer   = null;
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -149,8 +148,6 @@
     fetch(url)
       .then(r => r.json())
       .then(rows => {
-        _allRates = rows;
-
         // Populate filter dropdowns from data
         populateFilterOptions(rows);
 

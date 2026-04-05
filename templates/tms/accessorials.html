@@ -1,0 +1,222 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Accessorials{% endblock %}
+{% block content %}
+<div class="tms-page-header d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h1 class="tms-page-title mb-0"><i class="bi bi-receipt-cutoff me-2 text-gold"></i>Accessorial Charges</h1>
+    <p class="text-muted mb-0">Detention, TONU, layover, fuel surcharge &amp; more</p>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-outline-gold btn-sm" data-bs-toggle="modal" data-bs-target="#detentionModal">
+      <i class="bi bi-stopwatch me-1"></i>Start Detention
+    </button>
+    <button class="btn btn-gold btn-sm" data-bs-toggle="modal" data-bs-target="#chargeModal">
+      <i class="bi bi-plus-circle me-1"></i>Add Charge
+    </button>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="tms-card text-center">
+      <div class="text-gold fs-3 fw-bold">${{ "%.0f"|format(total_pending_value or 0) }}</div>
+      <div class="text-muted small">Pending Approval</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-card text-center">
+      <div class="text-gold fs-3 fw-bold">{{ active_timers|length }}</div>
+      <div class="text-muted small">Active Detention Timers</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-card text-center">
+      <div class="text-gold fs-3 fw-bold">${{ "%.0f"|format(monthly_summary[0].total if monthly_summary else 0) }}</div>
+      <div class="text-muted small">Approved MTD</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-card text-center">
+      <div class="text-gold fs-3 fw-bold">{{ pending_charges|length }}</div>
+      <div class="text-muted small">Pending Charges</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <!-- Active detention timers -->
+    {% if active_timers %}
+    <div class="tms-card p-0 mb-3">
+      <div class="px-3 pt-3 pb-2 border-bottom border-secondary d-flex align-items-center gap-2">
+        <i class="bi bi-stopwatch text-warning"></i>
+        <span class="fw-semibold">Active Detention Timers</span>
+        <span class="badge bg-warning text-dark">{{ active_timers|length }}</span>
+      </div>
+      {% for t in active_timers %}
+      <div class="d-flex align-items-center gap-3 px-3 py-2 border-bottom border-secondary">
+        <div class="flex-grow-1">
+          <span class="fw-semibold text-gold">{{ t.shipment_ref }}</span>
+          <span class="text-muted small ms-2">{{ t.location or '' }}</span>
+        </div>
+        <div class="text-warning small">Started {{ t.started_at[:16] if t.started_at else '' }}</div>
+        <form method="post" action="/tms/accessorials/detention/{{ t.id }}/stop">
+          <button class="btn btn-outline-warning btn-sm py-0"><i class="bi bi-stop-circle me-1"></i>Stop</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Charges table -->
+    <div class="tms-card p-0">
+      <div class="px-3 pt-3 pb-2 border-bottom border-secondary d-flex justify-content-between">
+        <span class="fw-semibold">Pending Charges</span>
+        <a href="?status=all" class="btn btn-outline-secondary btn-sm py-0">View All</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+          <thead><tr>
+            <th>Ref</th><th>Shipment</th><th>Type</th><th>Amount</th><th>Status</th><th>Created</th><th></th>
+          </tr></thead>
+          <tbody>
+          {% if pending_charges %}
+            {% for c in pending_charges %}
+            <tr>
+              <td><span class="text-gold small">{{ c.charge_ref }}</span></td>
+              <td><a href="/tms/accessorials/{{ c.shipment_ref }}" class="text-gold">{{ c.shipment_ref }}</a></td>
+              <td>{{ c.charge_type|replace('_',' ')|title }}</td>
+              <td class="fw-bold">${{ "%.2f"|format(c.amount or 0) }}</td>
+              <td>
+                <span class="badge {% if c.status == 'approved' %}bg-success{% elif c.status == 'invoiced' %}bg-primary{% elif c.status == 'disputed' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+                  {{ c.status }}
+                </span>
+              </td>
+              <td class="text-muted small">{{ c.created_at[:10] if c.created_at else '' }}</td>
+              <td>
+                {% if c.status == 'pending' %}
+                <form method="post" action="/tms/accessorials/charge/{{ c.id }}/approve" class="d-inline">
+                  <button class="btn btn-outline-success btn-sm py-0">Approve</button>
+                </form>
+                {% endif %}
+                <form method="post" action="/tms/accessorials/charge/{{ c.id }}/delete" class="d-inline">
+                  <button class="btn btn-outline-danger btn-sm py-0" onclick="return confirm('Delete?')"><i class="bi bi-trash"></i></button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-4">No charges found</td></tr>
+          {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charge types reference -->
+  <div class="col-lg-4">
+    <div class="tms-card p-0">
+      <div class="px-3 pt-3 pb-2 border-bottom border-secondary">
+        <span class="fw-semibold"><i class="bi bi-list-check me-1 text-gold"></i>Charge Types</span>
+      </div>
+      <div style="max-height:500px;overflow-y:auto;">
+        {% for key, info in accessorial_types.items() %}
+        <div class="px-3 py-2 border-bottom border-secondary">
+          <div class="d-flex justify-content-between">
+            <span class="fw-semibold small">{{ info.label }}</span>
+            <span class="text-gold small">${{ info.default_rate }}{{ '/hr' if info.unit == 'per_hour' else '/day' if info.unit == 'per_day' else '' }}</span>
+          </div>
+          <div class="text-muted" style="font-size:11px;">{{ info.description }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Start Detention Modal -->
+<div class="modal fade" id="detentionModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content tms-modal">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title"><i class="bi bi-stopwatch me-2"></i>Start Detention Timer</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/tms/accessorials/detention/start">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Shipment Reference</label>
+            <input name="shipment_ref" class="form-control tms-input" placeholder="SHP-XXXXXXXX" required>
+          </div>
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Location</label>
+              <input name="location" class="form-control tms-input" placeholder="Port / terminal name">
+            </div>
+            <div class="col">
+              <label class="form-label">Free Hours</label>
+              <input name="free_hours" type="number" value="2" class="form-control tms-input">
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">Hourly Rate ($)</label>
+            <input name="hourly_rate" type="number" step="0.01" value="75.00" class="form-control tms-input">
+          </div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-gold">Start Timer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Add Charge Modal -->
+<div class="modal fade" id="chargeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content tms-modal">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">Add Accessorial Charge</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/tms/accessorials/charge/new">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Shipment Reference</label>
+            <input name="shipment_ref" class="form-control tms-input" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Charge Type</label>
+            <select name="charge_type" class="form-select tms-input" required>
+              {% for key, info in accessorial_types.items() %}
+              <option value="{{ key }}">{{ info.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Amount ($)</label>
+              <input name="amount" type="number" step="0.01" class="form-control tms-input" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Quantity</label>
+              <input name="quantity" type="number" step="0.5" value="1" class="form-control tms-input">
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">Notes</label>
+            <textarea name="notes" class="form-control tms-input" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-secondary">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-gold">Add Charge</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

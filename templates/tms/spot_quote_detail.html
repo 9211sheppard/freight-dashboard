@@ -1,0 +1,220 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Spot Quote {{ quote.ref }}{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-lightning-charge-fill me-2"></i>Spot Quote {{ quote.ref }}</h2>
+    <div class="text-muted small">{{ quote.origin or "-" }} -> {{ quote.destination or "-" }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{{ url_for('tms.spot_quotes_board') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back to Spot Quotes
+    </a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-4">
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+{% if awarded_response %}
+<div class="alert alert-success mb-4">
+  Awarded to <strong>{{ awarded_response.carrier_name }}</strong>
+  {% if awarded_response.rate_20ft is not none or awarded_response.rate_40ft is not none %}
+  at
+  {% if awarded_response.rate_20ft is not none %}20ft ${{ "{:,.2f}".format(awarded_response.rate_20ft) }}{% endif %}
+  {% if awarded_response.rate_20ft is not none and awarded_response.rate_40ft is not none %} | {% endif %}
+  {% if awarded_response.rate_40ft is not none %}40ft ${{ "{:,.2f}".format(awarded_response.rate_40ft) }}{% endif %}
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Status</div>
+        <div class="fs-4 fw-bold">
+          <span class="tms-status tms-status-{{ {'open':'active','awarded':'delivered','cancelled':'cancelled'}.get(quote.status, 'draft') }}">
+            {{ quote.status|title }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Equipment</div>
+        <div class="fs-5 fw-bold">{{ quote.equipment_type or "-" }}</div>
+        <div class="small text-muted mt-2">
+          {% if quote.weight_lbs is not none %}
+          {{ "{:,.0f}".format(quote.weight_lbs) }} lbs
+          {% else %}
+          Weight pending
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Schedule</div>
+        <div class="fw-semibold">Pickup {{ quote.pickup_date or "-" }}</div>
+        <div class="small text-muted mt-2">Delivery {{ quote.delivery_date or "-" }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Responses</div>
+        <div class="fs-3 fw-bold text-info">{{ quote.response_count or 0 }}</div>
+        <div class="small text-muted mt-2">{{ quote.submitted_count or 0 }} submitted</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-journal-text me-2"></i>Quote Details</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="text-muted small">Origin</div>
+            <div class="fw-semibold">{{ quote.origin or "-" }}</div>
+          </div>
+          <div class="col-md-6">
+            <div class="text-muted small">Destination</div>
+            <div class="fw-semibold">{{ quote.destination or "-" }}</div>
+          </div>
+          <div class="col-md-6">
+            <div class="text-muted small">Created</div>
+            <div>{{ quote.created_at or "-" }}</div>
+          </div>
+          <div class="col-md-6">
+            <div class="text-muted small">Reference</div>
+            <div>{{ quote.ref }}</div>
+          </div>
+          <div class="col-12">
+            <div class="text-muted small">Notes</div>
+            <div class="border border-secondary rounded bg-black p-3">{{ quote.notes or "No notes added." }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-send me-2"></i>Blast Carriers</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('tms.blast_spot_quote_route', quote_id=quote.id) }}">
+          <label class="form-label text-muted">Carrier Emails</label>
+          <textarea
+            name="carrier_emails"
+            rows="8"
+            class="form-control bg-black text-white border-secondary"
+            placeholder="carrier1@example.com&#10;carrier2@example.com&#10;carrier3@example.com"
+            {% if quote.status != 'open' %}disabled{% endif %}
+          ></textarea>
+          <div class="form-text text-muted">Use commas, spaces, or one email per line.</div>
+          <button type="submit" class="btn btn-primary w-100 mt-3" {% if quote.status != 'open' %}disabled{% endif %}>
+            <i class="bi bi-envelope-arrow-up me-1"></i>Send Quote Request
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-table me-2"></i>Carrier Responses</span>
+    <span class="text-muted small">Awarding a response closes the quote and rejects the other submitted options.</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead class="table-secondary text-dark">
+        <tr>
+          <th>Carrier</th>
+          <th>20ft</th>
+          <th>40ft</th>
+          <th>Transit</th>
+          <th>Validity</th>
+          <th>Status</th>
+          <th>Notes</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for response in responses %}
+        <tr {% if response.status == 'awarded' %}class="table-active"{% endif %}>
+          <td>
+            <div class="fw-semibold">{{ response.carrier_name or "-" }}</div>
+            <div class="small text-muted">{{ response.carrier_email or "-" }}</div>
+            <div class="small text-muted">{{ response.received_at or "-" }}</div>
+          </td>
+          <td>
+            {% if response.rate_20ft is not none %}
+            ${{ "{:,.2f}".format(response.rate_20ft) }}
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if response.rate_40ft is not none %}
+            ${{ "{:,.2f}".format(response.rate_40ft) }}
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if response.transit_days is not none %}
+            {{ response.transit_days }} days
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+          <td>{{ response.validity_date or "-" }}</td>
+          <td>
+            <span class="tms-status tms-status-{{ {'submitted':'active','awarded':'delivered','rejected':'cancelled'}.get(response.status, 'draft') }}">
+              {{ response.status|title }}
+            </span>
+          </td>
+          <td class="small text-muted" style="min-width: 180px;">{{ response.notes or "-" }}</td>
+          <td>
+            {% if quote.status == 'open' and response.status == 'submitted' %}
+            <form method="POST" action="{{ url_for('tms.award_spot_quote_route', quote_id=quote.id, response_id=response.id) }}">
+              <button type="submit" class="btn btn-sm btn-success">
+                <i class="bi bi-trophy me-1"></i>Award
+              </button>
+            </form>
+            {% elif response.status == 'awarded' %}
+            <span class="text-success fw-semibold small">Awarded</span>
+            {% else %}
+            <span class="text-muted small">-</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-5">
+            No carrier responses yet. Blast carriers to start collecting rates.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

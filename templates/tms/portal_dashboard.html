@@ -1,0 +1,607 @@
+{% set brand = settings|default({}) %}
+{% set brand_name = brand.get("company_name", "Customer Portal") %}
+{% set brand_color = brand.get("primary_color", "#0f766e") %}
+{% set brand_logo = brand.get("company_logo", "") %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ brand_name }} Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-icons.min.css') }}">
+  <style>
+    :root {
+      --brand: {{ brand_color }};
+      --surface: #08131d;
+      --surface-soft: rgba(255,255,255,0.04);
+      --border-soft: rgba(255,255,255,0.1);
+      --text-main: #f3f6fb;
+      --text-muted: #99adc1;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text-main);
+      font-family: Aptos, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 26%),
+        linear-gradient(180deg, #112233 0%, #08131d 38%, #04070a 100%);
+    }
+
+    .portal-shell {
+      padding: 24px 0 40px;
+    }
+
+    .glass-card {
+      border-radius: 24px;
+      border: 1px solid var(--border-soft);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+      box-shadow: 0 22px 56px rgba(0,0,0,0.28);
+      backdrop-filter: blur(8px);
+    }
+
+    .hero-card {
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      bottom: -90px;
+      width: 240px;
+      height: 240px;
+      border-radius: 999px;
+      background: radial-gradient(circle, var(--brand), transparent 70%);
+      opacity: 0.75;
+      pointer-events: none;
+    }
+
+    .brand-mark {
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+    }
+
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .eyebrow,
+    .meta-label {
+      font-size: 0.74rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .metric-card {
+      padding: 1.2rem;
+      height: 100%;
+    }
+
+    .metric-value {
+      font-size: 1.65rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .metric-note,
+    .meta-note,
+    .empty-copy {
+      color: var(--text-muted);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      border-radius: 999px;
+      padding: 0.55rem 0.95rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .status-secondary { background: rgba(108,117,125,0.18); color: #e7ebef; }
+    .status-success { background: rgba(25,135,84,0.18); color: #98efbf; }
+    .status-primary { background: rgba(13,110,253,0.18); color: #a7c7ff; }
+    .status-warning { background: rgba(255,193,7,0.18); color: #ffe290; }
+    .status-info { background: rgba(13,202,240,0.18); color: #99f0ff; }
+    .status-danger { background: rgba(220,53,69,0.18); color: #ffb1b8; }
+
+    .table-shell,
+    .detail-card,
+    .request-card {
+      padding: 1.35rem;
+    }
+
+    .portal-table {
+      --bs-table-bg: transparent;
+      --bs-table-color: var(--text-main);
+      --bs-table-border-color: rgba(255,255,255,0.08);
+      margin-bottom: 0;
+    }
+
+    .portal-table thead th {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border-bottom-color: rgba(255,255,255,0.12);
+    }
+
+    .portal-table td {
+      vertical-align: middle;
+    }
+
+    .table-link,
+    .shipment-link {
+      color: #fff;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .table-link:hover,
+    .shipment-link:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
+
+    .progress-track {
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--brand), rgba(255,255,255,0.9));
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .detail-chip {
+      border-radius: 18px;
+      border: 1px solid var(--border-soft);
+      background: var(--surface-soft);
+      padding: 1rem;
+    }
+
+    .timeline {
+      position: relative;
+      padding-left: 1rem;
+      margin: 0;
+    }
+
+    .timeline::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 12px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--brand), rgba(255,255,255,0.08));
+    }
+
+    .timeline-item {
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: 0;
+      top: 0.3rem;
+      width: 0.95rem;
+      height: 0.95rem;
+      border-radius: 999px;
+      background: var(--brand);
+      box-shadow: 0 0 0 5px rgba(255,255,255,0.05);
+    }
+
+    .timeline-card {
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      padding: 0.95rem 1rem;
+    }
+
+    .timeline-date {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+
+    .form-control,
+    .form-select {
+      border-radius: 14px;
+      border-color: rgba(255,255,255,0.12);
+      background: rgba(7,13,20,0.74);
+      color: #fff;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 0.25rem rgba(15,118,110,0.18);
+      background: rgba(7,13,20,0.9);
+      color: #fff;
+    }
+
+    .form-control::placeholder {
+      color: #6f8193;
+    }
+
+    .btn-brand {
+      border: none;
+      border-radius: 14px;
+      font-weight: 700;
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .btn-brand:hover {
+      filter: brightness(1.04);
+      color: #fff;
+    }
+
+    .btn-soft {
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #fff;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .btn-soft:hover {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+    }
+
+    @media (max-width: 991.98px) {
+      .detail-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="portal-shell">
+    <div class="container">
+      <div class="glass-card hero-card p-4 p-lg-5 mb-4">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-4">
+          <div>
+            <div class="d-flex align-items-center gap-3 mb-3">
+              <div class="brand-mark">
+                {% if brand_logo %}
+                <img src="{{ brand_logo }}" alt="{{ brand_name }}">
+                {% else %}
+                <i class="bi bi-box-seam fs-3"></i>
+                {% endif %}
+              </div>
+              <div>
+                <div class="eyebrow mb-1">Customer Portal</div>
+                <h1 class="h2 mb-1">{{ brand_name }}</h1>
+                <div class="meta-note">{{ portal_token.customer_name }}{% if portal_token.email %} · {{ portal_token.email }}{% endif %}</div>
+              </div>
+            </div>
+            <p class="meta-note mb-0">Track only the shipments linked to your access token, download shipping documents, and submit a new request without a full account.</p>
+          </div>
+          <div class="d-flex flex-column align-items-lg-end gap-3">
+            <div class="text-lg-end">
+              <div class="meta-label mb-1">Portal Access</div>
+              <div class="fw-semibold">{{ portal_token.token }}</div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              {% if selected_shipment %}
+              <a href="{{ public_tracking_url }}" class="btn btn-soft">
+                <i class="bi bi-geo-alt me-1"></i>Public Tracking
+              </a>
+              {% endif %}
+              <a href="{{ url_for('portal.portal_book') }}" class="btn btn-light fw-semibold">
+                <i class="bi bi-plus-circle me-1"></i>Request a Quote
+              </a>
+              <a href="{{ url_for('portal.portal_quotes') }}" class="btn btn-soft">
+                <i class="bi bi-receipt me-1"></i>My Quotes
+              </a>
+              <form method="post" action="{{ url_for('portal.portal_logout') }}" class="d-inline">
+                {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                <button type="submit" class="btn btn-soft">
+                  <i class="bi bi-box-arrow-right me-1"></i>Logout
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+          <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-3">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <div class="row g-4 mb-4">
+        <div class="col-md-4">
+          <div class="glass-card metric-card">
+            <div class="meta-label mb-2">Shipments</div>
+            <div class="metric-value">{{ stats.shipments }}</div>
+            <div class="metric-note">Visible only to this portal token.</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="glass-card metric-card">
+            <div class="meta-label mb-2">Active Loads</div>
+            <div class="metric-value">{{ stats.active }}</div>
+            <div class="metric-note">Booked, active, or in transit.</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="glass-card metric-card">
+            <div class="meta-label mb-2">Delivered</div>
+            <div class="metric-value">{{ stats.delivered }}</div>
+            <div class="metric-note">Completed shipments tied to this token.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-xl-5">
+          <div class="glass-card table-shell h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <div class="meta-label mb-1">Your Shipments</div>
+                <h2 class="h4 mb-0">Shipment List</h2>
+              </div>
+              <span class="badge text-bg-light">{{ shipments|length }}</span>
+            </div>
+
+            {% if shipments %}
+            <div class="table-responsive">
+              <table class="table portal-table align-middle">
+                <thead>
+                  <tr>
+                    <th>Reference</th>
+                    <th>Status</th>
+                    <th>ETA</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in shipments %}
+                  <tr>
+                    <td>
+                      <div><a class="table-link" href="{{ url_for('portal.portal_dashboard', token=portal_token.token, ref=item.shipment.shipment_ref) }}">{{ item.shipment.shipment_ref }}</a></div>
+                      <div class="small text-secondary">{{ item.tracking.route_label }}</div>
+                    </td>
+                    <td><span class="status-pill status-{{ item.shipment.status_variant }}">{{ item.shipment.status }}</span></td>
+                    <td>
+                      <div>{{ item.shipment.eta_display }}</div>
+                      <div class="small text-secondary">{{ item.tracking.eta_summary }}</div>
+                    </td>
+                    <td class="text-end">
+                      <a class="btn btn-sm btn-soft" href="{{ url_for('portal.portal_dashboard', token=portal_token.token, ref=item.shipment.shipment_ref) }}">View</a>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <div class="empty-copy py-4">No shipments are linked to this portal token yet.</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-xl-7">
+          <div class="glass-card detail-card mb-4">
+            {% if selected_shipment %}
+            <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+              <div>
+                <div class="meta-label mb-2">Shipment Detail</div>
+                <h2 class="h3 mb-2">{{ selected_shipment.shipment_ref }}</h2>
+                <span class="status-pill status-{{ selected_shipment.status_variant }}">{{ selected_shipment.status }}</span>
+              </div>
+              {% if documents_enabled %}
+              <div class="d-flex gap-2 flex-wrap">
+                <a href="{{ url_for('portal.portal_download_bol', token=portal_token.token, ref=selected_shipment.shipment_ref) }}" class="btn btn-soft"><i class="bi bi-file-earmark-text me-1"></i>BOL</a>
+                <a href="{{ url_for('portal.portal_download_invoice', token=portal_token.token, ref=selected_shipment.shipment_ref) }}" class="btn btn-soft"><i class="bi bi-receipt me-1"></i>Invoice</a>
+                <a href="{{ url_for('portal.portal_download_packing_list', token=portal_token.token, ref=selected_shipment.shipment_ref) }}" class="btn btn-soft"><i class="bi bi-box-seam me-1"></i>Packing List</a>
+              </div>
+              {% endif %}
+            </div>
+
+            <div class="mb-4">
+              <div class="d-flex justify-content-between small text-secondary mb-2">
+                <span>Shipment progress</span>
+                <span>{{ selected_tracking.progress_percent }}%</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" style="width: {{ selected_tracking.progress_percent }}%"></div>
+              </div>
+            </div>
+
+            <div class="detail-grid mb-4">
+              <div class="detail-chip">
+                <div class="meta-label mb-2">Route</div>
+                <div class="fw-semibold">{{ selected_tracking.route_label }}</div>
+                <div class="small text-secondary mt-2">Current location: {{ selected_tracking.current_location }}</div>
+              </div>
+              <div class="detail-chip">
+                <div class="meta-label mb-2">Schedule</div>
+                <div>ETD: {{ selected_shipment.etd_display }}</div>
+                <div>ETA: {{ selected_shipment.eta_display }}</div>
+                <div class="small text-secondary mt-2">{{ selected_tracking.eta_summary }}</div>
+              </div>
+              <div class="detail-chip">
+                <div class="meta-label mb-2">Parties</div>
+                <div><strong>Shipper:</strong> {{ selected_shipment.shipper_name or '-' }}</div>
+                <div><strong>Consignee:</strong> {{ selected_shipment.consignee_name or '-' }}</div>
+              </div>
+              <div class="detail-chip">
+                <div class="meta-label mb-2">Cargo</div>
+                <div>{{ selected_shipment.cargo_description or '-' }}</div>
+                <div class="small text-secondary mt-2">{{ selected_shipment.containers or 'Container details pending' }}</div>
+              </div>
+            </div>
+
+            <div>
+              <div class="meta-label mb-3">Shipment Timeline</div>
+              {% if selected_events %}
+              <div class="timeline">
+                {% for event in selected_events %}
+                <div class="timeline-item">
+                  <div class="timeline-dot"></div>
+                  <div class="timeline-card">
+                    <div class="d-flex justify-content-between gap-3 flex-wrap">
+                      <strong>{{ event.event_type }}</strong>
+                      <span class="timeline-date">{{ event.event_date_display }}</span>
+                    </div>
+                    {% if event.description %}
+                    <div class="mt-2">{{ event.description }}</div>
+                    {% endif %}
+                    {% if event.location %}
+                    <div class="small text-secondary mt-2"><i class="bi bi-geo-alt me-1"></i>{{ event.location }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <div class="empty-copy">No tracking events are available for this shipment yet.</div>
+              {% endif %}
+            </div>
+            {% else %}
+            <div class="meta-label mb-2">Shipment Detail</div>
+            <div class="empty-copy">Select a shipment to view its timeline and documents.</div>
+            {% endif %}
+          </div>
+
+          <div class="glass-card request-card">
+            <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+              <div>
+                <div class="meta-label mb-1">New Shipment Request</div>
+                <h2 class="h4 mb-0">Submit a Request</h2>
+              </div>
+              <span class="small text-secondary">No full account required</span>
+            </div>
+
+            {% if form_error %}
+            <div class="alert alert-danger">{{ form_error }}</div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('portal.portal_dashboard', token=portal_token.token) }}">
+              {% if csrf_token is defined %}
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              {% endif %}
+              <input type="hidden" name="selected_ref" value="{{ form_values.selected_ref }}">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Shipper Name</label>
+                  <input type="text" name="shipper_name" value="{{ form_values.shipper_name }}" class="form-control">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Consignee Name</label>
+                  <input type="text" name="consignee_name" value="{{ form_values.consignee_name }}" class="form-control" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Origin</label>
+                  <input type="text" name="origin_port" value="{{ form_values.origin_port }}" class="form-control" placeholder="Pickup city or port" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Destination</label>
+                  <input type="text" name="destination_port" value="{{ form_values.destination_port }}" class="form-control" placeholder="Delivery city or port" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Pickup Address</label>
+                  <input type="text" name="shipper_address" value="{{ form_values.shipper_address }}" class="form-control">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Delivery Address</label>
+                  <input type="text" name="consignee_address" value="{{ form_values.consignee_address }}" class="form-control">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Mode</label>
+                  <select name="mode" class="form-select">
+                    {% for mode in ['FTL', 'LTL', 'Ocean', 'Air', 'Intermodal'] %}
+                    <option value="{{ mode }}" {% if form_values.mode == mode %}selected{% endif %}>{{ mode }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Requested ETD</label>
+                  <input type="date" name="etd" value="{{ form_values.etd }}" class="form-control">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Requested ETA</label>
+                  <input type="date" name="eta" value="{{ form_values.eta }}" class="form-control">
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Cargo Description</label>
+                  <input type="text" name="cargo_description" value="{{ form_values.cargo_description }}" class="form-control" placeholder="What is shipping?" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Containers / Equipment</label>
+                  <input type="text" name="containers" value="{{ form_values.containers }}" class="form-control" placeholder="53' Dry Van, 2x40HC, pallets">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Weight (kg)</label>
+                  <input type="number" step="0.01" name="weight_kg" value="{{ form_values.weight_kg }}" class="form-control">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Volume (cbm)</label>
+                  <input type="number" step="0.01" name="volume_cbm" value="{{ form_values.volume_cbm }}" class="form-control">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Currency</label>
+                  <select name="currency" class="form-select">
+                    {% for currency in ['USD', 'CAD', 'EUR', 'GBP'] %}
+                    <option value="{{ currency }}" {% if form_values.currency == currency %}selected{% endif %}>{{ currency }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Incoterm</label>
+                  <select name="incoterm" class="form-select">
+                    {% for term in ['FOB', 'FCA', 'EXW', 'DAP', 'DDP', 'CIF', 'CFR'] %}
+                    <option value="{{ term }}" {% if form_values.incoterm == term %}selected{% endif %}>{{ term }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Notes</label>
+                  <textarea name="notes" rows="4" class="form-control" placeholder="Special handling, timing constraints, or reference numbers">{{ form_values.notes }}</textarea>
+                </div>
+                <div class="col-12 d-flex justify-content-end">
+                  <button type="submit" class="btn btn-brand px-4">
+                    <i class="bi bi-send-check me-1"></i>Submit Request
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

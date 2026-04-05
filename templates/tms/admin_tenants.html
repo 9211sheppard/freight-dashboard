@@ -1,0 +1,166 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Tenant Admin{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-buildings me-2"></i>Tenant Management</h2>
+    <div class="text-muted small">Create, suspend, delete, and switch enterprise tenants.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/admin/audit" class="btn btn-outline-danger"><i class="bi bi-clock-history me-1"></i>Audit Log</a>
+    <a href="/tms" class="btn btn-outline-secondary"><i class="bi bi-speedometer2 me-1"></i>TMS Master</a>
+  </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-4">
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<div class="row g-4">
+  <div class="col-xl-4">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-plus-circle me-2"></i>Create Tenant</div>
+      <div class="card-body">
+        <form method="POST" action="/tms/admin/tenants" class="row g-3">
+          <input type="hidden" name="action" value="create">
+          <div class="col-12">
+            <label class="form-label text-muted">Company Name</label>
+            <input type="text" name="company_name" class="form-control bg-black text-white border-secondary" value="{{ form_values.company_name }}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label text-muted">Plan</label>
+            <select name="plan" class="form-select bg-black text-white border-secondary">
+              {% for plan in tenant_plans %}
+              <option value="{{ plan }}" {% if form_values.plan == plan %}selected{% endif %}>{{ plan|title }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label text-muted">Max Users</label>
+            <input type="number" min="1" name="max_users" class="form-control bg-black text-white border-secondary" value="{{ form_values.max_users }}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label text-muted">Data Region</label>
+            <input type="text" name="data_region" class="form-control bg-black text-white border-secondary" value="{{ form_values.data_region }}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label text-muted">Session Timeout (min)</label>
+            <input type="number" min="5" name="session_timeout_minutes" class="form-control bg-black text-white border-secondary" value="{{ form_values.session_timeout_minutes }}" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label text-muted">Allowed IP CIDRs</label>
+            <textarea name="allowed_ip_cidrs" rows="3" class="form-control bg-black text-white border-secondary" placeholder="203.0.113.0/24, 198.51.100.10">{{ form_values.allowed_ip_cidrs }}</textarea>
+            <div class="small text-muted mt-2">Comma or newline separated. Leave blank to allow any IP.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label text-muted">SAML Entity ID</label>
+            <input type="text" name="saml_entity_id" class="form-control bg-black text-white border-secondary" value="{{ form_values.saml_entity_id }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label text-muted">SAML SSO URL</label>
+            <input type="url" name="saml_sso_url" class="form-control bg-black text-white border-secondary" value="{{ form_values.saml_sso_url }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label text-muted">SAML Metadata URL</label>
+            <input type="url" name="saml_metadata_url" class="form-control bg-black text-white border-secondary" value="{{ form_values.saml_metadata_url }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label text-muted">SAML X.509 Certificate</label>
+            <textarea name="saml_x509_cert" rows="4" class="form-control bg-black text-white border-secondary" placeholder="Paste IdP signing certificate">{{ form_values.saml_x509_cert }}</textarea>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-save me-1"></i>Create Tenant</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-check me-2"></i>Tenant Directory</span>
+        <span class="small text-muted">Current tenant: {{ current_tenant_id }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Company</th>
+              <th>Plan</th>
+              <th>Users</th>
+              <th>Region</th>
+              <th>Security</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for tenant in tenants %}
+            <tr>
+              <td>
+                <div class="fw-bold">{{ tenant.company_name }}</div>
+                <div class="text-muted small">{{ tenant.tenant_id }}</div>
+              </td>
+              <td><span class="badge bg-info text-dark text-uppercase">{{ tenant.plan }}</span></td>
+              <td>{{ tenant.max_users }}</td>
+              <td>{{ tenant.data_region }}</td>
+              <td>
+                <div class="small">Timeout: {{ tenant.session_timeout_minutes }}m</div>
+                <div class="small text-muted">{{ tenant.allowed_ip_cidrs|length }} IP rules</div>
+              </td>
+              <td>
+                {% set status_class = {'active':'success','suspended':'warning','deleted':'danger'} %}
+                <span class="badge bg-{{ status_class.get(tenant.status, 'secondary') }}">{{ tenant.status|title }}</span>
+              </td>
+              <td>
+                <div class="d-flex flex-wrap gap-2">
+                  <form method="POST" action="/tms/admin/tenants">
+                    <input type="hidden" name="action" value="switch">
+                    <input type="hidden" name="tenant_id" value="{{ tenant.tenant_id }}">
+                    <button type="submit" class="btn btn-sm {% if tenant.tenant_id == current_tenant_id %}btn-light{% else %}btn-outline-light{% endif %}">
+                      {{ "Current" if tenant.tenant_id == current_tenant_id else "Switch" }}
+                    </button>
+                  </form>
+                  {% if tenant.status != "active" %}
+                  <form method="POST" action="/tms/admin/tenants">
+                    <input type="hidden" name="action" value="activate">
+                    <input type="hidden" name="tenant_id" value="{{ tenant.tenant_id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-success">Activate</button>
+                  </form>
+                  {% endif %}
+                  {% if tenant.status == "active" and tenant.tenant_id != "tenant-default" %}
+                  <form method="POST" action="/tms/admin/tenants">
+                    <input type="hidden" name="action" value="suspend">
+                    <input type="hidden" name="tenant_id" value="{{ tenant.tenant_id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-warning">Suspend</button>
+                  </form>
+                  {% endif %}
+                  {% if tenant.tenant_id != "tenant-default" and tenant.status != "deleted" %}
+                  <form method="POST" action="/tms/admin/tenants">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="tenant_id" value="{{ tenant.tenant_id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">No tenants have been configured.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

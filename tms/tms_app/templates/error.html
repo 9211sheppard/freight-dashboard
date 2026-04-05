@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ status_code }} | TMS Sandbox{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <div class="panel-head">
+    <p class="eyebrow">Access Response</p>
+    <h3>{{ status_code }}</h3>
+  </div>
+  <p>{{ message }}</p>
+  <a class="button-link" href="{{ url_for('dashboard') if current_user else url_for('login') }}">Return</a>
+</section>
+{% endblock %}
+

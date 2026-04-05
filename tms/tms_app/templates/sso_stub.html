@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}SAML SSO Stub | TMS Sandbox{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <p class="eyebrow">Enterprise Auth</p>
+    <h3>SAML 2.0 SSO Stub</h3>
+  </div>
+  <p class="hint">Tenant: {{ tenant.company_name if tenant else "Unknown" }}</p>
+  <div class="table-wrap">
+    <table>
+      <tbody>
+        <tr><th>pysaml2</th><td>{{ "Available" if has_pysaml2 else "Missing" }}</td></tr>
+        <tr><th>Entity ID</th><td>{{ tenant.saml_entity_id or "Not configured" }}</td></tr>
+        <tr><th>SSO URL</th><td>{{ tenant.saml_sso_url or "Not configured" }}</td></tr>
+        <tr><th>ACS URL</th><td>{{ acs_url }}</td></tr>
+        <tr><th>Client Ready</th><td>{{ "Yes" if saml_client_ready else "No" }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% if saml_error %}
+  <p class="hint">{{ saml_error }}</p>
+  {% endif %}
+  <p class="hint">In test mode, call the ACS stub with `tenant_id` and `email` to simulate an enterprise login.</p>
+</section>
+{% endblock %}

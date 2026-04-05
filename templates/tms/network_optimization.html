@@ -1,0 +1,75 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Network Optimization{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-diagram-3 me-2 text-info"></i>Network Optimization</h2>
+    <div class="text-muted small">AI-powered lane analysis and cost reduction recommendations</div>
+  </div>
+  <a href="/tms/" class="btn btn-outline-secondary btn-sm">back</a>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-info text-center p-3">
+      <div class="fs-3 fw-bold text-info">{{ shipment_count }}</div>
+      <div class="text-muted small">Shipments Analyzed</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-primary text-center p-3">
+      <div class="fs-3 fw-bold text-primary">{{ lanes|length }}</div>
+      <div class="text-muted small">Active Lanes</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-success text-center p-3">
+      <div class="fs-3 fw-bold text-success">${{ "{:,.0f}".format(total_spend) }}</div>
+      <div class="text-muted small">Total Spend (6mo)</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card bg-dark border-warning text-center p-3">
+      <div class="fs-3 fw-bold text-warning">${{ "{:,.0f}".format(total_savings_potential) }}</div>
+      <div class="text-muted small">Savings Potential</div>
+    </div>
+  </div>
+</div>
+{% if not lanes %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle me-2"></i>
+  No delivered shipments with rate data in the past 6 months. Create shipments to see lane optimization.
+</div>
+{% else %}
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between">
+    <span><i class="bi bi-table me-2"></i>Lane Optimization Recommendations</span>
+    <span class="badge bg-warning text-dark">{{ lanes|selectattr("savings","gt",0)|list|length }} lanes with savings</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover mb-0">
+      <thead class="table-secondary text-dark">
+        <tr><th>Origin</th><th></th><th>Dest</th><th>Shipments</th><th>Avg Cost</th><th>Avg Transit</th><th>Top Carrier</th><th>Contract</th><th>Save/Shipment</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for l in lanes %}
+        <tr>
+          <td class="fw-bold">{{ l.origin }}</td>
+          <td class="text-muted">to</td>
+          <td class="fw-bold">{{ l.destination }}</td>
+          <td><span class="badge bg-primary">{{ l.shipments }}</span></td>
+          <td class="text-success">${{ "{:,.0f}".format(l.avg_cost) }}</td>
+          <td>{{ l.avg_transit }}d</td>
+          <td class="small">{{ l.top_carrier }}</td>
+          <td>{% if l.contract_rate %}<span class="text-success">${{ "{:,.0f}".format(l.contract_rate) }}</span>{% else %}<span class="text-muted">None</span>{% endif %}</td>
+          <td>{% if l.savings > 0 %}<span class="text-warning fw-bold">${{ "{:,.0f}".format(l.savings) }}</span>{% else %}<span class="text-muted">0</span>{% endif %}</td>
+          <td class="small">
+            <a href="/tms/rates/shop?origin={{ l.origin }}&destination={{ l.destination }}" class="btn btn-xs btn-outline-primary py-0 px-1">Shop Rates</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

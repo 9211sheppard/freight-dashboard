@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="60">
+  <title>Shipment Tracking — {{ shipment.shipment_ref }}</title>
+  <link rel="stylesheet" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/bootstrap-icons.min.css">
+  <style nonce="{{ csp_nonce }}">
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #111118;
+      --border:    #1e1e2e;
+      --text:      #e8e8f0;
+      --muted:     #6c6c84;
+      --accent:    #4f8ef7;
+      --green:     #22c55e;
+      --orange:    #f59e0b;
+      --red:       #ef4444;
+      --gray:      #6b7280;
+      --blue:      #3b82f6;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .track-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .track-logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .track-header-title {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    /* Main content */
+    .track-body {
+      flex: 1;
+      padding: 2rem 1rem;
+      max-width: 760px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* Status hero */
+    .status-hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 1.1rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+    .status-badge.draft     { background: rgba(107,114,128,.18); color: var(--gray); border: 1px solid rgba(107,114,128,.3); }
+    .status-badge.booked    { background: rgba(59,130,246,.15);  color: var(--blue);   border: 1px solid rgba(59,130,246,.3); }
+    .status-badge.in-transit{ background: rgba(245,158,11,.15);  color: var(--orange); border: 1px solid rgba(245,158,11,.3); }
+    .status-badge.delivered { background: rgba(34,197,94,.15);   color: var(--green);  border: 1px solid rgba(34,197,94,.3); }
+    .status-badge.cancelled { background: rgba(239,68,68,.15);   color: var(--red);    border: 1px solid rgba(239,68,68,.3); }
+
+    .hero-ref {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.02em;
+    }
+    .hero-lane {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      font-size: 1rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+    .hero-lane .location {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .hero-lane .arrow {
+      color: var(--accent);
+      font-size: 1.2rem;
+    }
+
+    /* Card */
+    .track-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .track-card h5 {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 1.2rem;
+    }
+
+    /* Timeline */
+    .timeline {
+      position: relative;
+      padding-left: 2rem;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 0.55rem;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--border);
+    }
+    .timeline-item {
+      position: relative;
+      padding-bottom: 1.4rem;
+    }
+    .timeline-item:last-child { padding-bottom: 0; }
+    .timeline-dot {
+      position: absolute;
+      left: -1.56rem;
+      top: 0.1rem;
+      width: 1.1rem;
+      height: 1.1rem;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.5rem;
+      color: #fff;
+    }
+    .timeline-item:first-child .timeline-dot { background: var(--green); }
+    .timeline-label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.15rem;
+    }
+    .timeline-time {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .timeline-empty {
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-style: italic;
+    }
+
+    /* Details grid */
+    .details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 480px) { .details-grid { grid-template-columns: 1fr; } }
+    .detail-item label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
+    .detail-item span {
+      font-size: 0.9rem;
+      color: var(--text);
+    }
+
+    /* POD section */
+    .pod-banner {
+      background: rgba(34,197,94,.08);
+      border: 1px solid rgba(34,197,94,.25);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .pod-icon { font-size: 1.8rem; color: var(--green); }
+    .pod-text h6 { margin: 0 0 0.2rem; font-size: 0.95rem; color: var(--green); }
+    .pod-text p { margin: 0; font-size: 0.82rem; color: var(--muted); }
+
+    /* Footer */
+    .track-footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 1rem 2rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .track-footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="track-header">
+    <a href="/tms/track" class="track-logo">
+      <i class="bi bi-hexagon-fill"></i>
+      FlashCargo
+    </a>
+    <span class="track-header-title">Shipment Tracking</span>
+  </header>
+
+  <!-- Body -->
+  <div class="track-body">
+
+    <!-- Status Hero -->
+    <div class="status-hero">
+      {% set raw_status = shipment.status | lower | replace(' ', '-') %}
+      {% if raw_status == 'in transit' %}{% set css_status = 'in-transit' %}
+      {% elif raw_status == 'in-transit' %}{% set css_status = 'in-transit' %}
+      {% elif raw_status == 'delivered' %}{% set css_status = 'delivered' %}
+      {% elif raw_status == 'booked' %}{% set css_status = 'booked' %}
+      {% elif raw_status == 'cancelled' %}{% set css_status = 'cancelled' %}
+      {% else %}{% set css_status = 'draft' %}{% endif %}
+
+      <div class="status-badge {{ css_status }}">
+        {% if css_status == 'delivered' %}<i class="bi bi-check-circle-fill"></i>
+        {% elif css_status == 'in-transit' %}<i class="bi bi-truck"></i>
+        {% elif css_status == 'booked' %}<i class="bi bi-calendar-check"></i>
+        {% elif css_status == 'cancelled' %}<i class="bi bi-x-circle"></i>
+        {% else %}<i class="bi bi-pencil-square"></i>{% endif %}
+        {{ shipment.status }}
+      </div>
+
+      <div class="hero-ref">{{ shipment.shipment_ref }}</div>
+
+      <div class="hero-lane">
+        <span class="location">{{ shipment.origin_city or shipment.origin or '—' }}</span>
+        <span class="arrow"><i class="bi bi-arrow-right"></i></span>
+        <span class="location">{{ shipment.dest_city or shipment.destination or shipment.dest or '—' }}</span>
+      </div>
+    </div>
+
+    <!-- POD Banner (if delivered and POD exists) -->
+    {% if pod and (shipment.status | lower) == 'delivered' %}
+    <div class="pod-banner">
+      <div class="pod-icon"><i class="bi bi-patch-check-fill"></i></div>
+      <div class="pod-text">
+        <h6>Delivered — Proof of Delivery Available</h6>
+        <p>Your shipment has been successfully delivered and signed for.</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Timeline -->
+    <div class="track-card">
+      <h5><i class="bi bi-clock-history me-2"></i>Shipment Timeline</h5>
+      {% if events %}
+        <div class="timeline">
+          {% for ev in events %}
+          <div class="timeline-item">
+            <div class="timeline-dot"><i class="bi bi-dot"></i></div>
+            <div class="timeline-label">{{ ev.event_description or ev.event_type or 'Status Update' }}</div>
+            <div class="timeline-time">{{ ev.event_time or ev.created_at or '' }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="timeline-empty">No timeline events recorded yet. Check back soon.</p>
+      {% endif %}
+    </div>
+
+    <!-- Shipment Details -->
+    <div class="track-card">
+      <h5><i class="bi bi-info-circle me-2"></i>Shipment Details</h5>
+      <div class="details-grid">
+        <div class="detail-item">
+          <label>Reference</label>
+          <span>{{ shipment.shipment_ref }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Equipment</label>
+          <span>{{ shipment.equipment_type or '—' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Cargo</label>
+          <span>{{ shipment.cargo_description or shipment.description or '—' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Weight</label>
+          <span>{% if shipment.weight %}{{ shipment.weight }} lbs{% else %}—{% endif %}</span>
+        </div>
+        <div class="detail-item">
+          <label>Pickup Date</label>
+          <span>{{ shipment.pickup_date or '—' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Estimated Delivery</label>
+          <span>{{ shipment.delivery_date or shipment.estimated_delivery or '—' }}</span>
+        </div>
+        {% if shipment.carrier_name %}
+        <div class="detail-item">
+          <label>Carrier</label>
+          <span>{{ shipment.carrier_name }}</span>
+        </div>
+        {% endif %}
+        {% if shipment.pro_number %}
+        <div class="detail-item">
+          <label>PRO Number</label>
+          <span>{{ shipment.pro_number }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- /track-body -->
+
+  <!-- Footer -->
+  <footer class="track-footer">
+    Powered by <strong>FlashCargo TMS</strong> &nbsp;|&nbsp;
+    <a href="/tms/track">Track another shipment</a>
+    &nbsp;|&nbsp; Auto-refreshes every 60 seconds
+  </footer>
+
+</body>
+</html>

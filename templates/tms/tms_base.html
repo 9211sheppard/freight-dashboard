@@ -1,0 +1,408 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="tms-shell{% if public_board is defined and public_board %} tms-shell-public{% endif %}">
+
+  <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
+  {% if not (public_board is defined and public_board) %}
+  <aside class="tms-sidebar" id="tmsSidebar">
+
+    <!-- Brand + collapse toggle -->
+    <div class="tms-sb-brand">
+      <a href="/tms/" class="tms-sb-logo">
+        <i class="bi bi-hexagon-fill tms-sb-logomark"></i>
+        <span class="tms-sb-logotext">{{ session.get('company_name', 'TMS Master') }}</span>
+      </a>
+      <button class="tms-sb-collapse-btn" id="tmsSidebarToggle" title="Collapse sidebar">
+        <i class="bi bi-layout-sidebar-reverse"></i>
+      </button>
+    </div>
+
+    <!-- Nav -->
+    <nav class="tms-sb-nav" id="tmsSbNav">
+
+      <!-- OPERATE -->
+      <div class="tms-sb-section-label">Operate</div>
+      <a href="/tms/orders" class="tms-sb-item {% if request.path.startswith('/tms/orders') %}active{% endif %}">
+        <i class="bi bi-kanban-fill"></i><span>Order Pipeline</span>
+      </a>
+      <a href="/tms/shipments" class="tms-sb-item {% if request.path == '/tms/shipments' or request.path.startswith('/tms/shipments/') %}active{% endif %}">
+        <i class="bi bi-box-seam"></i><span>Shipments</span>
+      </a>
+      <a href="/tms/dispatch" class="tms-sb-item {% if request.path == '/tms/dispatch' %}active{% endif %}">
+        <i class="bi bi-kanban"></i><span>Dispatch</span>
+      </a>
+      <a href="/tms/control-tower" class="tms-sb-item {% if request.path == '/tms/control-tower' %}active{% endif %}">
+        <i class="bi bi-broadcast-pin"></i><span>Control Tower</span>
+      </a>
+      <a href="/tms/loads" class="tms-sb-item {% if request.path == '/tms/loads' %}active{% endif %}">
+        <i class="bi bi-diagram-3"></i><span>Loads</span>
+      </a>
+      <a href="/tms/ltl" class="tms-sb-item {% if request.path.startswith('/tms/ltl') %}active{% endif %}">
+        <i class="bi bi-boxes"></i><span>LTL Builder</span>
+      </a>
+      <a href="/tms/routes" class="tms-sb-item {% if request.path.startswith('/tms/routes') %}active{% endif %}">
+        <i class="bi bi-signpost-split"></i><span>Route Planner</span>
+      </a>
+      <a href="/tms/intake" class="tms-sb-item {% if request.path == '/tms/intake' %}active{% endif %}">
+        <i class="bi bi-envelope-open"></i><span>Order Intake</span>
+      </a>
+      <a href="/tms/docks" class="tms-sb-item {% if request.path == '/tms/docks' or request.path == '/tms/docks/calendar' %}active{% endif %}">
+        <i class="bi bi-grid-3x3-gap"></i><span>Docks</span>
+      </a>
+      <a href="/tms/yard" class="tms-sb-item {% if request.path == '/tms/yard' %}active{% endif %}">
+        <i class="bi bi-p-square"></i><span>Yard</span>
+      </a>
+      <a href="/tms/pods" class="tms-sb-item {% if request.path.startswith('/tms/pods') %}active{% endif %}">
+        <i class="bi bi-card-image"></i><span>POD Inbox</span>
+      </a>
+      <a href="/tms/ocr" class="tms-sb-item {% if request.path.startswith('/tms/ocr') %}active{% endif %}">
+        <i class="bi bi-file-earmark-text"></i><span>Document OCR</span>
+      </a>
+      <a href="/tms/billing-queue" class="tms-sb-item {% if request.path.startswith('/tms/billing-queue') %}active{% endif %}">
+        <i class="bi bi-receipt"></i><span>Billing Queue</span>
+      </a>
+
+      <!-- FINANCE -->
+      <div class="tms-sb-section-label">Finance</div>
+      <a href="/tms/invoices" class="tms-sb-item {% if request.path == '/tms/invoices' %}active{% endif %}">
+        <i class="bi bi-receipt-cutoff"></i><span>Invoices</span>
+      </a>
+      <a href="/tms/rates" class="tms-sb-item {% if request.path == '/tms/rates' %}active{% endif %}">
+        <i class="bi bi-cash-stack"></i><span>Contract Rates</span>
+      </a>
+      <a href="/tms/rate-matrix" class="tms-sb-item {% if request.path.startswith('/tms/rate-matrix') %}active{% endif %}">
+        <i class="bi bi-table"></i><span>Rate Matrix</span>
+      </a>
+      <a href="/tms/rates/shop" class="tms-sb-item {% if request.path == '/tms/rates/shop' %}active{% endif %}">
+        <i class="bi bi-search"></i><span>Rate Shop</span>
+      </a>
+      <a href="/tms/claims" class="tms-sb-item {% if request.path == '/tms/claims' %}active{% endif %}">
+        <i class="bi bi-exclamation-triangle"></i><span>Claims</span>
+      </a>
+      <a href="/tms/audit" class="tms-sb-item {% if request.path == '/tms/audit' %}active{% endif %}">
+        <i class="bi bi-shield-check"></i><span>Freight Audit</span>
+      </a>
+      <a href="/tms/freight-audit" class="tms-sb-item {% if request.path.startswith('/tms/freight-audit') %}active{% endif %}">
+        <i class="bi bi-clipboard2-check"></i><span>AP Reconciliation</span>
+      </a>
+      <a href="/tms/ifta" class="tms-sb-item {% if request.path.startswith('/tms/ifta') %}active{% endif %}">
+        <i class="bi bi-fuel-pump"></i><span>IFTA Reporting</span>
+      </a>
+      <a href="/tms/auto-invoices" class="tms-sb-item {% if request.path.startswith('/tms/auto-invoices') %}active{% endif %}">
+        <i class="bi bi-receipt-cutoff"></i><span>Auto Invoicing</span>
+      </a>
+      <a href="/tms/fuel-surcharge" class="tms-sb-item {% if request.path.startswith('/tms/fuel-surcharge') %}active{% endif %}">
+        <i class="bi bi-fuel-pump-fill"></i><span>Fuel Surcharge</span>
+      </a>
+      <a href="/tms/market-rates" class="tms-sb-item {% if request.path.startswith('/tms/market-rates') %}active{% endif %}">
+        <i class="bi bi-graph-up-arrow"></i><span>Market Rates</span>
+      </a>
+      <a href="/tms/spot-quotes" class="tms-sb-item {% if request.path.startswith('/tms/spot-quotes') %}active{% endif %}">
+        <i class="bi bi-lightning-charge"></i><span>Spot Quotes</span>
+      </a>
+      <a href="/tms/notifications" class="tms-sb-item {% if request.path.startswith('/tms/notifications') %}active{% endif %}">
+        <i class="bi bi-bell"></i><span>Notifications</span>
+      </a>
+
+      <!-- FLEET -->
+      <div class="tms-sb-section-label">Fleet</div>
+      <a href="/tms/drivers" class="tms-sb-item {% if request.path == '/tms/drivers' %}active{% endif %}">
+        <i class="bi bi-person-badge"></i><span>Drivers</span>
+      </a>
+      <a href="/tms/fleet" class="tms-sb-item {% if request.path == '/tms/fleet' %}active{% endif %}">
+        <i class="bi bi-truck-front"></i><span>Fleet</span>
+      </a>
+      <a href="/tms/tenders" class="tms-sb-item {% if request.path == '/tms/tenders' %}active{% endif %}">
+        <i class="bi bi-file-earmark-check"></i><span>Tenders</span>
+      </a>
+      <a href="/tms/loadboard" class="tms-sb-item {% if request.path == '/tms/loadboard' %}active{% endif %}">
+        <i class="bi bi-card-list"></i><span>Load Board</span>
+      </a>
+      <a href="/tms/cold-chain" class="tms-sb-item {% if request.path.startswith('/tms/cold-chain') %}active{% endif %}">
+        <i class="bi bi-thermometer-half"></i><span>Cold Chain</span>
+      </a>
+      <a href="/tms/load-matching" class="tms-sb-item {% if request.path.startswith('/tms/load-matching') %}active{% endif %}">
+        <i class="bi bi-lightning-charge"></i><span>Load Matching</span>
+      </a>
+      <a href="/tms/carrier-scorecard" class="tms-sb-item {% if request.path.startswith('/tms/carrier-scorecard') %}active{% endif %}">
+        <i class="bi bi-star-half"></i><span>Carrier Scorecard</span>
+      </a>
+      <a href="/tms/eld" class="tms-sb-item {% if request.path.startswith('/tms/eld') %}active{% endif %}">
+        <i class="bi bi-truck-flatbed"></i><span>ELD / HOS</span>
+      </a>
+      <a href="/tms/hos" class="tms-sb-item {% if request.path.startswith('/tms/hos') %}active{% endif %}">
+        <i class="bi bi-stopwatch"></i><span>HOS Rules</span>
+      </a>
+      <a href="/tms/driver-app" class="tms-sb-item {% if request.path == '/tms/driver-app' %}active{% endif %}">
+        <i class="bi bi-phone"></i><span>Driver App</span>
+      </a>
+      <a href="/tms/live-map" class="tms-sb-item {% if request.path.startswith('/tms/live-map') %}active{% endif %}">
+        <i class="bi bi-map"></i><span>Live Map</span>
+      </a>
+      <a href="/tms/driver-pay" class="tms-sb-item {% if request.path.startswith('/tms/driver-pay') %}active{% endif %}">
+        <i class="bi bi-cash-coin"></i><span>Driver Pay</span>
+      </a>
+      <a href="/tms/accessorials" class="tms-sb-item {% if request.path.startswith('/tms/accessorials') %}active{% endif %}">
+        <i class="bi bi-receipt-cutoff"></i><span>Accessorials</span>
+      </a>
+      <a href="/tms/fleet-health" class="tms-sb-item {% if request.path.startswith('/tms/fleet-health') %}active{% endif %}">
+        <i class="bi bi-tools"></i><span>Fleet Health / DVIR</span>
+      </a>
+      <a href="/tms/hazmat" class="tms-sb-item {% if request.path.startswith('/tms/hazmat') %}active{% endif %}">
+        <i class="bi bi-radioactive"></i><span>DG / Hazmat</span>
+      </a>
+
+      <div class="tms-sb-section-label">Warehouse</div>
+      <a href="/tms/wms" class="tms-sb-item {% if request.path == '/tms/wms' %}active{% endif %}">
+        <i class="bi bi-boxes"></i><span>WMS Dashboard</span>
+      </a>
+      <a href="/tms/wms/inventory" class="tms-sb-item {% if request.path.startswith('/tms/wms/inventory') %}active{% endif %}">
+        <i class="bi bi-box-seam"></i><span>Inventory</span>
+      </a>
+      <a href="/tms/wms/receipts" class="tms-sb-item {% if request.path.startswith('/tms/wms/receipts') %}active{% endif %}">
+        <i class="bi bi-truck"></i><span>Receiving</span>
+      </a>
+      <a href="/tms/wms/picks" class="tms-sb-item {% if request.path.startswith('/tms/wms/picks') %}active{% endif %}">
+        <i class="bi bi-cart-check"></i><span>Pick &amp; Pack</span>
+      </a>
+      <a href="/tms/wms/locations" class="tms-sb-item {% if request.path.startswith('/tms/wms/locations') %}active{% endif %}">
+        <i class="bi bi-grid-3x3-gap"></i><span>Locations</span>
+      </a>
+
+      <!-- INTELLIGENCE -->
+      <div class="tms-sb-section-label">Intelligence</div>
+      <a href="/tms/analytics" class="tms-sb-item {% if request.path == '/tms/analytics' %}active{% endif %}">
+        <i class="bi bi-graph-up-arrow"></i><span>Analytics</span>
+      </a>
+      <a href="/tms/ai-insights" class="tms-sb-item {% if request.path.startswith('/tms/ai-insights') %}active{% endif %}">
+        <i class="bi bi-cpu"></i><span>AI Insights</span>
+      </a>
+      <a href="/tms/benchmarking" class="tms-sb-item {% if request.path.startswith('/tms/benchmarking') %}active{% endif %}">
+        <i class="bi bi-bar-chart-steps"></i><span>Benchmarking</span>
+      </a>
+      <a href="/tms/forecasting" class="tms-sb-item {% if request.path.startswith('/tms/forecasting') %}active{% endif %}">
+        <i class="bi bi-activity"></i><span>Forecasting</span>
+      </a>
+      <a href="/tms/scenarios" class="tms-sb-item {% if request.path.startswith('/tms/scenarios') %}active{% endif %}">
+        <i class="bi bi-sliders"></i><span>Scenario Modeling</span>
+      </a>
+      <a href="/tms/reports" class="tms-sb-item {% if request.path == '/tms/reports' %}active{% endif %}">
+        <i class="bi bi-bar-chart-line"></i><span>Reports</span>
+      </a>
+      <a href="/tms/esg" class="tms-sb-item {% if request.path == '/tms/esg' %}active{% endif %}">
+        <i class="bi bi-leaf"></i><span>ESG</span>
+      </a>
+      <a href="/tms/trade" class="tms-sb-item {% if request.path == '/tms/trade' %}active{% endif %}">
+        <i class="bi bi-globe2"></i><span>Global Trade</span>
+      </a>
+      <a href="/tms/network-optimization" class="tms-sb-item {% if request.path == '/tms/network-optimization' %}active{% endif %}">
+        <i class="bi bi-bezier2"></i><span>Network Opt</span>
+      </a>
+
+      <!-- CONNECT -->
+      <div class="tms-sb-section-label">Connect</div>
+      <a href="/tms/network" class="tms-sb-item {% if request.path == '/tms/network' %}active{% endif %}">
+        <i class="bi bi-people"></i><span>TMS Master</span>
+      </a>
+      <a href="/tms/integrations" class="tms-sb-item {% if request.path == '/tms/integrations' %}active{% endif %}">
+        <i class="bi bi-plug"></i><span>Integrations</span>
+      </a>
+      <a href="/tms/edi" class="tms-sb-item {% if request.path == '/tms/edi' %}active{% endif %}">
+        <i class="bi bi-arrow-left-right"></i><span>EDI</span>
+      </a>
+      <a href="/tms/customs" class="tms-sb-item {% if request.path.startswith('/tms/customs') or '/customs' in request.path %}active{% endif %}">
+        <i class="bi bi-shield-check"></i><span>Customs</span>
+      </a>
+      <!-- COMPLIANCE -->
+      <div class="tms-sb-section-label">Compliance</div>
+      <a href="/tms/compliance" class="tms-sb-item {% if request.path == '/tms/compliance' %}active{% endif %}">
+        <i class="bi bi-shield-lock"></i><span>SOC 2 / Security</span>
+      </a>
+      <a href="/tms/compliance/audit-log" class="tms-sb-item {% if request.path.startswith('/tms/compliance/audit') %}active{% endif %}">
+        <i class="bi bi-journal-text"></i><span>Audit Log</span>
+      </a>
+      <a href="/tms/compliance/privacy" class="tms-sb-item {% if request.path.startswith('/tms/compliance/privacy') %}active{% endif %}">
+        <i class="bi bi-person-lock"></i><span>Privacy (GDPR)</span>
+      </a>
+      <a href="/tms/api-keys" class="tms-sb-item {% if request.path == '/tms/api-keys' %}active{% endif %}">
+        <i class="bi bi-key"></i><span>API Keys</span>
+      </a>
+      <a href="/tms/api-docs" class="tms-sb-item {% if request.path == '/tms/api-docs' %}active{% endif %}">
+        <i class="bi bi-journal-code"></i><span>API Docs</span>
+      </a>
+
+      <!-- CONNECT / MARKETPLACE -->
+      <div class="tms-sb-section-label">Marketplace</div>
+      <a href="/tms/marketplace" class="tms-sb-item {% if request.path.startswith('/tms/marketplace') %}active{% endif %}">
+        <i class="bi bi-shop-window"></i><span>Carrier Marketplace</span>
+      </a>
+      <a href="/tms/load-board" class="tms-sb-item {% if request.path.startswith('/tms/load-board') %}active{% endif %}">
+        <i class="bi bi-broadcast"></i><span>Load Boards</span>
+      </a>
+      <a href="/tms/accounting" class="tms-sb-item {% if request.path.startswith('/tms/accounting') %}active{% endif %}">
+        <i class="bi bi-receipt"></i><span>Accounting</span>
+      </a>
+
+      <!-- SETTINGS -->
+      <div class="tms-sb-section-label">Settings</div>
+      <a href="/tms/settings/email" class="tms-sb-item {% if request.path.startswith('/tms/settings/email') %}active{% endif %}">
+        <i class="bi bi-envelope-gear"></i><span>Email &amp; SMTP</span>
+      </a>
+      <a href="/tms/rate-gaps" class="tms-sb-item {% if request.path.startswith('/tms/rate-gaps') %}active{% endif %}">
+        <i class="bi bi-exclamation-triangle"></i><span>Rate Gaps</span>
+      </a>
+      <a href="/tms/settings/billing" class="tms-sb-item {% if request.path.startswith('/tms/settings/billing') %}active{% endif %}">
+        <i class="bi bi-credit-card"></i><span>Billing &amp; Add-ons</span>
+      </a>
+      <a href="/tms/workflows" class="tms-sb-item {% if request.path.startswith('/tms/workflows') %}active{% endif %}">
+        <i class="bi bi-diagram-3"></i><span>Workflows</span>
+      </a>
+      <a href="/tms/settings/branding" class="tms-sb-item {% if request.path.startswith('/tms/settings/branding') %}active{% endif %}">
+        <i class="bi bi-palette"></i><span>Branding</span>
+      </a>
+
+      <!-- ADMIN -->
+      <div class="tms-sb-section-label">Admin</div>
+      <a href="/tms/admin" class="tms-sb-item {% if request.path == '/tms/admin' %}active{% endif %}">
+        <i class="bi bi-speedometer2"></i><span>Platform Admin</span>
+      </a>
+      <a href="/tms/admin/tenants" class="tms-sb-item {% if request.path == '/tms/admin/tenants' %}active{% endif %}">
+        <i class="bi bi-buildings"></i><span>Tenants</span>
+      </a>
+      <a href="/tms/admin/audit" class="tms-sb-item {% if request.path == '/tms/admin/audit' %}active{% endif %}">
+        <i class="bi bi-clock-history"></i><span>Audit Log</span>
+      </a>
+      <a href="/tms/portal-bookings" class="tms-sb-item {% if request.path.startswith('/tms/portal-bookings') %}active{% endif %}">
+        <i class="bi bi-inbox"></i><span>Portal Bookings</span>
+      </a>
+      <a href="/portal/login" class="tms-sb-item {% if request.path.startswith('/portal') %}active{% endif %}">
+        <i class="bi bi-person-circle"></i><span>Customer Portal</span>
+      </a>
+
+    </nav>
+
+    <!-- Bottom: back link -->
+    <div class="tms-sb-footer">
+      <a href="/dashboard" class="tms-sb-item tms-sb-back">
+        <i class="bi bi-arrow-left"></i><span>TMS Master</span>
+      </a>
+    </div>
+
+  </aside>
+  {% endif %}
+
+  <!-- ── Main Content ───────────────────────────────────────────────────── -->
+  <main class="tms-main{% if public_board is defined and public_board %} tms-main-public{% endif %}" id="tmsMain">
+
+    <!-- Mobile topbar (hidden on desktop, hidden on public pages) -->
+    {% if not (public_board is defined and public_board) %}
+    <div class="tms-mobile-topbar" id="tmsMobileTopbar">
+      <button class="tms-hamburger" id="tmsHamburger" aria-label="Open menu">
+        <i class="bi bi-list"></i>
+      </button>
+      <a href="/tms/" class="tms-mobile-topbar-brand">
+        <i class="bi bi-hexagon-fill"></i>
+        <span>{{ session.get('company_name', 'TMS Master') }}</span>
+      </a>
+      <div style="width:36px;"></div><!-- spacer to centre brand -->
+    </div>
+    {% endif %}
+
+    <div class="tms-main-inner">
+      {% block tms_content %}{% endblock %}
+    </div>
+  </main>
+
+</div>
+
+<!-- Sidebar backdrop (mobile only) -->
+{% if not (public_board is defined and public_board) %}
+<div class="tms-sidebar-backdrop" id="tmsSidebarBackdrop"></div>
+
+<script nonce="{{ csp_nonce }}">
+(function(){
+  var sidebar = document.getElementById('tmsSidebar');
+  var nav     = document.getElementById('tmsSbNav');
+  var toggle  = document.getElementById('tmsSidebarToggle');
+  var COLLAPSE_KEY  = 'tms_sidebar_collapsed';
+  var SCROLL_KEY    = 'tms_sidebar_scroll';
+
+  // ── Collapse state ──────────────────────────────────────────────────────
+  function applyCollapse(collapsed) {
+    sidebar.classList.toggle('collapsed', collapsed);
+  }
+  applyCollapse(localStorage.getItem(COLLAPSE_KEY) === '1');
+
+  toggle.addEventListener('click', function(){
+    var now = !sidebar.classList.contains('collapsed');
+    applyCollapse(now);
+    localStorage.setItem(COLLAPSE_KEY, now ? '1' : '0');
+  });
+
+  // ── Scroll memory ───────────────────────────────────────────────────────
+  // Restore saved scroll position first
+  var savedScroll = parseInt(sessionStorage.getItem(SCROLL_KEY) || '0');
+
+  // If no saved scroll, scroll active item into view without jumping to top
+  var activeItem = nav.querySelector('.tms-sb-item.active');
+  if (savedScroll > 0) {
+    nav.scrollTop = savedScroll;
+  } else if (activeItem) {
+    // Only scroll if the item is below the visible area
+    var navRect    = nav.getBoundingClientRect();
+    var itemRect   = activeItem.getBoundingClientRect();
+    if (itemRect.bottom > navRect.bottom || itemRect.top < navRect.top) {
+      activeItem.scrollIntoView({ block: 'center' });
+    }
+  }
+
+  // Save scroll position whenever user scrolls
+  nav.addEventListener('scroll', function(){
+    sessionStorage.setItem(SCROLL_KEY, nav.scrollTop);
+  });
+
+  // Save scroll position before navigating away
+  nav.querySelectorAll('a').forEach(function(link){
+    link.addEventListener('click', function(){
+      sessionStorage.setItem(SCROLL_KEY, nav.scrollTop);
+    });
+  });
+
+  // ── Mobile hamburger drawer ──────────────────────────────────────────────
+  var hamburger = document.getElementById('tmsHamburger');
+  var backdrop  = document.getElementById('tmsSidebarBackdrop');
+
+  function openMobileSidebar() {
+    sidebar.classList.add('mobile-open');
+    backdrop.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMobileSidebar() {
+    sidebar.classList.remove('mobile-open');
+    backdrop.classList.remove('visible');
+    document.body.style.overflow = '';
+  }
+
+  if (hamburger) {
+    hamburger.addEventListener('click', openMobileSidebar);
+  }
+  if (backdrop) {
+    backdrop.addEventListener('click', closeMobileSidebar);
+  }
+
+  // Close drawer when a nav link is tapped on mobile
+  nav.querySelectorAll('a').forEach(function(link){
+    link.addEventListener('click', function(){
+      if (window.innerWidth <= 768) closeMobileSidebar();
+    });
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') closeMobileSidebar();
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

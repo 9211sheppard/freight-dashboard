@@ -1,0 +1,214 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Benchmarking — TMS Master{% endblock %}
+
+{% block tms_content %}
+<div class="tms-page-header">
+  <div>
+    <h1 class="tms-page-title"><i class="bi bi-bar-chart-line me-2" style="color:var(--gold-accent)"></i>Rate Benchmarking</h1>
+    <p class="tms-page-sub">Compare your contract rates against market data · Identify overpay · Protect strong positions</p>
+  </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-label">Lanes Analyzed</div>
+      <div class="tms-stat-value">{{ lanes_analyzed }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-label">Overpaying Lanes</div>
+      <div class="tms-stat-value" style="color:#f87171">{{ overpaying_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-label">Below Market</div>
+      <div class="tms-stat-value" style="color:#4ade80">{{ below_market_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="tms-stat-card">
+      <div class="tms-stat-label">Est. Monthly Overpay</div>
+      <div class="tms-stat-value {% if estimated_monthly_overpay > 0 %}text-danger{% endif %}">
+        ${{ "{:,.0f}".format(estimated_monthly_overpay) }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Lane Lookup -->
+<div class="tms-card mb-4">
+  <div class="tms-card-header"><i class="bi bi-search me-2"></i>Lane Rate Lookup</div>
+  <div class="tms-card-body">
+    <form id="laneForm" class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Origin</label>
+        <input type="text" class="form-control" id="bmOrigin" placeholder="e.g. CNSHA">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Destination</label>
+        <input type="text" class="form-control" id="bmDest" placeholder="e.g. USLAX">
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <button type="submit" class="btn btn-gold w-100">Compare</button>
+      </div>
+    </form>
+    <div id="laneResult" class="mt-3" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Carrier Benchmarking -->
+{% if carriers %}
+<div class="tms-card mb-4">
+  <div class="tms-card-header"><i class="bi bi-truck-front me-2"></i>Carrier Rate Position</div>
+  <div class="tms-card-body">
+    <div class="row g-2">
+      {% for c in carriers %}
+      <div class="col-md-4 col-lg-3">
+        <a href="/tms/benchmarking/carrier/{{ c.id }}" class="tms-action-card text-decoration-none d-block p-3"
+           style="background:var(--tms-surface-raised);border:1px solid var(--tms-border);border-radius:10px;">
+          <div class="fw-600 small">{{ c.name }}</div>
+          <div class="text-muted" style="font-size:.7rem">View rate position →</div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Lane Benchmark Table -->
+{% if lane_benchmarks %}
+<div class="tms-card mb-4">
+  <div class="tms-card-header"><i class="bi bi-table me-2"></i>Contract Rate Analysis</div>
+  <div class="tms-card-body p-0">
+    <div class="table-responsive">
+      <table class="table tms-table mb-0">
+        <thead>
+          <tr>
+            <th>Lane</th>
+            <th>Your Rate (20ft)</th>
+            <th>Market Avg</th>
+            <th>Delta</th>
+            <th>Percentile</th>
+            <th>Verdict</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for bm in lane_benchmarks %}
+            {% for a in bm.analysis %}
+            <tr>
+              <td class="fw-600">{{ bm.origin }} → {{ bm.destination }}</td>
+              <td>${{ "{:,.0f}".format(a.rate_20ft) }}</td>
+              <td>${{ "{:,.0f}".format(a.market_avg_20ft) }}</td>
+              <td class="{% if a.delta_pct > 10 %}text-danger{% elif a.delta_pct < -10 %}text-success{% else %}text-muted{% endif %} fw-600">
+                {% if a.delta_pct > 0 %}+{% endif %}{{ a.delta_pct }}%
+              </td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="progress" style="height:5px;width:50px">
+                    <div class="progress-bar {% if a.percentile_rank > 70 %}bg-danger{% elif a.percentile_rank > 40 %}bg-warning{% else %}bg-success{% endif %}"
+                         style="width:{{ a.percentile_rank }}%"></div>
+                  </div>
+                  <span class="small text-muted">{{ a.percentile_rank }}th</span>
+                </div>
+              </td>
+              <td>
+                {% if a.verdict == 'overpaying' %}
+                  <span class="tms-badge" style="background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.2)">Overpaying</span>
+                {% elif a.verdict == 'below_market' %}
+                  <span class="tms-badge" style="background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.2)">Below Market</span>
+                {% else %}
+                  <span class="tms-badge" style="background:rgba(99,179,237,.12);color:#63b3ed;border:1px solid rgba(99,179,237,.2)">Market Rate</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted" style="max-width:200px">{{ a.recommendation }}</td>
+            </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Market Trend Chart -->
+{% if market_trend %}
+<div class="tms-card mb-4">
+  <div class="tms-card-header"><i class="bi bi-graph-up-arrow me-2"></i>Market Rate Trend (6 Months)</div>
+  <div class="tms-card-body">
+    {% set max_rate = market_trend | map(attribute='avg_20ft') | select | max %}
+    <div class="d-flex align-items-end gap-2" style="height:120px">
+      {% for m in market_trend %}
+      {% if m.avg_20ft %}
+      <div class="d-flex flex-column align-items-center flex-grow-1">
+        <div class="small text-muted mb-1" style="font-size:.6rem">${{ "{:,.0f}".format(m.avg_20ft) }}</div>
+        <div style="width:100%;background:rgba(200,169,110,0.25);border-radius:4px 4px 0 0;
+                    height:{{ ((m.avg_20ft / max_rate) * 90)|int }}px;
+                    border-top:2px solid var(--gold-accent)"></div>
+        <div class="text-muted mt-1" style="font-size:.6rem">{{ m.month }}</div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% if your_trend %}
+    <div class="mt-3 pt-3" style="border-top:1px solid var(--tms-border)">
+      <div class="small text-muted mb-2">Your avg contract rate vs market:</div>
+      <div class="d-flex gap-4">
+        {% for t in your_trend %}
+        <div class="text-center">
+          <div class="small fw-600">${{ "{:,.0f}".format(t.avg_20ft) if t.avg_20ft else '—' }}</div>
+          <div class="text-muted" style="font-size:.65rem">{{ t.month }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<script nonce="{{ csp_nonce }}">
+document.getElementById('laneForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var origin = document.getElementById('bmOrigin').value.trim();
+  var dest   = document.getElementById('bmDest').value.trim();
+  if (!origin || !dest) return;
+  fetch('/tms/benchmarking/lane?origin='+encodeURIComponent(origin)+'&destination='+encodeURIComponent(dest))
+    .then(r=>r.json()).then(function(d) {
+      var el = document.getElementById('laneResult');
+      if (d.status === 'no_market_data') {
+        el.innerHTML = '<div class="alert alert-secondary">'+d.message+'</div>';
+        el.style.display='';
+        return;
+      }
+      var html = '<div class="row g-3">';
+      html += '<div class="col-auto"><div class="tms-stat-card"><div class="tms-stat-label">Market Avg 20ft</div><div class="tms-stat-value">$'+(d.market_20ft_avg||'—')+'</div></div></div>';
+      html += '<div class="col-auto"><div class="tms-stat-card"><div class="tms-stat-label">Market Avg 40ft</div><div class="tms-stat-value">$'+(d.market_40ft_avg||'—')+'</div></div></div>';
+      html += '<div class="col-auto"><div class="tms-stat-card"><div class="tms-stat-label">P25 (20ft)</div><div class="tms-stat-value">$'+d.market_20ft_p25+'</div></div></div>';
+      html += '<div class="col-auto"><div class="tms-stat-card"><div class="tms-stat-label">P75 (20ft)</div><div class="tms-stat-value">$'+d.market_20ft_p75+'</div></div></div>';
+      html += '<div class="col-auto"><div class="tms-stat-card"><div class="tms-stat-label">Sample Size</div><div class="tms-stat-value">'+d.market_sample_size+'</div></div></div>';
+      html += '</div>';
+      if (d.analysis && d.analysis.length) {
+        html += '<div class="mt-3 p-3" style="background:var(--tms-surface-raised);border-radius:10px;">';
+        d.analysis.forEach(function(a) {
+          var color = a.verdict==='overpaying' ? '#f87171' : a.verdict==='below_market' ? '#4ade80' : '#63b3ed';
+          html += '<div class="d-flex justify-content-between align-items-center">';
+          html += '<span class="fw-600">Your rate: $'+a.rate_20ft+'</span>';
+          html += '<span style="color:'+color+'">'+a.verdict.replace('_',' ').toUpperCase()+' ('+a.delta_pct+'%)</span>';
+          html += '</div>';
+          html += '<div class="small text-muted mt-1">'+a.recommendation+'</div>';
+        });
+        html += '</div>';
+      }
+      el.innerHTML = html;
+      el.style.display = '';
+    });
+});
+</script>
+{% endblock %}

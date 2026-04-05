@@ -1,0 +1,557 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}
+  {% if page_mode == 'new' %}
+    New Claim
+  {% elif page_mode == 'respond' %}
+    Claim Response
+  {% else %}
+    Freight Claims
+  {% endif %}
+{% endblock %}
+{% block tms_content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="mb-4">
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category if category != 'message' else 'info' }} mb-2">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+{% if page_mode == 'respond' %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-building-check me-2"></i>Carrier Claim Response</h2>
+    <div class="text-muted small">Submit notes and a counter-offer for this freight claim.</div>
+  </div>
+  {% if claim %}
+  <span class="tms-status tms-status-{{ {'Filed':'active','Under Review':'active','Approved':'delivered','Paid':'delivered','Denied':'cancelled','Closed':'cancelled'}.get(claim.status, 'draft') }} fs-6">{{ claim.status }}</span>
+  {% endif %}
+</div>
+
+{% if not claim %}
+<div class="card bg-dark border-secondary">
+  <div class="card-body text-center py-5">
+    <div class="text-muted">{{ claim_response_form_error }}</div>
+  </div>
+</div>
+{% else %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-file-earmark-medical me-2"></i>Claim Summary</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="text-muted small">CLAIM ID</div>
+            <div class="fw-bold">#{{ claim.id }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">SHIPMENT</div>
+            <div class="fw-bold">{{ claim.shipment_ref }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">TYPE</div>
+            <div>{{ claim.claim_type }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">CLAIMED</div>
+            <div>{{ claim.currency }} {{ claim.claimed_amount_display }}</div>
+          </div>
+          <div class="col-12">
+            <div class="text-muted small">ROUTE</div>
+            <div>{{ claim.origin_port or '-' }} &rarr; {{ claim.destination_port or '-' }}</div>
+          </div>
+          <div class="col-12">
+            <div class="text-muted small">DESCRIPTION</div>
+            <div>{{ claim.description }}</div>
+          </div>
+        </div>
+        {% if claim.evidence_url %}
+        <hr class="border-secondary">
+        <div class="text-muted small mb-2">EVIDENCE</div>
+        <a href="{{ claim.evidence_url }}" target="_blank" class="text-info small">Open uploaded photo</a>
+        <img src="{{ claim.evidence_url }}" alt="Claim evidence" class="img-fluid rounded border border-secondary mt-3">
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header"><i class="bi bi-chat-left-text me-2"></i>Carrier Response</div>
+      <div class="card-body">
+        {% if submitted %}
+        <div class="alert alert-success py-2">Response submitted. You can reopen this page to review the latest details.</div>
+        {% endif %}
+        {% if claim_response_form_error %}
+        <div class="alert alert-danger py-2">{{ claim_response_form_error }}</div>
+        {% endif %}
+        {% if claim.is_closed %}
+        <div class="alert alert-secondary py-2">This claim is closed. Additional responses are disabled.</div>
+        {% endif %}
+
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label text-muted">Carrier Notes</label>
+            <textarea
+              name="carrier_notes"
+              rows="6"
+              class="form-control bg-black text-white border-secondary"
+              placeholder="Explain the carrier's position, inspection results, or settlement notes."
+              {% if claim.is_closed %}disabled{% endif %}
+            >{{ claim_response_form_values.carrier_notes }}</textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Counter-Offer ({{ claim.currency }})</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              name="counter_offer"
+              value="{{ claim_response_form_values.counter_offer }}"
+              class="form-control bg-black text-white border-secondary"
+              {% if claim.is_closed %}disabled{% endif %}
+            >
+          </div>
+          <button type="submit" class="btn btn-primary" {% if claim.is_closed %}disabled{% endif %}>
+            <i class="bi bi-send-check me-1"></i>Submit Response
+          </button>
+        </form>
+
+        {% if claim.has_carrier_response %}
+        <hr class="border-secondary">
+        <div class="text-muted small mb-2">CURRENT RESPONSE ON FILE</div>
+        {% if claim.carrier_notes %}
+        <div class="mb-2">{{ claim.carrier_notes }}</div>
+        {% endif %}
+        {% if claim.counter_offer_display %}
+        <div class="small text-info">Counter-offer: {{ claim.currency }} {{ claim.counter_offer_display }}</div>
+        {% endif %}
+        {% if claim.responded_at_display %}
+        <div class="small text-muted mt-1">Last updated {{ claim.responded_at_display }}</div>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% elif page_mode == 'new' %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-file-earmark-plus me-2"></i>File Freight Claim</h2>
+    <div class="text-muted small">Capture shipment-linked loss, damage, shortage, or delay claims.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/claims" class="btn btn-outline-warning"><i class="bi bi-list-ul me-1"></i>Claims Board</a>
+    <a href="/tms/shipments" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Shipments</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-clipboard-data me-2"></i>Claim Filing</div>
+      <div class="card-body">
+        {% if claim_form_error %}
+        <div class="alert alert-danger py-2">{{ claim_form_error }}</div>
+        {% endif %}
+        <form method="POST" enctype="multipart/form-data">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted">Shipment Reference</label>
+              <input
+                name="shipment_ref"
+                list="shipmentRefOptions"
+                value="{{ claim_form_values.shipment_ref }}"
+                class="form-control bg-black text-white border-secondary"
+                required
+              >
+              <datalist id="shipmentRefOptions">
+                {% for shipment_ref in shipment_refs %}
+                <option value="{{ shipment_ref }}"></option>
+                {% endfor %}
+              </datalist>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Claim Type</label>
+              <select name="claim_type" class="form-select bg-black text-white border-secondary">
+                {% for option in claim_types %}
+                <option value="{{ option }}" {% if claim_form_values.claim_type == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Claimed Amount</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                name="claimed_amount"
+                value="{{ claim_form_values.claimed_amount }}"
+                class="form-control bg-black text-white border-secondary"
+                required
+              >
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted">Currency</label>
+              <input
+                name="currency"
+                value="{{ claim_form_values.currency }}"
+                class="form-control bg-black text-white border-secondary"
+                maxlength="6"
+                required
+              >
+            </div>
+            <div class="col-12">
+              <label class="form-label text-muted">Description</label>
+              <textarea
+                name="description"
+                rows="6"
+                class="form-control bg-black text-white border-secondary"
+                placeholder="Describe what happened, when it happened, and why the claim amount is being requested."
+                required
+              >{{ claim_form_values.description }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label text-muted">Evidence Photo</label>
+              <input type="file" name="evidence" accept="image/*" class="form-control bg-black text-white border-secondary" required>
+            </div>
+          </div>
+          <div class="mt-4 d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1"></i>File Claim</button>
+            <a href="/tms/claims" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card bg-dark border-secondary mb-4">
+      <div class="card-header"><i class="bi bi-link-45deg me-2"></i>Auto-Link Preview</div>
+      <div class="card-body">
+        {% if linked_shipment %}
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="text-muted small">SHIPMENT</div>
+            <div class="fw-bold">{{ linked_shipment.shipment_ref }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">CARRIER</div>
+            <div>{{ linked_shipment.carrier_name or 'Pending carrier assignment' }}</div>
+          </div>
+          <div class="col-12">
+            <div class="text-muted small">ROUTE</div>
+            <div>{{ linked_shipment.origin_port or '-' }} &rarr; {{ linked_shipment.destination_port or '-' }}</div>
+          </div>
+          <div class="col-12">
+            <div class="text-muted small">STATUS</div>
+            <div>{{ linked_shipment.status or '-' }}</div>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-muted">Enter a valid shipment reference to preview the linked shipment and carrier.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-clock-history me-2"></i>Related Claims</div>
+      <div class="card-body">
+        {% if recent_claims %}
+          {% for claim in recent_claims %}
+          <div class="border border-secondary rounded p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <div class="fw-bold">#{{ claim.id }} · {{ claim.claim_type }}</div>
+                <div class="small text-muted">{{ claim.created_at_display }}</div>
+              </div>
+              <span class="tms-status tms-status-{{ {'Filed':'active','Under Review':'active','Approved':'delivered','Paid':'delivered','Denied':'cancelled','Closed':'cancelled'}.get(claim.status, 'draft') }}">{{ claim.status }}</span>
+            </div>
+            <div class="small mt-2">{{ claim.currency }} {{ claim.claimed_amount_display }}</div>
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="text-muted">No prior claims linked to this shipment.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Freight Claims</h2>
+    <div class="text-muted small">Track filings, carrier counter-offers, approvals, payments, and denials.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/claims/new" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>File Claim</a>
+    <a href="/tms/shipments" class="btn btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Shipments</a>
+    <a href="/tms" class="btn btn-outline-secondary"><i class="bi bi-speedometer2 me-1"></i>TMS Master</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-2">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Total</div>
+        <div class="fs-3 fw-bold">{{ claim_stats.total }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-2">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Filed</div>
+        <div class="fs-3 fw-bold">{{ claim_stats.filed }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-2">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Under Review</div>
+        <div class="fs-3 fw-bold text-warning">{{ claim_stats.under_review }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-2">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Approved</div>
+        <div class="fs-3 fw-bold text-success">{{ claim_stats.approved }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-2">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Paid</div>
+        <div class="fs-3 fw-bold text-info">{{ claim_stats.paid }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-2">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-body">
+        <div class="text-muted small text-uppercase">Denied</div>
+        <div class="fs-3 fw-bold text-danger">{{ claim_stats.denied }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card bg-dark border-secondary mb-4">
+  <div class="card-header"><i class="bi bi-funnel me-2"></i>Filters</div>
+  <div class="card-body">
+    <form method="GET">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label text-muted">Status</label>
+          <select name="status" class="form-select bg-black text-white border-secondary">
+            <option value="">All statuses</option>
+            {% for option in claim_statuses %}
+            <option value="{{ option }}" {% if claim_filters.status == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label text-muted">Carrier</label>
+          <select name="carrier_id" class="form-select bg-black text-white border-secondary">
+            <option value="">All carriers</option>
+            {% for carrier in claim_filter_carriers %}
+            <option value="{{ carrier.id }}" {% if claim_filters.carrier_id == carrier.id|string %}selected{% endif %}>{{ carrier.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label text-muted">Claim Type</label>
+          <select name="claim_type" class="form-select bg-black text-white border-secondary">
+            <option value="">All types</option>
+            {% for option in claim_types %}
+            <option value="{{ option }}" {% if claim_filters.claim_type == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label text-muted">Shipment Reference</label>
+          <input name="shipment_ref" value="{{ claim_filters.shipment_ref }}" list="claimShipmentRefs" class="form-control bg-black text-white border-secondary">
+          <datalist id="claimShipmentRefs">
+            {% for shipment_ref in shipment_refs %}
+            <option value="{{ shipment_ref }}"></option>
+            {% endfor %}
+          </datalist>
+        </div>
+      </div>
+      <div class="mt-3 d-flex gap-2 flex-wrap">
+        <button type="submit" class="btn btn-outline-warning"><i class="bi bi-search me-1"></i>Apply Filters</button>
+        <a href="/tms/claims" class="btn btn-outline-secondary">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-7">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul me-2"></i>Claims Queue</span>
+        <span class="text-muted small">{{ claims|length }} result{% if claims|length != 1 %}s{% endif %}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Claim</th>
+              <th>Shipment</th>
+              <th>Carrier</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Claimed</th>
+              <th>Settlement</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for claim in claims %}
+            <tr>
+              <td>
+                <div class="fw-bold">#{{ claim.id }}</div>
+                <div class="small text-muted">{{ claim.created_at_display }}</div>
+              </td>
+              <td>
+                <a href="/tms/shipments/{{ claim.shipment_ref }}" class="text-info text-decoration-none fw-semibold">{{ claim.shipment_ref }}</a>
+                <div class="small text-muted">{{ claim.origin_port or '-' }} &rarr; {{ claim.destination_port or '-' }}</div>
+              </td>
+              <td>{{ claim.carrier_name or '-' }}</td>
+              <td>{{ claim.claim_type }}</td>
+              <td><span class="tms-status tms-status-{{ {'Filed':'active','Under Review':'active','Approved':'delivered','Paid':'delivered','Denied':'cancelled','Closed':'cancelled'}.get(claim.status, 'draft') }}">{{ claim.status }}</span></td>
+              <td>{{ claim.currency }} {{ claim.claimed_amount_display }}</td>
+              <td>
+                {% if claim.settlement_amount_display %}
+                {{ claim.currency }} {{ claim.settlement_amount_display }}
+                {% else %}
+                <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td>
+                <a
+                  href="{{ url_for('tms.claims_board', claim_id=claim.id, status=claim_filters.status, carrier_id=claim_filters.carrier_id, claim_type=claim_filters.claim_type, shipment_ref=claim_filters.shipment_ref) }}"
+                  class="btn btn-sm btn-outline-info"
+                >
+                  View
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-5">No claims match the current filters.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="card bg-dark border-secondary">
+      <div class="card-header"><i class="bi bi-clipboard2-pulse me-2"></i>Claim Detail</div>
+      <div class="card-body">
+        {% if selected_claim %}
+        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+          <div>
+            <div class="fw-bold fs-5">#{{ selected_claim.id }} · {{ selected_claim.claim_type }}</div>
+            <div class="small text-muted">{{ selected_claim.shipment_ref }} · {{ selected_claim.carrier_name or 'Carrier pending' }}</div>
+          </div>
+          <span class="tms-status tms-status-{{ {'Filed':'active','Under Review':'active','Approved':'delivered','Paid':'delivered','Denied':'cancelled','Closed':'cancelled'}.get(selected_claim.status, 'draft') }}">{{ selected_claim.status }}</span>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="text-muted small">CLAIMED</div>
+            <div>{{ selected_claim.currency }} {{ selected_claim.claimed_amount_display }}</div>
+          </div>
+          <div class="col-6">
+            <div class="text-muted small">SETTLEMENT</div>
+            <div>
+              {% if selected_claim.settlement_amount_display %}
+              {{ selected_claim.currency }} {{ selected_claim.settlement_amount_display }}
+              {% else %}
+              -
+              {% endif %}
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="text-muted small">DESCRIPTION</div>
+            <div>{{ selected_claim.description }}</div>
+          </div>
+          {% if selected_claim.evidence_url %}
+          <div class="col-12">
+            <div class="text-muted small mb-2">EVIDENCE</div>
+            <a href="{{ selected_claim.evidence_url }}" target="_blank" class="text-info small">Open evidence photo</a>
+          </div>
+          {% endif %}
+        </div>
+
+        <hr class="border-secondary">
+        <div class="text-muted small mb-2">CARRIER RESPONSE LINK</div>
+        <a href="{{ selected_claim.carrier_response_link }}" target="_blank" class="text-info small">{{ selected_claim.carrier_response_link }}</a>
+
+        {% if selected_claim.has_carrier_response %}
+        <hr class="border-secondary">
+        <div class="text-muted small mb-2">LATEST CARRIER RESPONSE</div>
+        {% if selected_claim.carrier_notes %}
+        <div class="mb-2">{{ selected_claim.carrier_notes }}</div>
+        {% endif %}
+        {% if selected_claim.counter_offer_display %}
+        <div class="small text-warning">Counter-offer: {{ selected_claim.currency }} {{ selected_claim.counter_offer_display }}</div>
+        {% endif %}
+        {% if selected_claim.responded_at_display %}
+        <div class="small text-muted mt-1">Updated {{ selected_claim.responded_at_display }}</div>
+        {% endif %}
+        {% endif %}
+
+        <hr class="border-secondary">
+        <div class="text-muted small mb-2">WORKFLOW UPDATE</div>
+        <form method="POST" action="/tms/claims/{{ selected_claim.id }}/status">
+          <input type="hidden" name="filter_status" value="{{ claim_filters.status }}">
+          <input type="hidden" name="filter_carrier_id" value="{{ claim_filters.carrier_id }}">
+          <input type="hidden" name="filter_claim_type" value="{{ claim_filters.claim_type }}">
+          <input type="hidden" name="filter_shipment_ref" value="{{ claim_filters.shipment_ref }}">
+          <div class="mb-3">
+            <label class="form-label text-muted">Status</label>
+            <select name="status" class="form-select bg-black text-white border-secondary">
+              {% for option in claim_statuses %}
+              <option value="{{ option }}" {% if claim_update_form_values.status == option %}selected{% endif %}>{{ option }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-muted">Settlement Amount</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              name="settlement_amount"
+              value="{{ claim_update_form_values.settlement_amount }}"
+              class="form-control bg-black text-white border-secondary"
+            >
+          </div>
+          <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle me-1"></i>Save Workflow Step</button>
+        </form>
+
+        {% if selected_claim.settled_at_display %}
+        <div class="small text-muted mt-3">Settled at {{ selected_claim.settled_at_display }}</div>
+        {% endif %}
+        {% else %}
+        <div class="text-muted">Select a claim from the queue to review its lifecycle details.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}My Quotes | {{ settings.get("company_name", "Customer Portal") }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root {
+    --portal-brand: {{ settings.get("primary_color", "#0f766e") }};
+    --portal-border: rgba(255, 255, 255, 0.12);
+    --portal-soft: rgba(255, 255, 255, 0.05);
+    --portal-muted: #99adc1;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 28%),
+      linear-gradient(180deg, #112233 0%, #08131d 42%, #04070a 100%);
+    color: #f3f6fb;
+    font-family: Aptos, "Segoe UI", sans-serif;
+  }
+
+  .app-shell {
+    max-width: 1240px;
+    padding-top: 1.25rem;
+    padding-bottom: 2.5rem;
+  }
+
+  .portal-card {
+    border-radius: 24px;
+    border: 1px solid var(--portal-border);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(8px);
+  }
+
+  .eyebrow,
+  .table-label {
+    font-size: 0.76rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--portal-muted);
+  }
+
+  .helper-copy {
+    color: var(--portal-muted);
+  }
+
+  .btn-soft {
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .btn-soft:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .btn-brand {
+    border: none;
+    background: var(--portal-brand);
+    color: #fff;
+    font-weight: 700;
+  }
+
+  .btn-brand:hover {
+    color: #fff;
+    filter: brightness(1.04);
+  }
+
+  .portal-table {
+    --bs-table-bg: transparent;
+    --bs-table-color: #f3f6fb;
+    --bs-table-border-color: rgba(255, 255, 255, 0.08);
+    margin-bottom: 0;
+  }
+
+  .portal-table thead th {
+    color: var(--portal-muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.45rem 0.85rem;
+    font-weight: 700;
+  }
+
+  .status-warning { background: rgba(255, 193, 7, 0.18); color: #ffe08a; }
+  .status-info { background: rgba(13, 202, 240, 0.18); color: #99f0ff; }
+  .status-success { background: rgba(25, 135, 84, 0.18); color: #98efbf; }
+  .status-secondary { background: rgba(108, 117, 125, 0.18); color: #e7ebef; }
+
+  .metric-tile {
+    border-radius: 18px;
+    border: 1px solid var(--portal-border);
+    background: var(--portal-soft);
+    padding: 1rem;
+    height: 100%;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="portal-card p-4 p-lg-5 mb-4">
+  <div class="d-flex flex-column flex-lg-row justify-content-between gap-4">
+    <div>
+      <div class="eyebrow mb-2">Customer Portal</div>
+      <h1 class="h2 mb-2">My Quotes</h1>
+      <p class="helper-copy mb-0">Review every portal quote request tied to {{ portal_token.customer_name }}, including pending submissions and dispatched rates.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-start align-self-lg-center">
+      <a href="{{ url_for('portal.portal_book') }}" class="btn btn-brand">
+        <i class="bi bi-plus-circle me-1"></i>Request a Quote
+      </a>
+      <a href="{{ url_for('portal.portal_dashboard', token=portal_token.token) }}" class="btn btn-soft">
+        <i class="bi bi-speedometer2 me-1"></i>Dashboard
+      </a>
+      <form method="post" action="{{ url_for('portal.portal_logout') }}" class="d-inline">
+        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+        <button type="submit" class="btn btn-soft">
+          <i class="bi bi-box-arrow-right me-1"></i>Logout
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-md-4">
+    <div class="metric-tile">
+      <div class="table-label mb-2">Customer</div>
+      <div class="fw-semibold">{{ portal_token.customer_name }}</div>
+      <div class="helper-copy mt-2">{{ portal_token.email or "No customer email on file" }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="metric-tile">
+      <div class="table-label mb-2">Portal Token</div>
+      <div class="fw-semibold">{{ portal_token.token }}</div>
+      <div class="helper-copy mt-2">All rows below are scoped to this portal access.</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="metric-tile">
+      <div class="table-label mb-2">Requests</div>
+      <div class="fw-semibold">{{ quote_requests|length }}</div>
+      <div class="helper-copy mt-2">Pending requests move to quoted once dispatch prices them.</div>
+    </div>
+  </div>
+</div>
+
+<div class="portal-card p-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div>
+      <div class="table-label mb-1">Quote History</div>
+      <h2 class="h4 mb-0">Portal Quote Requests</h2>
+    </div>
+    <span class="helper-copy">{{ quote_requests|length }} total</span>
+  </div>
+
+  {% if quote_requests %}
+  <div class="table-responsive">
+    <table class="table portal-table align-middle">
+      <thead>
+        <tr>
+          <th>Reference</th>
+          <th>Route</th>
+          <th>Status</th>
+          <th>Rate</th>
+          <th>Pickup</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for request_item in quote_requests %}
+        <tr>
+          <td>
+            <div class="fw-semibold">{{ request_item.reference }}</div>
+            <div class="small text-secondary">{{ request_item.cargo_description }}</div>
+          </td>
+          <td>
+            <div>{{ request_item.route_label }}</div>
+            <div class="small text-secondary">{{ request_item.equipment_label or "-" }}</div>
+          </td>
+          <td><span class="status-pill status-{{ request_item.status_variant }}">{{ request_item.status_label }}</span></td>
+          <td>{{ request_item.quoted_rate_display or "Pending" }}</td>
+          <td>{{ request_item.pickup_date or "-" }}</td>
+          <td>{{ request_item.quoted_at[:16] if request_item.quoted_at else request_item.created_at[:16] if request_item.created_at else "-" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-5">
+    <div class="h4 mb-2">No quote requests yet</div>
+    <div class="helper-copy mb-3">Use the booking form to submit your first lane, equipment, and cargo request.</div>
+    <a href="{{ url_for('portal.portal_book') }}" class="btn btn-brand">
+      <i class="bi bi-plus-circle me-1"></i>Request a Quote
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

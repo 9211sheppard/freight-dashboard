@@ -1,61 +1,72 @@
-{% extends "base.html" %}
-
-{% block title %}Login — Freight Intelligence Dashboard{% endblock %}
-
-{% block navbar %}{% endblock %}
-
-{% block content %}
-<div class="login-wrapper d-flex align-items-center justify-content-center min-vh-100">
-  <div class="login-card card shadow-sm p-4">
-    <div class="text-center mb-4">
-      <div class="login-icon mb-3">
-        <i class="bi bi-people-fill"></i>
-      </div>
-      <h4 class="fw-bold mb-0">Freight Intelligence</h4>
-      <p class="text-muted small mt-1">Sign in to your account</p>
-    </div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ brand_name }} Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap.min.css') }}">
+  <style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.14), transparent 28%),
+        linear-gradient(180deg, #0f172a 0%, #111827 100%);
+      color: #e5e7eb;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .login-card {
+      width: min(100%, 420px);
+      padding: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      background: rgba(15, 23, 42, 0.88);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+    }
+    .login-kicker {
+      color: #38bdf8;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .form-control,
+    .form-control:focus {
+      background: #0b1220;
+      color: #f8fafc;
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body>
+  <main class="login-card">
+    <div class="login-kicker mb-2">TMS Master</div>
+    <h1 class="h3 mb-2">Sign in</h1>
+    <p class="text-secondary mb-4">Use the standalone app credentials to access the TMS workspace.</p>
 
     {% if error %}
-    <div class="alert alert-danger d-flex align-items-center gap-2 py-2" role="alert">
-      <i class="bi bi-exclamation-circle-fill"></i>
-      <span>{{ error }}</span>
-    </div>
+    <div class="alert alert-danger">{{ error }}</div>
     {% endif %}
 
-    <form method="post" action="{{ url_for('login') }}">
+    <form method="post">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      {% if csrf_token is defined %}
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% endif %}
       <div class="mb-3">
-        <label for="email" class="form-label fw-medium">Email</label>
-        <div class="input-group">
-          <span class="input-group-text bg-transparent">
-            <i class="bi bi-envelope-fill text-muted"></i>
-          </span>
-          <input type="email" class="form-control" id="email" name="email"
-                 placeholder="you@company.com" autofocus autocomplete="email">
-        </div>
+        <label class="form-label">Email</label>
+        <input class="form-control" type="text" name="username" value="{{ entered_username|default('') }}" required autofocus>
       </div>
-      <div class="mb-3">
-        <label for="password" class="form-label fw-medium">Password</label>
-        <div class="input-group">
-          <span class="input-group-text bg-transparent">
-            <i class="bi bi-lock-fill text-muted"></i>
-          </span>
-          <input type="password" class="form-control" id="password" name="password"
-                 placeholder="Your password" autocomplete="current-password">
-        </div>
+      <div class="mb-4">
+        <label class="form-label">Password</label>
+        <input class="form-control" type="password" name="password" required>
       </div>
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <a href="{{ url_for('forgot_password') }}" class="text-muted small">Forgot password?</a>
-      </div>
-      <button type="submit" class="btn btn-primary w-100 fw-semibold">
-        <i class="bi bi-arrow-right-circle me-1"></i> Sign In
-      </button>
+      <button class="btn btn-info w-100" type="submit">Open TMS Master</button>
     </form>
-
-    <hr class="my-3">
-    <p class="text-center text-muted small mb-0">
-      No account yet?
-      <a href="{{ url_for('register') }}" class="text-primary">Create one</a>
-    </p>
-  </div>
-</div>
-{% endblock %}
+  </main>
+</body>
+</html>

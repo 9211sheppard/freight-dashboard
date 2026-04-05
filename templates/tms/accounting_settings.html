@@ -1,0 +1,66 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Accounting Credentials — TMS Master{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width:900px;">
+
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <a href="/tms/accounting" class="btn btn-outline-secondary btn-sm">← Accounting</a>
+    <div>
+      <h4 class="mb-0 fw-semibold">Accounting API Credentials</h4>
+      <p class="text-secondary small mb-0 mt-1">OAuth2 tokens for each provider. Get tokens via each provider's developer portal.</p>
+    </div>
+  </div>
+
+  {% if saved %}<div class="alert alert-success py-2 mb-3"><i class="bi bi-check-circle me-1"></i>Saved.</div>{% endif %}
+
+  <form method="POST" action="/tms/accounting/settings">
+    {% for p in providers %}
+    <div class="card bg-body-tertiary border-secondary-subtle mb-3" id="{{ p.key }}">
+      <div class="card-header border-secondary-subtle d-flex align-items-center gap-2">
+        <i class="bi {{ p.logo }} text-info"></i>
+        <span class="fw-semibold small">{{ p.name }}</span>
+        <span class="text-secondary small ms-1">— {{ p.region }}</span>
+        {% if p.creds_saved %}<span class="badge bg-success ms-auto">Configured</span>
+        {% else %}<span class="badge bg-secondary ms-auto">Not set</span>{% endif %}
+        <a href="{{ p.docs_url }}" target="_blank" rel="noopener" class="text-secondary small ms-2">
+          <i class="bi bi-box-arrow-up-right"></i> Docs
+        </a>
+      </div>
+      <div class="card-body">
+        {% if p.notes %}<p class="text-secondary small mb-3">{{ p.notes }}</p>{% endif %}
+        <div class="row g-2">
+          {% for key in p.settings_keys %}
+          <div class="col-md-6">
+            <label class="form-label small text-secondary">{{ p.settings_labels[key] }}</label>
+            <input
+              type="{{ 'password' if 'secret' in key or 'token' in key or 'password' in key else 'text' }}"
+              name="{{ key }}"
+              class="form-control form-control-sm bg-body border-secondary"
+              value="{{ settings.get(key, '') }}"
+              placeholder="{{ p.settings_labels[key] }}"
+              autocomplete="off">
+          </div>
+          {% endfor %}
+        </div>
+        {% if p.auth_url %}
+        <div class="mt-2">
+          <a href="{{ p.auth_url }}?client_id={{ settings.get(p.settings_keys[0], 'YOUR_CLIENT_ID') }}&response_type=code&scope={{ p.scopes }}&redirect_uri=https://yourdomain.com/tms/accounting/callback/{{ p.key }}"
+             target="_blank" rel="noopener" class="btn btn-outline-info btn-sm py-0 px-2">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Authorize with {{ p.name }}
+          </a>
+          <span class="text-secondary ms-2" style="font-size:.72rem;">Opens OAuth consent screen — paste returned tokens above.</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="d-flex justify-content-end mt-3">
+      <button type="submit" class="btn btn-info px-4">
+        <i class="bi bi-floppy me-1"></i>Save All Credentials
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

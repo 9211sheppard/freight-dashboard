@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submit Load Request — Freight Intelligence</title>
+  <link rel="stylesheet" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/bootstrap-icons.min.css">
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d25;
+      --surface2: #222630;
+      --border: rgba(255,255,255,0.08);
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem 1rem 4rem;
+    }
+
+    .form-wrapper {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .form-brand {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .form-brand-name {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .form-brand-tagline {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+    }
+
+    .form-heading {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #f8fafc;
+      margin: 0 0 0.35rem;
+    }
+
+    .form-subheading {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin: 0 0 2rem;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 1.75rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-label:first-of-type {
+      margin-top: 0;
+    }
+
+    label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 0.3rem;
+      display: block;
+    }
+
+    .form-control, .form-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      font-size: 0.875rem;
+      padding: 0.55rem 0.8rem;
+      transition: border-color 0.15s;
+    }
+
+    .form-control:focus, .form-select:focus {
+      background: var(--surface2);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.18);
+      color: var(--text);
+      outline: none;
+    }
+
+    .form-control::placeholder { color: #475569; }
+
+    .form-check-input {
+      background-color: var(--surface2);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .form-check-input:checked {
+      background-color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .form-check-label {
+      font-size: 0.85rem;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .service-radio-group {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .service-radio-label {
+      cursor: pointer;
+    }
+
+    .service-radio-label input[type="radio"] { display: none; }
+
+    .service-radio-btn {
+      display: inline-block;
+      padding: 0.45rem 1rem;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+      background: var(--surface2);
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      user-select: none;
+    }
+
+    .service-radio-label input[type="radio"]:checked + .service-radio-btn {
+      border-color: var(--accent);
+      color: #fff;
+      background: rgba(59,130,246,0.18);
+    }
+
+    .service-radio-btn:hover {
+      border-color: rgba(255,255,255,0.2);
+      color: var(--text);
+    }
+
+    .temp-fields {
+      display: none;
+    }
+
+    .temp-fields.visible {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .btn-submit {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 800;
+      padding: 0.85rem;
+      margin-top: 2rem;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-submit:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-submit:active {
+      transform: scale(0.99);
+    }
+
+    .required-note {
+      font-size: 0.73rem;
+      color: var(--muted);
+      margin-top: 1.5rem;
+      text-align: center;
+    }
+
+    .row { --bs-gutter-x: 0.75rem; }
+  </style>
+</head>
+<body>
+
+<div class="form-wrapper">
+
+  <div class="form-brand">
+    <div class="form-brand-name">Freight Intelligence</div>
+    <div class="form-brand-tagline">Powered by Summit Freight</div>
+  </div>
+
+  <div class="form-card">
+    <h1 class="form-heading">Submit a Load Request</h1>
+    <p class="form-subheading">Fill out the form below and our team will respond within 2 business hours with a quote.</p>
+    {% if error_message %}
+    <div class="alert alert-danger" role="alert">{{ error_message }}</div>
+    {% endif %}
+
+    <form method="POST" action="/tms/orders/submit">
+
+      <!-- 1. Contact Info -->
+      <div class="section-label">Contact Information</div>
+      <div class="row g-3 mb-0">
+        <div class="col-md-6">
+          <label for="customer_name">Full Name <span style="color:#ef4444">*</span></label>
+          <input type="text" class="form-control" id="customer_name" name="customer_name" required placeholder="Jane Smith">
+        </div>
+        <div class="col-md-6">
+          <label for="customer_company">Company</label>
+          <input type="text" class="form-control" id="customer_company" name="customer_company" placeholder="Acme Corp">
+        </div>
+        <div class="col-md-6">
+          <label for="customer_email">Email</label>
+          <input type="email" class="form-control" id="customer_email" name="customer_email" placeholder="jane@company.com">
+        </div>
+        <div class="col-md-6">
+          <label for="customer_phone">Phone</label>
+          <input type="tel" class="form-control" id="customer_phone" name="customer_phone" placeholder="+1 (555) 000-0000">
+        </div>
+      </div>
+
+      <!-- 2. Pickup -->
+      <div class="section-label">Pickup Details</div>
+      <div class="row g-3 mb-0">
+        <div class="col-12">
+          <label for="origin_address">Street Address</label>
+          <input type="text" class="form-control" id="origin_address" name="origin_address" placeholder="123 Warehouse Dr">
+        </div>
+        <div class="col-md-5">
+          <label for="origin_city">City</label>
+          <input type="text" class="form-control" id="origin_city" name="origin_city" placeholder="Chicago">
+        </div>
+        <div class="col-md-3">
+          <label for="origin_state">State</label>
+          <input type="text" class="form-control" id="origin_state" name="origin_state" placeholder="IL" maxlength="2">
+        </div>
+        <div class="col-md-4">
+          <label for="origin_zip">ZIP Code</label>
+          <input type="text" class="form-control" id="origin_zip" name="origin_zip" placeholder="60601">
+        </div>
+        <div class="col-md-6">
+          <label for="pickup_date">Pickup Date</label>
+          <input type="date" class="form-control" id="pickup_date" name="pickup_date">
+        </div>
+      </div>
+
+      <!-- 3. Delivery -->
+      <div class="section-label">Delivery Details</div>
+      <div class="row g-3 mb-0">
+        <div class="col-12">
+          <label for="destination_address">Street Address</label>
+          <input type="text" class="form-control" id="destination_address" name="destination_address" placeholder="456 Distribution Blvd">
+        </div>
+        <div class="col-md-5">
+          <label for="destination_city">City</label>
+          <input type="text" class="form-control" id="destination_city" name="destination_city" placeholder="Dallas">
+        </div>
+        <div class="col-md-3">
+          <label for="destination_state">State</label>
+          <input type="text" class="form-control" id="destination_state" name="destination_state" placeholder="TX" maxlength="2">
+        </div>
+        <div class="col-md-4">
+          <label for="destination_zip">ZIP Code</label>
+          <input type="text" class="form-control" id="destination_zip" name="destination_zip" placeholder="75001">
+        </div>
+        <div class="col-md-6">
+          <label for="delivery_date">Delivery Date</label>
+          <input type="date" class="form-control" id="delivery_date" name="delivery_date">
+        </div>
+      </div>
+
+      <!-- 4. Cargo -->
+      <div class="section-label">Cargo Details</div>
+      <div class="row g-3 mb-0">
+        <div class="col-12">
+          <label for="cargo_description">Cargo Description <span style="color:#ef4444">*</span></label>
+          <input type="text" class="form-control" id="cargo_description" name="cargo_description" required placeholder="e.g., Palletized dry goods, electronics, auto parts">
+        </div>
+        <div class="col-md-4">
+          <label for="weight_lbs">Weight (lbs)</label>
+          <input type="number" class="form-control" id="weight_lbs" name="weight_lbs" min="0" step="1" placeholder="0">
+        </div>
+        <div class="col-md-4">
+          <label for="pallets">Pallets</label>
+          <input type="number" class="form-control" id="pallets" name="pallets" min="0" step="1" placeholder="0">
+        </div>
+        <div class="col-md-4">
+          <label for="pieces">Pieces</label>
+          <input type="number" class="form-control" id="pieces" name="pieces" min="0" step="1" placeholder="0">
+        </div>
+        <div class="col-md-6">
+          <label for="declared_value">Declared Value (USD)</label>
+          <input type="number" class="form-control" id="declared_value" name="declared_value" min="0" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+
+      <!-- 5. Service -->
+      <div class="section-label">Service Options</div>
+      <div class="mb-3">
+        <label>Service Type</label>
+        <div class="service-radio-group">
+          {% for stype in service_types %}
+          <label class="service-radio-label">
+            <input type="radio" name="service_type" value="{{ stype }}"{% if loop.first %} checked{% endif %}>
+            <span class="service-radio-btn">{{ stype }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div>
+        <label for="equipment_type">Equipment Type</label>
+        <select class="form-select" id="equipment_type" name="equipment_type">
+          {% for etype in equipment_types %}
+          <option value="{{ etype }}">{{ etype }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- 6. Special Requirements -->
+      <div class="section-label">Special Requirements</div>
+      <div class="row g-3 mb-0">
+        <div class="col-auto">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="hazmat" name="hazmat" value="1">
+            <label class="form-check-label" for="hazmat">Hazardous Materials (HAZMAT)</label>
+          </div>
+        </div>
+        <div class="col-auto">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="temperature_controlled" name="temperature_controlled" value="1">
+            <label class="form-check-label" for="temperature_controlled">Temperature Controlled</label>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="temp-fields" id="tempFields">
+            <div style="flex:1">
+              <label for="temp_min">Min Temp (°F)</label>
+              <input type="number" class="form-control" id="temp_min" name="temp_min" step="0.1" placeholder="34">
+            </div>
+            <div style="flex:1">
+              <label for="temp_max">Max Temp (°F)</label>
+              <input type="number" class="form-control" id="temp_max" name="temp_max" step="0.1" placeholder="40">
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <label for="special_instructions">Special Instructions</label>
+          <textarea class="form-control" id="special_instructions" name="special_instructions" rows="3" placeholder="Any additional requirements, liftgate needed, appointment required, etc."></textarea>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-submit">
+        <i class="bi bi-send-check"></i>&nbsp; Submit Load Request
+      </button>
+
+      <p class="required-note">Fields marked <span style="color:#ef4444">*</span> are required. Our team will contact you within 2 business hours.</p>
+
+    </form>
+  </div>
+
+</div>
+
+<script>
+document.getElementById('temperature_controlled').addEventListener('change', function() {
+  var fields = document.getElementById('tempFields');
+  if (this.checked) {
+    fields.classList.add('visible');
+  } else {
+    fields.classList.remove('visible');
+  }
+});
+</script>
+
+</body>
+</html>

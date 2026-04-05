@@ -1,0 +1,254 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}TMS ESG{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+  .esg-metric-card {
+    min-height: 100%;
+  }
+
+  .esg-metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .esg-framework-label {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .esg-chart-wrap {
+    position: relative;
+    min-height: 320px;
+  }
+
+  .esg-chart-wrap canvas {
+    max-height: 320px;
+  }
+</style>
+{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-leaf me-2"></i>ESG Dashboard</h2>
+    <div class="text-muted small">{{ framework_label }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/esg/export.csv" class="btn btn-outline-success"><i class="bi bi-download me-1"></i>Export CSV</a>
+    <a href="/tms/reports" class="btn btn-outline-info"><i class="bi bi-bar-chart-line me-1"></i>Reports</a>
+    <a href="/tms/" class="btn btn-outline-secondary">Back</a>
+  </div>
+</div>
+
+{% if summary.unresolved_shipments %}
+<div class="alert alert-warning">
+  {{ summary.unresolved_shipments }} shipment(s) could not be calculated yet because route geocoding, shipment weight, or mode mapping was incomplete.
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary esg-metric-card">
+      <div class="card-body">
+        <div class="esg-framework-label">Total CO2 This Month</div>
+        <div class="esg-metric-value text-success mt-2">{{ "{:,.2f}".format(summary.month_co2_kg or 0) }}</div>
+        <div class="text-muted">kg CO2</div>
+        <div class="small text-muted mt-3">{{ framework_label }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary esg-metric-card">
+      <div class="card-body">
+        <div class="esg-framework-label">Total CO2 This Year</div>
+        <div class="esg-metric-value text-info mt-2">{{ "{:,.2f}".format(summary.year_co2_kg or 0) }}</div>
+        <div class="text-muted">kg CO2</div>
+        <div class="small text-muted mt-3">{{ framework_label }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-dark border-secondary esg-metric-card">
+      <div class="card-body">
+        <div class="esg-framework-label">Carbon Intensity</div>
+        <div class="esg-metric-value text-warning mt-2">
+          {% if summary.carbon_intensity_kg_per_usd is not none %}
+          {{ "{:,.4f}".format(summary.carbon_intensity_kg_per_usd) }}
+          {% else %}
+          -
+          {% endif %}
+        </div>
+        <div class="text-muted">kg CO2 per USD freight spend</div>
+        <div class="small text-muted mt-3">
+          {{ framework_label }}.
+          USD scope freight spend: ${{ "{:,.2f}".format(summary.usd_spend or 0) }}.
+          {% if summary.excluded_spend_shipments %}
+          {{ summary.excluded_spend_shipments }} non-USD or zero-spend shipment(s) excluded.
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-bar-chart-fill me-2"></i>CO2 by Mode</span>
+        <span class="small text-muted">{{ framework_label }}</span>
+      </div>
+      <div class="card-body">
+        <div class="esg-chart-wrap">
+          <canvas id="co2ByModeChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-graph-up me-2"></i>CO2 Trend (Last 6 Months)</span>
+        <span class="small text-muted">{{ framework_label }}</span>
+      </div>
+      <div class="card-body">
+        <div class="esg-chart-wrap">
+          <canvas id="co2TrendChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-truck me-2"></i>CO2 by Carrier</span>
+        <span class="small text-muted">{{ framework_label }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Carrier</th>
+              <th>Shipments</th>
+              <th>CO2 (kg)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in top_carriers %}
+            <tr>
+              <td>{{ row.name }}</td>
+              <td>{{ row.shipments }}</td>
+              <td class="text-success fw-bold">{{ "{:,.2f}".format(row.co2_kg or 0) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="text-center text-muted py-4">No carrier CO2 data yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-signpost-split me-2"></i>CO2 by Lane</span>
+        <span class="small text-muted">{{ framework_label }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>Lane</th>
+              <th>Shipments</th>
+              <th>CO2 (kg)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in top_lanes %}
+            <tr>
+              <td>{{ row.lane }}</td>
+              <td>{{ row.shipments }}</td>
+              <td class="text-info fw-bold">{{ "{:,.2f}".format(row.co2_kg or 0) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="text-center text-muted py-4">No lane CO2 data yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script nonce="{{ csp_nonce }}">
+  const byModeData = {{ chart_data.by_mode | tojson }};
+  const trendData = {{ chart_data.trend | tojson }};
+
+  new Chart(document.getElementById('co2ByModeChart'), {
+    type: 'bar',
+    data: {
+      labels: byModeData.labels,
+      datasets: [{
+        label: 'kg CO2',
+        data: byModeData.values,
+        backgroundColor: ['#2f855a', '#dd6b20', '#3182ce', '#805ad5'],
+        borderRadius: 8
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'kg CO2'
+          }
+        }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('co2TrendChart'), {
+    type: 'line',
+    data: {
+      labels: trendData.labels,
+      datasets: [{
+        label: 'kg CO2',
+        data: trendData.values,
+        borderColor: '#38b2ac',
+        backgroundColor: 'rgba(56, 178, 172, 0.18)',
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'kg CO2'
+          }
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

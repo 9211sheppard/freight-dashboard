@@ -1,0 +1,136 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}WMS Dashboard{% endblock %}
+{% block extra_css %}
+<style nonce="{{ csp_nonce }}">
+  .wms-progress {
+    height: 0.75rem;
+  }
+
+  .wms-kpi-card {
+    min-height: 100%;
+  }
+</style>
+{% endblock %}
+{% block tms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+  <div>
+    <h2 class="mb-0"><i class="bi bi-boxes me-2"></i>Warehouse Dashboard</h2>
+    <div class="text-muted small">Receiving, storage, and pick activity in one view.</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/tms/wms/inventory" class="btn btn-outline-info"><i class="bi bi-box-seam me-1"></i>Inventory</a>
+    <a href="/tms/wms/receipts" class="btn btn-outline-secondary"><i class="bi bi-truck me-1"></i>Receiving</a>
+    <a href="/tms/wms/picks" class="btn btn-outline-secondary"><i class="bi bi-cart-check me-1"></i>Pick &amp; Pack</a>
+    <a href="/tms/wms/locations" class="btn btn-primary"><i class="bi bi-grid-3x3-gap me-1"></i>Locations</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary wms-kpi-card">
+      <div class="card-body">
+        <div class="text-muted small">Inventory Value</div>
+        <div class="fs-3 fw-bold">{{ dashboard.inventory_value_display }}</div>
+        <div class="small text-muted">{{ "{:,.2f}".format(dashboard.on_hand_units) }} units on hand</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary wms-kpi-card">
+      <div class="card-body">
+        <div class="text-muted small">Active SKUs</div>
+        <div class="fs-3 fw-bold text-info">{{ dashboard.sku_count }}</div>
+        <div class="small text-muted">Distinct SKUs with on-hand inventory</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary wms-kpi-card">
+      <div class="card-body">
+        <div class="text-muted small">Open Receipts</div>
+        <div class="fs-3 fw-bold text-warning">{{ dashboard.pending_receipts }}</div>
+        <div class="small text-muted">Pending or actively receiving</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="card bg-dark border-secondary wms-kpi-card">
+      <div class="card-body">
+        <div class="text-muted small">Open Picks</div>
+        <div class="fs-3 fw-bold text-success">{{ dashboard.open_picks }}</div>
+        <div class="small text-muted">Pending or in progress</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if dashboard.inventory_value_note %}
+<div class="alert alert-secondary border-secondary">
+  <i class="bi bi-info-circle me-1"></i>{{ dashboard.inventory_value_note }}
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-exclamation-triangle me-2"></i>Low Stock Alerts</span>
+        <a href="/tms/wms/inventory" class="btn btn-sm btn-outline-secondary">Open Inventory</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead class="table-secondary text-dark">
+            <tr>
+              <th>SKU</th>
+              <th>Name</th>
+              <th class="text-end">Qty</th>
+              <th class="text-end">Locations</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in dashboard.low_stock %}
+            <tr>
+              <td><a href="/tms/wms/inventory?sku={{ item.sku }}" class="text-info fw-semibold text-decoration-none">{{ item.sku }}</a></td>
+              <td>{{ item.product_name or "Unnamed SKU" }}</td>
+              <td class="text-end text-warning">{{ "{:,.2f}".format(item.total_qty or 0) }}</td>
+              <td class="text-end">{{ item.location_count }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No low stock items below the default threshold.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card bg-dark border-secondary h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-bar-chart-line me-2"></i>Location Utilization by Zone</span>
+        <a href="/tms/wms/locations" class="btn btn-sm btn-outline-secondary">View Locations</a>
+      </div>
+      <div class="card-body">
+        {% for zone in dashboard.location_utilization %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <div class="fw-semibold">{{ zone.zone }}</div>
+            <div class="small text-muted">{{ zone.current_units|round(1) }} / {{ zone.capacity_units|round(1) }} units</div>
+          </div>
+          <div class="progress bg-secondary-subtle wms-progress">
+            <div
+              class="progress-bar {% if zone.utilization_pct >= 90 %}bg-danger{% elif zone.utilization_pct >= 70 %}bg-warning{% else %}bg-info{% endif %}"
+              role="progressbar"
+              style="width: {{ [zone.utilization_pct, 100]|min }}%;"
+            ></div>
+          </div>
+          <div class="small text-muted mt-1">{{ zone.location_count }} active locations · {{ "{:.1f}".format(zone.utilization_pct or 0) }}% full</div>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">No warehouse locations have been created yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,234 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}ELD / HOS — TMS{% endblock %}
+
+{% block tms_content %}
+<div class="tms-page-header">
+  <div>
+    <h1 class="tms-page-title">ELD / HOS Integration</h1>
+    <p class="tms-page-subtitle">Electronic Logging Device connections &amp; Hours of Service sync</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  {% for c in connections %}
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="eld-card" id="card-{{ c.provider }}">
+      <div class="d-flex align-items-start justify-content-between mb-3">
+        <div>
+          <div class="eld-provider-name">{{ c.name }}</div>
+          <div class="eld-provider-key text-muted">{{ c.provider }}</div>
+        </div>
+        <div class="eld-status-badge {% if c.status == 'Connected' %}eld-connected{% else %}eld-disconnected{% endif %}" id="status-{{ c.provider }}">
+          {{ c.status }}
+        </div>
+      </div>
+
+      <div class="eld-info-row">
+        <span class="eld-info-label">API Configured</span>
+        {% if c.api_configured %}
+        <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Yes</span>
+        {% else %}
+        <span class="text-muted"><i class="bi bi-x-circle me-1"></i>No</span>
+        {% endif %}
+      </div>
+
+      {% if not c.api_configured %}
+      <div class="eld-env-hint">
+        <i class="bi bi-terminal me-1"></i>Set <code>{{ c.env_key }}</code>
+      </div>
+      {% endif %}
+
+      <div class="eld-info-row mt-2">
+        <span class="eld-info-label">Last Sync</span>
+        <span class="text-muted small" id="sync-{{ c.provider }}">
+          {% if c.last_sync %}{{ c.last_sync }}{% else %}Never{% endif %}
+        </span>
+      </div>
+
+      <button class="eld-sync-btn {% if not c.api_configured %}eld-sync-disabled{% endif %}"
+              id="btn-{{ c.provider }}"
+              onclick="syncProvider('{{ c.provider }}')"
+              {% if not c.api_configured %}disabled title="Configure {{ c.env_key }} first"{% endif %}>
+        <i class="bi bi-arrow-repeat me-2"></i>Sync Now
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="mt-5">
+  <div class="tms-page-header" style="margin-bottom:16px;">
+    <div>
+      <h2 class="tms-page-title" style="font-size:1.1rem;">About ELD Integration</h2>
+    </div>
+  </div>
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-body">
+          <div class="fw-semibold text-light mb-2"><i class="bi bi-info-circle me-2 text-info"></i>How It Works</div>
+          <ul class="text-muted small mb-0" style="padding-left:18px;line-height:1.8;">
+            <li>Set the provider's API key as an environment variable</li>
+            <li>Click "Sync Now" to pull current HOS clock data</li>
+            <li>Driver HOS records are stored in the local database</li>
+            <li>Violations and remaining hours are tracked per driver</li>
+            <li>Real-time sync requires a valid paid API subscription</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card bg-dark border-secondary h-100">
+        <div class="card-body">
+          <div class="fw-semibold text-light mb-2"><i class="bi bi-shield-check me-2 text-warning"></i>FMCSA Compliance</div>
+          <ul class="text-muted small mb-0" style="padding-left:18px;line-height:1.8;">
+            <li>ELD mandate applies to most CMV drivers (49 CFR Part 395)</li>
+            <li>11-hour driving limit / 14-hour on-duty window</li>
+            <li>30-minute break required after 8 hours driving</li>
+            <li>70-hour limit in 8 consecutive days</li>
+            <li>Logs must be available for roadside inspection</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style nonce="{{ csp_nonce }}">
+.eld-card {
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-top: 3px solid rgba(200,169,110,0.3);
+  border-radius: 12px;
+  padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s;
+}
+.eld-card:hover { border-color: rgba(255,255,255,0.14); }
+.eld-card.is-connected { border-top-color: #4ade80; }
+.eld-provider-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+.eld-provider-key {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+.eld-status-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 99px;
+}
+.eld-connected    { background: rgba(74,222,128,0.12); color: #4ade80; border: 1px solid rgba(74,222,128,0.25); }
+.eld-disconnected { background: rgba(255,255,255,0.05); color: #666; border: 1px solid rgba(255,255,255,0.08); }
+.eld-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+.eld-info-label {
+  color: #666;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.eld-env-hint {
+  background: rgba(200,169,110,0.07);
+  border: 1px solid rgba(200,169,110,0.15);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 0.74rem;
+  color: #b0905a;
+  margin-top: 8px;
+}
+.eld-env-hint code {
+  background: transparent;
+  color: #c8a96e;
+  font-family: monospace;
+  font-size: 0.78rem;
+}
+.eld-sync-btn {
+  display: block;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 11px;
+  padding-bottom: 11px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #c0c0c0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-top: 16px;
+}
+.eld-sync-btn:hover:not(:disabled) {
+  background: rgba(200,169,110,0.12);
+  color: #c8a96e;
+  border-color: rgba(200,169,110,0.3);
+}
+.eld-sync-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+</style>
+
+<script nonce="{{ csp_nonce }}">
+function syncProvider(provider) {
+  var btn = document.getElementById('btn-' + provider);
+  var statusEl = document.getElementById('status-' + provider);
+  var syncEl = document.getElementById('sync-' + provider);
+  var card = document.getElementById('card-' + provider);
+  var orig = btn.innerHTML;
+
+  btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Syncing...';
+  btn.disabled = true;
+
+  fetch('/tms/eld/sync/' + provider, {method: 'POST'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) {
+        btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Synced ' + (d.synced || 0) + ' records';
+        statusEl.textContent = 'Connected';
+        statusEl.className = 'eld-status-badge eld-connected';
+        card.classList.add('is-connected');
+        syncEl.textContent = new Date().toLocaleString();
+        setTimeout(function() {
+          btn.innerHTML = orig;
+          btn.disabled = false;
+        }, 3000);
+      } else {
+        btn.innerHTML = '<i class="bi bi-x-circle me-2"></i>' + (d.error || 'Failed');
+        btn.style.color = '#f87171';
+        setTimeout(function() {
+          btn.innerHTML = orig;
+          btn.disabled = false;
+          btn.style.color = '';
+        }, 4000);
+      }
+    })
+    .catch(function() {
+      btn.innerHTML = '<i class="bi bi-x-circle me-2"></i>Error';
+      btn.style.color = '#f87171';
+      setTimeout(function() {
+        btn.innerHTML = orig;
+        btn.disabled = false;
+        btn.style.color = '';
+      }, 3000);
+    });
+}
+</script>
+
+{% endblock %}

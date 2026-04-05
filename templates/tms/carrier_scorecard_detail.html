@@ -1,0 +1,196 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}{{ carrier_name }} — Scorecard{% endblock %}
+{% block tms_content %}
+
+<style nonce="{{ csp_nonce }}">
+.sc-metric-card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 1.25rem 1.5rem; }
+.sc-metric-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: #888; margin-bottom: .25rem; }
+.sc-metric-val { font-size: 2rem; font-weight: 700; line-height: 1; }
+.sc-score-badge { font-size: 1.5rem; font-weight: 800; padding: .4rem .9rem; border-radius: 8px; }
+.sc-score-green  { background: rgba(40,167,69,.2);  color: #28a745; border: 1px solid #28a745; }
+.sc-score-yellow { background: rgba(255,193,7,.15); color: #ffc107; border: 1px solid #ffc107; }
+.sc-score-red    { background: rgba(220,53,69,.2);  color: #dc3545; border: 1px solid #dc3545; }
+.tms-table th { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: #888; border-color: #333; }
+.tms-table td { border-color: #2a2a2a; vertical-align: middle; }
+.tms-table tbody tr:hover td { background: #1e1e1e; }
+.ot-badge-yes  { background: rgba(40,167,69,.2);  color: #28a745; font-size: .7rem; padding: .15rem .5rem; border-radius: 4px; }
+.ot-badge-no   { background: rgba(220,53,69,.2);  color: #dc3545; font-size: .7rem; padding: .15rem .5rem; border-radius: 4px; }
+.ot-badge-unk  { background: #2a2a2a; color: #888;    font-size: .7rem; padding: .15rem .5rem; border-radius: 4px; }
+.star-fill  { color: #ffc107; }
+.star-empty { color: #444; }
+</style>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+  <div>
+    <a href="/tms/carrier-scorecard" class="text-muted small text-decoration-none mb-2 d-inline-block">
+      <i class="bi bi-arrow-left me-1"></i>All Carriers
+    </a>
+    <h2 class="mb-0">{{ carrier_name }}</h2>
+    {% if card and card.scac %}<div class="text-muted">SCAC: <span class="text-white">{{ card.scac }}</span></div>{% endif %}
+  </div>
+  {% if card %}
+  {% set score = card.overall_score %}
+  <span class="sc-score-badge {% if score >= 80 %}sc-score-green{% elif score >= 60 %}sc-score-yellow{% else %}sc-score-red{% endif %}">
+    {{ score }} <span style="font-size:.9rem; font-weight:400">/ 100</span>
+  </span>
+  {% endif %}
+</div>
+
+<!-- Metric Cards -->
+{% if card %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="sc-metric-card">
+      <div class="sc-metric-label">On-Time Delivery</div>
+      <div class="sc-metric-val {% if card.on_time_delivery_pct >= 90 %}text-success{% elif card.on_time_delivery_pct >= 75 %}text-warning{% else %}text-danger{% endif %}">
+        {{ card.on_time_delivery_pct }}%
+      </div>
+      <div class="text-muted small mt-1">{{ card.total_shipments }} shipments</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="sc-metric-card">
+      <div class="sc-metric-label">Damage Rate</div>
+      <div class="sc-metric-val {% if card.damage_rate_pct == 0 %}text-success{% elif card.damage_rate_pct < 5 %}text-warning{% else %}text-danger{% endif %}">
+        {{ card.damage_rate_pct }}%
+      </div>
+      <div class="text-muted small mt-1">of shipments damaged</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="sc-metric-card">
+      <div class="sc-metric-label">Rate vs Market</div>
+      {% if card.avg_rate_vs_market == 0 %}
+        <div class="sc-metric-val text-muted">—</div>
+        <div class="text-muted small mt-1">no rate data</div>
+      {% elif card.avg_rate_vs_market < 0 %}
+        <div class="sc-metric-val text-success">{{ card.avg_rate_vs_market }}%</div>
+        <div class="text-success small mt-1">cheaper than market</div>
+      {% else %}
+        <div class="sc-metric-val text-danger">+{{ card.avg_rate_vs_market }}%</div>
+        <div class="text-danger small mt-1">above market rate</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="sc-metric-card">
+      <div class="sc-metric-label">Communication</div>
+      <div class="sc-metric-val text-white">{{ card.avg_communication_score }}<span style="font-size:1rem;font-weight:400"> / 5</span></div>
+      <div class="mt-1">
+        {% set comm = card.avg_communication_score | round | int %}
+        {% for i in range(1, 6) %}
+          <i class="bi bi-star-fill {% if i <= comm %}star-fill{% else %}star-empty{% endif %}"></i>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if card.preferred_lanes %}
+<div class="mb-4">
+  <span class="text-muted small me-2">Top Lanes:</span>
+  {% for lane in card.preferred_lanes.split(',') %}
+    <span class="badge bg-secondary me-1">{{ lane.strip() }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+<!-- History Table -->
+<div class="card bg-dark border-secondary">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-clock-history me-2"></i>Shipment History</span>
+    <span class="text-muted small">Last {{ history|length }} records</span>
+  </div>
+
+  {% if history %}
+  <div class="table-responsive">
+    <table class="table tms-table table-dark table-hover mb-0" style="font-size:.85rem">
+      <thead>
+        <tr>
+          <th>Ref</th>
+          <th>Lane</th>
+          <th>Pickup</th>
+          <th>OTP</th>
+          <th>Delivery</th>
+          <th>OTD</th>
+          <th>Damage</th>
+          <th>Rate</th>
+          <th>Mkt</th>
+          <th>Comm</th>
+          <th>Notes</th>
+          <th>Logged</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in history %}
+        <tr>
+          <td class="text-muted">{{ row.shipment_ref or '—' }}</td>
+          <td>
+            {% if row.lane and row.lane != '-' %}
+              <span class="badge bg-secondary">{{ row.lane }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-muted small">
+            {% if row.actual_pickup %}{{ row.actual_pickup[:16] }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if row.on_time_pickup == 1 %}
+              <span class="ot-badge-yes">On Time</span>
+            {% elif row.on_time_pickup == 0 %}
+              <span class="ot-badge-no">Late</span>
+            {% else %}
+              <span class="ot-badge-unk">—</span>
+            {% endif %}
+          </td>
+          <td class="text-muted small">
+            {% if row.actual_delivery %}{{ row.actual_delivery[:16] }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if row.on_time_delivery == 1 %}
+              <span class="ot-badge-yes">On Time</span>
+            {% elif row.on_time_delivery == 0 %}
+              <span class="ot-badge-no">Late</span>
+            {% else %}
+              <span class="ot-badge-unk">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if row.damage_reported %}
+              <span class="ot-badge-no"><i class="bi bi-exclamation-triangle me-1"></i>Yes</span>
+              {% if row.damage_notes %}
+                <div class="text-muted" style="font-size:.7rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ row.damage_notes }}">{{ row.damage_notes }}</div>
+              {% endif %}
+            {% else %}
+              <span class="ot-badge-yes">None</span>
+            {% endif %}
+          </td>
+          <td class="text-muted">{% if row.rate_charged %}<span class="text-white">${{ "%.0f"|format(row.rate_charged) }}</span>{% else %}—{% endif %}</td>
+          <td class="text-muted">{% if row.rate_market %}${{ "%.0f"|format(row.rate_market) }}{% else %}—{% endif %}</td>
+          <td>
+            {% if row.communication_score %}
+              {% set cs = row.communication_score | int %}
+              {% for i in range(1, 6) %}
+                <i class="bi bi-star-fill {% if i <= cs %}star-fill{% else %}star-empty{% endif %}" style="font-size:.7rem"></i>
+              {% endfor %}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-muted small" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ row.notes }}">
+            {{ row.notes or '—' }}
+          </td>
+          <td class="text-muted small">{{ row.created_at[:10] if row.created_at else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-center py-5">
+    <i class="bi bi-inbox text-muted" style="font-size:2rem"></i>
+    <div class="text-muted mt-3">No shipment history logged for this carrier yet.</div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends "tms/tms_base.html" %}
+{% block title %}Branding{% endblock %}
+{% block content %}
+<div class="tms-page-header mb-3">
+  <h1 class="tms-page-title mb-0"><i class="bi bi-palette me-2 text-gold"></i>White-Label Branding</h1>
+  <p class="text-muted mb-0">Customize brand colors, logo, domain, and email identity per tenant</p>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="tms-card">
+      <form method="post" action="/tms/settings/branding">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Brand Name</label>
+            <input name="brand_name" class="form-control tms-input" value="{{ branding.brand_name }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email From Name</label>
+            <input name="email_from_name" class="form-control tms-input" value="{{ branding.email_from_name }}">
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Primary Brand Color</label>
+            <div class="input-group">
+              <input type="color" name="brand_color" class="form-control form-control-color tms-input" value="{{ branding.brand_color }}" id="colorPicker" style="width:52px;">
+              <input type="text" id="colorHex" class="form-control tms-input" value="{{ branding.brand_color }}" placeholder="#c8a96e">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Background / Dark Color</label>
+            <div class="input-group">
+              <input type="color" name="brand_color_dark" class="form-control form-control-color tms-input" value="{{ branding.brand_color_dark }}" id="darkPicker" style="width:52px;">
+              <input type="text" id="darkHex" class="form-control tms-input" value="{{ branding.brand_color_dark }}" placeholder="#0a0c0f">
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Logo URL</label>
+            <input name="brand_logo_url" class="form-control tms-input" value="{{ branding.brand_logo_url }}" placeholder="https://…/logo.png">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Favicon URL</label>
+            <input name="brand_favicon_url" class="form-control tms-input" value="{{ branding.brand_favicon_url }}" placeholder="https://…/favicon.ico">
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Custom Domain</label>
+            <input name="custom_domain" class="form-control tms-input" value="{{ branding.custom_domain }}" placeholder="tms.yourdomain.com">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email From Address</label>
+            <input name="email_from_address" type="email" class="form-control tms-input" value="{{ branding.email_from_address }}" placeholder="noreply@yourdomain.com">
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Support Email</label>
+            <input name="support_email" type="email" class="form-control tms-input" value="{{ branding.support_email }}" placeholder="support@yourdomain.com">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Support Phone</label>
+            <input name="support_phone" class="form-control tms-input" value="{{ branding.support_phone }}" placeholder="+1 800 555 0100">
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Primary Font</label>
+            <select name="primary_font" class="form-select tms-input">
+              {% for font in ['Inter','Roboto','Open Sans','Lato','Montserrat','Poppins','DM Sans','Nunito'] %}
+              <option {% if branding.primary_font == font %}selected{% endif %}>{{ font }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Sidebar Style</label>
+            <select name="sidebar_style" class="form-select tms-input">
+              <option value="dark" {% if branding.sidebar_style == 'dark' %}selected{% endif %}>Dark</option>
+              <option value="light" {% if branding.sidebar_style == 'light' %}selected{% endif %}>Light</option>
+              <option value="accent" {% if branding.sidebar_style == 'accent' %}selected{% endif %}>Accent Color</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Footer Text</label>
+          <input name="footer_text" class="form-control tms-input" value="{{ branding.footer_text }}">
+        </div>
+
+        <div class="mb-3 form-check">
+          <input type="checkbox" name="hide_powered_by" value="1" class="form-check-input" id="hidePB" {% if branding.hide_powered_by == '1' %}checked{% endif %}>
+          <label class="form-check-label" for="hidePB">Hide "Powered by TMS Master" footer</label>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-gold">Save Branding</button>
+          <a href="/tms/brand.css" target="_blank" class="btn btn-outline-secondary">Preview CSS</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Live preview -->
+  <div class="col-lg-5">
+    <div class="tms-card mb-3">
+      <div class="fw-semibold mb-3"><i class="bi bi-eye me-1 text-gold"></i>Live Preview</div>
+      <div id="brandPreview" style="border-radius:8px;overflow:hidden;border:1px solid #333;">
+        <div id="prevSidebar" style="background:{{ branding.brand_color_dark }};padding:16px 12px;min-height:180px;">
+          <div style="color:{{ branding.brand_color }};font-weight:700;font-size:18px;margin-bottom:16px;">
+            {{ branding.brand_name }}
+          </div>
+          <div style="color:{{ branding.brand_color }};opacity:.9;padding:6px 8px;border-radius:4px;background:rgba(255,255,255,.06);margin-bottom:4px;font-size:13px;">
+            <i class="bi bi-speedometer2 me-2"></i>Dashboard
+          </div>
+          <div style="color:rgba(255,255,255,.5);padding:6px 8px;font-size:13px;">
+            <i class="bi bi-box-seam me-2"></i>Shipments
+          </div>
+          <div style="color:rgba(255,255,255,.5);padding:6px 8px;font-size:13px;">
+            <i class="bi bi-file-text me-2"></i>Invoices
+          </div>
+        </div>
+        <div style="background:#111;padding:12px;font-size:12px;color:#888;border-top:1px solid #222;">
+          {{ branding.footer_text }}
+        </div>
+      </div>
+    </div>
+
+    <div class="tms-card p-0">
+      <div class="px-3 pt-3 pb-2 border-bottom border-secondary">
+        <span class="fw-semibold"><i class="bi bi-buildings me-1 text-gold"></i>Tenant Brandings</span>
+      </div>
+      {% if tenant_list %}
+        {% for t in tenant_list %}
+        <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom border-secondary">
+          <div class="rounded-circle" style="width:20px;height:20px;background:{{ t.brand_color }};"></div>
+          <div class="flex-grow-1">
+            <div class="fw-semibold small">{{ t.brand_name }}</div>
+            <div class="text-muted" style="font-size:11px;">{{ t.tenant_id }}{% if t.custom_domain %} · {{ t.custom_domain }}{% endif %}</div>
+          </div>
+          <a href="?tenant={{ t.tenant_id }}" class="btn btn-outline-gold btn-sm py-0">Edit</a>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="text-muted text-center py-3 small">Only default tenant configured</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+const colorPicker = document.getElementById('colorPicker');
+const colorHex = document.getElementById('colorHex');
+const darkPicker = document.getElementById('darkPicker');
+const darkHex = document.getElementById('darkHex');
+
+function updatePreview() {
+  const c = colorHex.value || colorPicker.value;
+  const d = darkHex.value || darkPicker.value;
+  document.getElementById('prevSidebar').style.background = d;
+  document.querySelectorAll('#prevSidebar [style*="color:' + '{{ branding.brand_color }}' + '"]').forEach(el => el.style.color = c);
+}
+
+colorPicker.addEventListener('input', e => { colorHex.value = e.target.value; updatePreview(); });
+colorHex.addEventListener('input', e => { colorPicker.value = e.target.value; updatePreview(); });
+darkPicker.addEventListener('input', e => { darkHex.value = e.target.value; updatePreview(); });
+darkHex.addEventListener('input', e => { darkPicker.value = e.target.value; updatePreview(); });
+</script>
+{% endblock %}
