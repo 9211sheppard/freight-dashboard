@@ -1,0 +1,75 @@
+name: Deploy to Azure Web App
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Build tag (informational — logged in action history)'
+        required: false
+        type: string
+      environment:
+        description: 'Target environment (e.g. production, staging)'
+        required: false
+        type: string
+        default: production
+      webapp_name:
+        description: 'Azure Web App name (overrides AZURE_WEBAPP_NAME secret)'
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-${{ inputs.environment || 'production' }}
+  cancel-in-progress: false
+
+env:
+  NODE_ENV: production
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'production' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install all dependencies
+        run: npm run install:all
+
+      - name: Build client
+        run: npm run build
+
+      - name: Prepare deploy package
+        run: |
+          mkdir -p deploy
+          cp -r server deploy/server
+          cp -r client/dist deploy/client_dist
+          cp package.json deploy/
+          cp package-lock.json deploy/
+          cd deploy && npm install --omit=dev --prefix server
+          echo "node server/src/index.js" > deploy/startup.sh
+          chmod +x deploy/startup.sh
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ inputs.webapp_name || secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: deploy
+          startup-command: node server/src/index.js
+
+      - name: Log dispatch metadata
+        if: always()
+        run: |
+          echo "=== Deploy workflow_dispatch metadata ==="
+          echo "  environment: ${{ inputs.environment || 'production' }}"
+          echo "  webapp_name: ${{ inputs.webapp_name || secrets.AZURE_WEBAPP_NAME }}"
+          echo "  image_tag:   ${{ inputs.image_tag }}"
+          echo "  ref:         ${{ github.ref }}"
+          echo "  sha:         ${{ github.sha }}"
