@@ -1,0 +1,435 @@
+/* ── Layout ─────────────────────────────── */
+
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.app {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+/* ── Header ─────────────────────────────── */
+
+.header {
+  margin-bottom: 0.5rem;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, var(--text) 0%, var(--text-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+/* ── Panels (cards) ─────────────────────── */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-top: 1rem;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition), border-color var(--transition);
+}
+
+.panel:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-hover);
+}
+
+.panel h2 {
+  margin: 0 0 0.85rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+/* ── Utility ────────────────────────────── */
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.8125rem;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--danger-subtle);
+  border-radius: var(--radius-xs);
+}
+
+/* ── Banners ────────────────────────────── */
+
+.banner {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.banner-success {
+  background: var(--success-subtle);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: var(--success);
+}
+
+.banner-error {
+  background: var(--danger-subtle);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: var(--danger);
+}
+
+.banner-warn {
+  background: var(--warning-subtle);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: var(--warning);
+}
+
+.warn-list {
+  margin: 0.4rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+/* ── Skeleton loading ───────────────────── */
+
+.skeleton-block {
+  padding: 0.5rem 0;
+}
+
+.skeleton-line {
+  height: 0.5rem;
+  background: linear-gradient(
+    90deg,
+    var(--border) 25%,
+    var(--surface-raised) 50%,
+    var(--border) 75%
+  );
+  background-size: 200% 100%;
+  animation: sk 1.4s ease-in-out infinite;
+  border-radius: 100px;
+  margin-bottom: 0.6rem;
+}
+
+.skeleton-line.short {
+  width: 55%;
+}
+
+@keyframes sk {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Badges ─────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.badge-ticket {
+  font-size: 0.8125rem;
+  padding: 0.2rem 0.65rem;
+}
+
+.status-success {
+  color: var(--success);
+  background: var(--success-subtle);
+}
+
+.status-failure {
+  color: var(--danger);
+  background: var(--danger-subtle);
+}
+
+.status-pending {
+  color: var(--warning);
+  background: var(--warning-subtle);
+}
+
+.ticket-status {
+  margin: 0 0 0.75rem;
+}
+
+/* ── Test mode ──────────────────────────── */
+
+.test-mode-panel {
+  border-style: dashed;
+  border-color: var(--border);
+  opacity: 0.8;
+}
+
+/* ── Table helpers ──────────────────────── */
+
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.truncate {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Codex card ─────────────────────────── */
+
+.codex-card h3 {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.codex-meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.block {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8125rem;
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  line-height: 1.5;
+}
+
+.file-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+
+.raw summary {
+  cursor: pointer;
+  color: var(--muted);
+  margin-top: 0.85rem;
+  font-size: 0.8125rem;
+  transition: color var(--transition);
+}
+
+.raw summary:hover {
+  color: var(--text-secondary);
+}
+
+/* ── Actions ────────────────────────────── */
+
+.actions-panel .action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+/* ── Code inline ────────────────────────── */
+
+code {
+  font-size: 0.8em;
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  background: var(--surface-raised);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+/* ── Integration status bar ─────────────── */
+
+.integration-bar {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.integration-ok {
+  background: var(--success-subtle);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  color: var(--success);
+}
+
+.integration-warn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.integration-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+}
+
+.int-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.85rem;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.int-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.int-card-ok {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: var(--success-subtle);
+}
+
+.int-card-title {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  margin-bottom: 0.35rem;
+}
+
+.var-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+}
+
+.var-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.var-dot {
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.var-ok {
+  color: var(--success);
+}
+
+.var-missing {
+  color: var(--danger);
+}
+
+.int-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── Guardrails ─────────────────────────── */
+
+.guardrails-panel {
+  border-color: var(--border);
+}
+
+.guardrail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+}
+
+.guardrail-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.85rem;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.guardrail-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.guardrail-card-title {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  margin-bottom: 0.35rem;
+  letter-spacing: -0.01em;
+}
+
+.guardrail-ok {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.guardrail-danger {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: var(--danger-subtle);
+}
+
+.guardrail-card button {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.75rem;
+}
