@@ -9,6 +9,8 @@ import {
   fetchConfig,
   logout,
   toggleKillSwitch,
+  runSecurityScan,
+  fetchScanResults,
 } from "./api.js";
 import Login from "./Login.jsx";
 import TestModePanel from "./TestModePanel.jsx";
@@ -423,8 +425,132 @@ function Dashboard({ user, onLogout }) {
         )}
       </section>
 
+      <SecurityScanPanel />
+
       <TestModePanel enabled={cfg?.testMode === true} />
     </div>
+  );
+}
+
+function SecurityScanPanel() {
+  const [scanning, setScanning] = useState(false);
+  const [result, setResult] = useState(null);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    fetchScanResults()
+      .then((r) => { if (r.scannedAt) setResult(r); })
+      .catch(() => {});
+  }, []);
+
+  async function handleScan() {
+    setScanning(true);
+    setErr(null);
+    try {
+      const r = await runSecurityScan();
+      setResult(r);
+    } catch (e) {
+      setErr(e.message || "Scan failed");
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  const sevClass = (s) =>
+    s === "critical" || s === "high" ? "status-failure" :
+    s === "medium" ? "status-pending" : "status-success";
+
+  return (
+    <section className="panel scan-panel">
+      <div className="scan-header">
+        <h2>Security Scan</h2>
+        <button
+          type="button"
+          className="primary"
+          disabled={scanning}
+          onClick={handleScan}
+        >
+          {scanning ? "Scanning\u2026" : "Run Scan"}
+        </button>
+      </div>
+      <p className="muted small">
+        OWASP-style static analysis. Read-only — no auto-fix, no deploy.
+      </p>
+
+      {err && <p className="error">{err}</p>}
+
+      {result && (
+        <>
+          <div className="scan-summary">
+            <span className="scan-meta muted">
+              {result.filesScanned} files scanned &middot; {result.scannedAt?.slice(0, 19)}
+            </span>
+            <div className="scan-badges">
+              {result.summary?.critical > 0 && (
+                <span className="badge status-failure">
+                  {result.summary.critical} critical
+                </span>
+              )}
+              {result.summary?.high > 0 && (
+                <span className="badge status-failure">
+                  {result.summary.high} high
+                </span>
+              )}
+              {result.summary?.medium > 0 && (
+                <span className="badge status-pending">
+                  {result.summary.medium} medium
+                </span>
+              )}
+              {result.summary?.low > 0 && (
+                <span className="badge status-success">
+                  {result.summary.low} low
+                </span>
+              )}
+              {result.findingsCount === 0 && (
+                <span className="badge status-success">No issues found</span>
+              )}
+            </div>
+          </div>
+
+          {result.findings?.length > 0 && (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Severity</th>
+                    <th>Category</th>
+                    <th>Issue</th>
+                    <th>Location</th>
+                    <th>Fix Suggestion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.findings.map((f, i) => (
+                    <tr key={`${f.id}-${f.location}-${i}`}>
+                      <td>
+                        <span className={`badge ${sevClass(f.severity)}`}>
+                          {f.severity}
+                        </span>
+                      </td>
+                      <td className="nowrap small muted">{f.category}</td>
+                      <td>{f.issue}</td>
+                      <td className="nowrap"><code>{f.location}</code></td>
+                      <td className="small">{f.fix}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {!result && !scanning && !err && (
+        <p className="muted" style={{ marginTop: "0.5rem" }}>
+          Click <strong>Run Scan</strong> to analyze the codebase for security issues.
+        </p>
+      )}
+    </section>
   );
 }
 
