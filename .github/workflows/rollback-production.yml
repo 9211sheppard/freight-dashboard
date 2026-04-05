@@ -1,0 +1,34 @@
+name: Rollback (workflow_dispatch)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_image_tag:
+        description: 'Target image tag to rollback to (optional placeholder for external deployment workflows)'
+        required: false
+        type: string
+      environment:
+        description: 'Environment name (e.g. production)'
+        required: false
+        type: string
+      reason:
+        description: 'Reason for rollback'
+        required: false
+        type: string
+
+concurrency:
+  group: saas-ops-dashboard-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Rollback note
+        run: |
+          echo "Rollback requested via workflow_dispatch:";
+          echo "  environment=${{ inputs.environment }}";
+          echo "  target_image_tag=${{ inputs.target_image_tag }}";
+          echo "  reason=${{ inputs.reason }}";
+          echo "No rollback implementation is bundled in this repo; wire this job to your infra (slots, container tag swap, etc.)."
